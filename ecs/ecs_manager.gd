@@ -64,6 +64,16 @@ func register_component(component_id: int, component_type: Variant.Type) -> void
 		return
 	_components[component_id] = component
 
+## Предрасчёт архетипа для набора компонентов (кэш + создание архетипа).
+## Вызови при старте мира для частых наборов — первый create_entity с этим набором будет быстрее.
+func precache_archetype(...component_ids: Array) -> void:
+	var info: Dictionary = _get_or_create_archetype_info(component_ids)
+	var bits: ECSBitMask = info.bitmask
+	var packed_component_ids: PackedInt64Array = info.packed
+	var archetype_hash: int = bits.bit_hash()
+	if !_archetypes.has(archetype_hash):
+		_archetypes[archetype_hash] = ECSArchetype.new(bits._bits.duplicate(), packed_component_ids.duplicate())
+
 func get_component_array(component_id: int) -> ECSComponentBaseArray:
 	return _components.get(component_id, null)
 
@@ -180,9 +190,7 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 		for component_id in archetype._component_ids:
 			var component: ECSComponentBaseArray = _components.get(component_id, null)
 			if component != null:
-				for eid in batch:
-					if component.has_entity(eid):
-						component.remove_entity(eid)
+				component.remove_entities_batch(batch)
 		for eid in batch:
 			_entity_ids_pool.free_entity_id(eid)
 			if eid < _entities_to_archetypes.size():

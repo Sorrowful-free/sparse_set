@@ -10,11 +10,12 @@ func _run() -> void:
 		ECSArchetypeTest.new(),
 		ECSManagerTest.new(),
 		ECSQueryTest.new(),
+		ECSWorldStateTest.new(),
 		ECSCommandBufferTest.new(),
 		SystemRunnerTest.new()
 	]
 	var names: PackedStringArray = PackedStringArray([
-		"EntityIdsUtils", "EntityIdsPool", "Archetype", "ECSManager", "Query", "CommandBuffer", "SystemRunner"
+		"EntityIdsUtils", "EntityIdsPool", "Archetype", "ECSManager", "Query", "WorldState", "CommandBuffer", "SystemRunner"
 	])
 	print("--- ECS Unit Tests ---")
 	for i in range(suites.size()):

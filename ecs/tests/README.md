@@ -13,6 +13,7 @@
 - `unit/archetype_test.gd` — архетип (add/has/remove, несколько чанков)
 - `unit/ecs_manager_test.gd` — создание/удаление сущностей, add/remove компонентов, set/get, батчи
 - `unit/query_test.gd` — Query (with/without, get_entity_ids)
+- `unit/ecs_world_state_test.gd` — валидность состояния мира: несколько компонентов, разные запросы (with/without), после destroy и add/remove
 - `unit/command_buffer_test.gd` — отложенные команды и execute
 - `unit/system_runner_test.gd` — SystemRunner (update, execute command buffer)
 

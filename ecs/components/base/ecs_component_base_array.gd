@@ -14,11 +14,52 @@ func _append_entity_id(entity_id: int) -> void:
 ## Добавляет сущность в компонент с дефолтным значением. Реализуется в сгенерированных классах.
 @abstract func add_entity(entity_id: int) -> void
 
+## Батч: добавляет сущности с дефолтным значением (группировка по чанкам).
+func add_entities_batch(entity_ids: PackedInt64Array) -> void:
+	if entity_ids.is_empty():
+		return
+	var by_chunk: Dictionary = {}
+	for eid in entity_ids:
+		var ci: int = ECSEntityIdsUtils.get_chunk_index(eid)
+		if !by_chunk.has(ci):
+			by_chunk[ci] = PackedInt64Array()
+		by_chunk[ci].append(eid)
+	for chunk_index in by_chunk:
+		var ids_in_chunk: PackedInt64Array = by_chunk[chunk_index]
+		var chunk: ECSComponentBaseArrayChunk = get_or_create_chunk(ids_in_chunk[0])
+		chunk.add_components_batch(ids_in_chunk)
+		for eid in ids_in_chunk:
+			_append_entity_id(eid)
+
 func remove_entity(entity_id: int) -> void:
 	var chunk: ECSComponentBaseArrayChunk = get_chunk(entity_id)
 	if chunk != null:
 		chunk.remove_component(ECSEntityIdsUtils.get_chunk_entity_index(entity_id))
 	_entity_set.remove(entity_id)
+
+## Батч: удаляет сущности из компонента (группировка по чанкам, один проход по чанку).
+func remove_entities_batch(entity_ids: PackedInt64Array) -> void:
+	if entity_ids.is_empty():
+		return
+	var by_chunk: Dictionary = {}
+	for eid in entity_ids:
+		var ci: int = ECSEntityIdsUtils.get_chunk_index(eid)
+		if !by_chunk.has(ci):
+			by_chunk[ci] = PackedInt64Array()
+		by_chunk[ci].append(eid)
+	for chunk_index in by_chunk:
+		var ids_in_chunk: PackedInt64Array = by_chunk[chunk_index]
+		var chunk: ECSComponentBaseArrayChunk = get_chunk(ids_in_chunk[0])
+		if chunk == null:
+			for eid in ids_in_chunk:
+				_entity_set.remove(eid)
+			continue
+		var indices: PackedInt32Array = PackedInt32Array()
+		for eid in ids_in_chunk:
+			indices.append(ECSEntityIdsUtils.get_chunk_entity_index(eid))
+		chunk.remove_components_batch(indices)
+		for eid in ids_in_chunk:
+			_entity_set.remove(eid)
 
 func has_entity(entity_id: int) -> bool:
 	var chunk: ECSComponentBaseArrayChunk = get_chunk(entity_id)

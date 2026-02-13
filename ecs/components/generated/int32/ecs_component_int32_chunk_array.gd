@@ -26,6 +26,21 @@ func remove_component(index: int) -> void:
 	_entity_ids[index] = -1
 	_components_values[index] = 0
 
+func remove_components_batch(indices: PackedInt32Array) -> void:
+	for idx in indices:
+		if _entity_ids[idx] != -1:
+			_count -= 1
+		_entity_ids[idx] = -1
+		_components_values[idx] = 0
+
+func add_components_batch(entity_ids: PackedInt64Array) -> void:
+	for entity_id in entity_ids:
+		var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
+		if _entity_ids[index] == -1:
+			_count += 1
+		_entity_ids[index] = entity_id
+		_components_values[index] = 0
+
 func has_component(entity_id: int) -> bool:
 	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
 	return _entity_ids[index] == entity_id

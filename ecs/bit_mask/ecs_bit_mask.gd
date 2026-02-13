@@ -29,12 +29,11 @@ func bit_clear_all() -> void:
 		_bits[i] = 0
 
 func bit_match(small: ECSBitMask) -> bool:
-	for i in range(0, _bits.size()):
-		var small_num: int = small._bits[i] if i < small._bits.size() else 0
-		var big_num: int = _bits[i]
+	for i in range(0, small._bits.size()):
+		var small_num: int = small._bits[i]
+		var big_num: int = _bits[i] if i < _bits.size() else 0
 		if !ECSBitMaskOperations.bit_match(big_num, small_num):
 			return false
-
 	return true
 
 ## Возвращает true, если эта маска и other имеют хотя бы один общий установленный бит.

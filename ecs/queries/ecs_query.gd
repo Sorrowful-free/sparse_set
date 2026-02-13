@@ -1,6 +1,5 @@
 class_name ECSQuery extends RefCounted
 
-
 var _components_bitmask: ECSBitMask
 var _without_components_bitmask: ECSBitMask
 
