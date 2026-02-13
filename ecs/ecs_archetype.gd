@@ -17,9 +17,10 @@ func add_entity(entity: int) -> void:
 
 func remove_entity(entity: int) -> void:
 	var chunk: PackedInt64Array = get_chunk(entity)
-	if chunk != null:
-		var chunk_entity_index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity)
-		chunk[chunk_entity_index] = -1
+	if chunk.is_empty():
+		return
+	var chunk_entity_index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity)
+	chunk[chunk_entity_index] = -1
 
 func has_entity(entity: int) -> bool:
 	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity)
@@ -33,6 +34,8 @@ func has_entity(entity: int) -> bool:
 
 func get_chunk(entity: int) -> PackedInt64Array:
 	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity)
+	if chunk_index < 0 || chunk_index >= _chunks.size():
+		return PackedInt64Array()
 	return _chunks[chunk_index]
 
 func get_or_create_chunk(entity: int) -> PackedInt64Array:

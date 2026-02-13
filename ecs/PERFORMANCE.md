@@ -130,9 +130,8 @@
 1. **Исправить get_or_create_chunk в ComponentBaseArray**  
    Реализовать расширение массива чанков до `chunk_index + 1` (как в Archetype), чтобы данные по entity_id не терялись и не попадали в «неправильный» чанк.
 
-2. **Убрать O(n) erase из горячего пути remove_entity**  
-   - Вариант 1: в `remove_entity` только вызывать `chunk.remove_component(index)`; не трогать `_entities_ids` в этом методе. Итерация по сущностям компонента — через обход чанков и сбор entity_id из слотов (или отдельный метод «синхронизации» списка при необходимости).  
-   - Вариант 2: вести в компоненте структуру «swap-with-last» для O(1) удаления из плотного списка (entity_id → индекс + массив; при удалении подставить последний на место удалённого и обновить индекс).
+2. **Убрать O(n) erase из горячего пути remove_entity** — **сделано (класс ECSSparseSet).**  
+   Выделен класс `ECSSparseSet` (ecs/entities/ecs_sparse_set.gd): плотный и разрежённый массивы — оба PackedInt64Array (`_dense`, `_sparse`). O(1) add/remove/has, swap-with-last при удалении. В компонентах используется через `_entity_set` и `_append_entity_id()`.
 
 3. **Убрать find из add_component (с значением)**  
    Заменить `if _entities_ids.find(entity_id) < 0` на `if !has_component(entity_id)` и затем `_entities_ids.append(entity_id)` (если список всё ещё нужен). Либо не добавлять в _entities_ids в этом ветке, если решено вести учёт только через чанки.

@@ -10,7 +10,7 @@ func _run() -> void:
 		ECSArchetypeTest.new(),
 		ECSManagerTest.new(),
 		ECSQueryTest.new(),
-		CommandBufferTest.new(),
+		ECSCommandBufferTest.new(),
 		SystemRunnerTest.new()
 	]
 	var names: PackedStringArray = PackedStringArray([

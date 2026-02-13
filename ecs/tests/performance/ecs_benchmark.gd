@@ -120,4 +120,3 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_command_buffer_execute()
 	print("  command_buffer execute: %.3f s" % t)
-	print("--- Done ---")

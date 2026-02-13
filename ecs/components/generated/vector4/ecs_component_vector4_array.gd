@@ -5,14 +5,14 @@ class_name ECSComponentVector4Array extends ECSComponentBaseArray
 func add_entity(entity_id: int) -> void:
 	var chunk: ECSComponentVector4ArrayChunk = get_or_create_chunk(entity_id)
 	chunk.add_component(entity_id, Vector4.ZERO)
-	_entities_ids.append(entity_id)
+	_append_entity_id(entity_id)
 
 func add_component(entity_id: int, component_value: Vector4) -> void:
 	var need_append: bool = !has_component(entity_id)
 	var chunk: ECSComponentVector4ArrayChunk = get_or_create_chunk(entity_id)
 	chunk.add_component(entity_id, component_value)
 	if need_append:
-		_entities_ids.append(entity_id)
+		_append_entity_id(entity_id)
 
 func remove_component(entity_id: int) -> void:
 	var chunk: ECSComponentVector4ArrayChunk = get_chunk(entity_id)

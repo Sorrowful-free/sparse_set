@@ -19,7 +19,7 @@
 | ECSArchetype | Архетип сущностей |
 | ECSQuery, ECSQueryBuilder | Запросы |
 | ECSSystemBase, ECSSystemRunner | Системы |
-| ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
+| ECSEntityIdsPool, ECSEntityIdsUtils, ECSSparseSet | Пул, утилиты ID и sparse set |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |
 | ECSComponentBaseArray, ECSComponentBaseArrayChunk | Базовые классы компонентов |
