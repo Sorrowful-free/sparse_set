@@ -76,7 +76,7 @@ func create_entity(...component_ids: Array) -> int:
 	var archetype_hash: int = bits.bit_hash()
 
 	if !_archetypes.has(archetype_hash):
-		_archetypes[archetype_hash] = Archetype.new(bits._bits, packed_component_ids, EntityIdsUtils.CHUNK_SIZE)
+		_archetypes[archetype_hash] = Archetype.new(bits._bits, packed_component_ids)
 	var archetype: Archetype = _archetypes[archetype_hash]
 	archetype.add_entity(entity_id)
 
@@ -104,7 +104,7 @@ func create_entities(count: int, ...component_ids: Array) -> PackedInt64Array:
 	var archetype_hash: int = bits.bit_hash()
 
 	if !_archetypes.has(archetype_hash):
-		_archetypes[archetype_hash] = Archetype.new(bits._bits, packed_component_ids, EntityIdsUtils.CHUNK_SIZE)
+		_archetypes[archetype_hash] = Archetype.new(bits._bits, packed_component_ids)
 	var archetype: Archetype = _archetypes[archetype_hash]
 
 	for i in range(count):
@@ -231,7 +231,7 @@ func add_component(entity_id: int, component_id: int) -> void:
 
 	var new_archetype_hash: int = _work_bitmask_hash()
 	if !_archetypes.has(new_archetype_hash):
-		_archetypes[new_archetype_hash] = Archetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate(), EntityIdsUtils.CHUNK_SIZE)
+		_archetypes[new_archetype_hash] = Archetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate())
 
 	var new_archetype: Archetype = _archetypes[new_archetype_hash]
 	
@@ -271,7 +271,7 @@ func remove_component(entity_id: int, component_id: int) -> void:
 
 	var new_archetype_hash: int = _work_bitmask_hash()
 	if !_archetypes.has(new_archetype_hash):
-		_archetypes[new_archetype_hash] = Archetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate(), EntityIdsUtils.CHUNK_SIZE)
+		_archetypes[new_archetype_hash] = Archetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate())
 
 	var new_archetype: Archetype = _archetypes[new_archetype_hash]
 	
