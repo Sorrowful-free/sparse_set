@@ -66,7 +66,46 @@ func benchmark_query_get_entity_ids() -> float:
 	return _time_block("query.get_entity_ids() x %d (world size %d)" % [runs, _iterations], func():
 		for j in range(runs):
 			var tmp = query.get_entity_ids()
-	)
+		)
+
+## Итерация по чанкам на главном потоке: get_chunks() и обход по каждому чанку (подсчёт сущностей).
+func benchmark_query_iterate_chunks() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	var runs: int = 100
+	return _time_block("query.get_chunks() iterate x %d (world size %d)" % [runs, _iterations], func():
+		for j in range(runs):
+			var total: int = 0
+			var chunks: Array[ECSQueryChunk] = query.get_chunks()
+			for chunk in chunks:
+				total += chunk.get_entity_count()
+		)
+
+## Обработка чанков через WorkerThreadPool: в каждом прогоне get_chunks() + group task по индексам (сравнимо с get_entity_ids / iterate_chunks).
+func benchmark_query_worker_pool() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	var runs: int = 100
+	return _time_block("query get_chunks()+WorkerThreadPool x %d (world %d)" % [runs, _iterations], func():
+		for _run in range(runs):
+			var chunks: Array[ECSQueryChunk] = query.get_chunks()
+			if chunks.is_empty():
+				continue
+			var results: PackedInt32Array = PackedInt32Array()
+			results.resize(chunks.size())
+			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_index.bind(chunks, results), chunks.size())
+			WorkerThreadPool.wait_for_group_task_completion(group_id)
+		)
+
+static func _process_chunk_index(chunks: Array[ECSQueryChunk], results: PackedInt32Array, index: int) -> void:
+	var chunk: ECSQueryChunk = chunks[index]
+	results[index] = chunk.get_entity_count()
 
 func benchmark_add_remove_component() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
@@ -112,6 +151,14 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_get_entity_ids()
 	print("  query.get_entity_ids: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_chunks()
+	print("  query.get_chunks() iterate: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_worker_pool()
+	print("  query chunks WorkerThreadPool: %.3f s" % t)
 
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_add_remove_component()

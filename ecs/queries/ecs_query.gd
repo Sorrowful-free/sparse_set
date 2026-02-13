@@ -44,6 +44,19 @@ func match(entity_id: int) -> bool:
 ## Обходит только архетипы, подходящие под with/without, затем чанки сущностей.
 func get_entity_ids() -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
+	for chunk in get_chunks():
+		var ids: PackedInt64Array = chunk.get_entity_ids()
+		for i in range(ids.size()):
+			if ids[i] >= 0:
+				result.append(ids[i])
+	return result
+
+## Возвращает чанки результата запроса. Итерация по чанкам позволяет:
+## — итерироваться строго по чанкам (кэш-френдли);
+## — раздавать диапазоны чанков разным параллельным воркерам.
+## Каждый элемент — ECSQueryChunk (entity_ids чанка + доступ к чанкам компонентов для SoA).
+func get_chunks() -> Array[ECSQueryChunk]:
+	var result: Array[ECSQueryChunk] = []
 	var archetypes: Array = _ecs_manager.get_archetypes()
 	for archetype in archetypes:
 		var arch: ECSArchetype = archetype as ECSArchetype
@@ -60,8 +73,8 @@ func get_entity_ids() -> PackedInt64Array:
 				break
 		if has_forbidden:
 			continue
-		for chunk in arch.get_chunks():
-			for i in range(chunk.size()):
-				if chunk[i] >= 0:
-					result.append(chunk[i])
+		for entity_ids_chunk in arch.get_chunks():
+			if entity_ids_chunk.is_empty():
+				continue
+			result.append(ECSQueryChunk.new(entity_ids_chunk, _ecs_manager))
 	return result
