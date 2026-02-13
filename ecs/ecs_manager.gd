@@ -1,5 +1,4 @@
-extends Node
-
+extends RefCounted
 class_name ECSManager
 
 ## Контракт с компонентами: add_entity / remove_entity / has_entity. Размер чанка — ECSEntityIdsUtils.CHUNK_SIZE (см. ecs/DESIGN.md).

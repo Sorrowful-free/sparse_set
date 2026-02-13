@@ -1,5 +1,5 @@
 extends RefCounted
-class_name CommandBufferTest
+class_name ECSCommandBufferTest
 
 const POSITION_ID: int = 1
 

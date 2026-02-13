@@ -5,11 +5,11 @@ class_name RunUnitTests
 func _run() -> void:
 	var runner: ECSTestRunner = ECSTestRunner.new()
 	var suites: Array[RefCounted] = [
-		EntityIdsUtilsTest.new(),
-		EntityIdsPoolTest.new(),
-		ArchetypeTest.new(),
+		ECSEntityIdsUtilsTest.new(),
+		ECSEntityIdsPoolTest.new(),
+		ECSArchetypeTest.new(),
 		ECSManagerTest.new(),
-		QueryTest.new(),
+		ECSQueryTest.new(),
 		CommandBufferTest.new(),
 		SystemRunnerTest.new()
 	]

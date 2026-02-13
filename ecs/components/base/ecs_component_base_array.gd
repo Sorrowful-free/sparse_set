@@ -1,6 +1,6 @@
 @abstract class_name ECSComponentBaseArray extends RefCounted
 
-var _chunks: Array[ECSECSComponentBaseArrayChunk]
+var _chunks: Array[ECSComponentBaseArrayChunk] 
 var _entities_ids: PackedInt64Array
 
 func _init() -> void:
