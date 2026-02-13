@@ -1,6 +1,6 @@
 #THAT FILE WAS GENERATED PLEASE DONOT CHANGE IT
 
-class_name {component_array_type} extends ComponentBaseArray
+class_name {component_array_type} extends ECSComponentBaseArray
 
 func add_entity(entity_id: int) -> void:
 	var chunk: {component_array_chunk_type} = get_or_create_chunk(entity_id)

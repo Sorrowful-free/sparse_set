@@ -31,10 +31,10 @@ func _run():
 		var part_name:String = component["part_name"]
 		var lower_part_name:String = part_name.to_lower();
 		var folder_name:String = lower_part_name
-		var component_array_file_name:String = "component_"+lower_part_name+"_array.gd"
-		var component_array_chunk_file_name:String = "component_"+lower_part_name+"_chunk_array.gd"
-		var component_array_type:String = "Component"+part_name+"Array"
-		var component_array_array_chunk_type:String = "Component"+part_name+"ArrayChunk"
+		var component_array_file_name:String = "ecs_component_"+lower_part_name+"_array.gd"
+		var component_array_chunk_file_name:String = "ecs_component_"+lower_part_name+"_chunk_array.gd"
+		var component_array_type:String = "ECSComponent"+part_name+"Array"
+		var component_array_array_chunk_type:String = "ECSComponent"+part_name+"ArrayChunk"
 		var value_type:String = component["value_type"]
 		var default_value:String = component["default_value"]
 		var packed_type:String = component["packed_type"]

@@ -1,4 +1,4 @@
-class_name EntityIdsPool extends RefCounted
+class_name ECSEntityIdsPool extends RefCounted
 
 var _next_entity_id: int = 0
 var _free_entity_ids: PackedInt64Array = PackedInt64Array()

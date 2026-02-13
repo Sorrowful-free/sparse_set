@@ -2,19 +2,19 @@ extends Node
 
 class_name ECSManager
 
-## Контракт с компонентами: add_entity / remove_entity / has_entity. Размер чанка — EntityIdsUtils.CHUNK_SIZE (см. ecs/DESIGN.md).
-var _entity_ids_pool: EntityIdsPool = EntityIdsPool.new()
+## Контракт с компонентами: add_entity / remove_entity / has_entity. Размер чанка — ECSEntityIdsUtils.CHUNK_SIZE (см. ecs/DESIGN.md).
+var _entity_ids_pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
 
-var _components: Dictionary[int, ComponentBaseArray] = {}
-var _archetypes: Dictionary[int, Archetype] = {}
+var _components: Dictionary[int, ECSComponentBaseArray] = {}
+var _archetypes: Dictionary[int, ECSArchetype] = {}
 var _entities_to_archetypes: PackedInt64Array = PackedInt64Array()
 
-## Кэш для create_entity/create_entities: ключ набора component_ids -> BitMask и PackedInt64Array (Фаза B).
+## Кэш для create_entity/create_entities: ключ набора component_ids -> ECSBitMask и PackedInt64Array (Фаза B).
 var _archetype_cache: Dictionary = {}
 
 ## Переиспользуемые буферы для add_component/remove_component (Фаза D).
 var _work_component_ids: PackedInt64Array = PackedInt64Array()
-var _work_bitmask: BitMask = BitMask.new(1)
+var _work_bitmask: ECSBitMask = ECSBitMask.new(1)
 
 func _init() -> void:
 	pass
@@ -50,7 +50,7 @@ func _get_or_create_archetype_info(component_ids: Array) -> Dictionary:
 	for cid in component_ids:
 		if cid > max_component_id:
 			max_component_id = cid
-	var bits: BitMask = BitMask.new(max_component_id + 1)
+	var bits: ECSBitMask = ECSBitMask.new(max_component_id + 1)
 	for cid in component_ids:
 		bits.bit_set(cid, true)
 	var info: Dictionary = { "bitmask": bits, "packed": packed }
@@ -60,24 +60,24 @@ func _get_or_create_archetype_info(component_ids: Array) -> Dictionary:
 func register_component(component_id: int, component_type: Variant.Type) -> void:
 	if _components.has(component_id):
 		return
-	var component: ComponentBaseArray = ComponentFactory.create_component(component_type)
+	var component: ECSComponentBaseArray = ECSComponentFactory.create_component(component_type)
 	if component == null:
 		return
 	_components[component_id] = component
 
-func get_component_array(component_id: int) -> ComponentBaseArray:
+func get_component_array(component_id: int) -> ECSComponentBaseArray:
 	return _components.get(component_id, null)
 
 func create_entity(...component_ids: Array) -> int:
 	var entity_id: int = _entity_ids_pool.get_next_entity_id()
 	var info: Dictionary = _get_or_create_archetype_info(component_ids)
-	var bits: BitMask = info.bitmask
+	var bits: ECSBitMask = info.bitmask
 	var packed_component_ids: PackedInt64Array = info.packed
 	var archetype_hash: int = bits.bit_hash()
 
 	if !_archetypes.has(archetype_hash):
-		_archetypes[archetype_hash] = Archetype.new(bits._bits, packed_component_ids)
-	var archetype: Archetype = _archetypes[archetype_hash]
+		_archetypes[archetype_hash] = ECSArchetype.new(bits._bits, packed_component_ids)
+	var archetype: ECSArchetype = _archetypes[archetype_hash]
 	archetype.add_entity(entity_id)
 
 	if entity_id >= _entities_to_archetypes.size():
@@ -85,7 +85,7 @@ func create_entity(...component_ids: Array) -> int:
 	_entities_to_archetypes[entity_id] = archetype_hash
 
 	for component_id in packed_component_ids:
-		var component: ComponentBaseArray = _components.get(component_id, null)
+		var component: ECSComponentBaseArray = _components.get(component_id, null)
 		if component != null:
 			component.add_entity(entity_id)
 
@@ -99,13 +99,13 @@ func create_entities(count: int, ...component_ids: Array) -> PackedInt64Array:
 	entity_ids.resize(count)
 
 	var info: Dictionary = _get_or_create_archetype_info(component_ids)
-	var bits: BitMask = info.bitmask
+	var bits: ECSBitMask = info.bitmask
 	var packed_component_ids: PackedInt64Array = info.packed
 	var archetype_hash: int = bits.bit_hash()
 
 	if !_archetypes.has(archetype_hash):
-		_archetypes[archetype_hash] = Archetype.new(bits._bits, packed_component_ids)
-	var archetype: Archetype = _archetypes[archetype_hash]
+		_archetypes[archetype_hash] = ECSArchetype.new(bits._bits, packed_component_ids)
+	var archetype: ECSArchetype = _archetypes[archetype_hash]
 
 	for i in range(count):
 		var entity_id: int = _entity_ids_pool.get_next_entity_id()
@@ -115,7 +115,7 @@ func create_entities(count: int, ...component_ids: Array) -> PackedInt64Array:
 			_entities_to_archetypes.resize(entity_id + 1)
 		_entities_to_archetypes[entity_id] = archetype_hash
 		for component_id in packed_component_ids:
-			var component: ComponentBaseArray = _components.get(component_id, null)
+			var component: ECSComponentBaseArray = _components.get(component_id, null)
 			if component != null:
 				component.add_entity(entity_id)
 
@@ -126,7 +126,7 @@ func destroy_entity(entity_id: int) -> void:
 		return
 	
 	var archetype_hash: int = _entities_to_archetypes[entity_id]
-	var archetype: Archetype = null
+	var archetype: ECSArchetype = null
 	if _archetypes.has(archetype_hash):
 		archetype = _archetypes[archetype_hash]
 		archetype.remove_entity(entity_id)
@@ -138,7 +138,7 @@ func destroy_entity(entity_id: int) -> void:
 	else:
 		component_ids_to_clear = PackedInt64Array(_components.keys())
 	for component_id in component_ids_to_clear:
-		var component: ComponentBaseArray = _components.get(component_id, null)
+		var component: ECSComponentBaseArray = _components.get(component_id, null)
 		if component != null && component.has_entity(entity_id):
 			component.remove_entity(entity_id)
 	
@@ -165,11 +165,11 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 	
 	for archetype_hash in by_archetype.keys():
 		var batch: PackedInt64Array = by_archetype[archetype_hash]
-		var archetype: Archetype = _archetypes.get(archetype_hash, null)
+		var archetype: ECSArchetype = _archetypes.get(archetype_hash, null)
 		if archetype == null:
 			for eid in batch:
 				for comp_id in _components.keys():
-					var comp: ComponentBaseArray = _components[comp_id]
+					var comp: ECSComponentBaseArray = _components[comp_id]
 					if comp != null && comp.has_entity(eid):
 						comp.remove_entity(eid)
 				_entity_ids_pool.free_entity_id(eid)
@@ -179,7 +179,7 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 		for eid in batch:
 			archetype.remove_entity(eid)
 		for component_id in archetype._component_ids:
-			var component: ComponentBaseArray = _components.get(component_id, null)
+			var component: ECSComponentBaseArray = _components.get(component_id, null)
 			if component != null:
 				for eid in batch:
 					if component.has_entity(eid):
@@ -189,7 +189,7 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 			if eid < _entities_to_archetypes.size():
 				_entities_to_archetypes[eid] = -1
 
-func get_entity_archetype(entity_id: int) -> Archetype:
+func get_entity_archetype(entity_id: int) -> ECSArchetype:
 	if entity_id < 0 || entity_id >= _entities_to_archetypes.size():
 		return null
 	var archetype_hash: int = _entities_to_archetypes[entity_id]
@@ -197,14 +197,14 @@ func get_entity_archetype(entity_id: int) -> Archetype:
 		return _archetypes[archetype_hash]
 	return null
 
-## Возвращает все архетипы (для Query — итерация по подходящим без вызова match по каждой сущности).
+## Возвращает все архетипы (для ECSQuery — итерация по подходящим без вызова match по каждой сущности).
 func get_archetypes() -> Array:
 	return _archetypes.values()
 
 func has_component(entity_id: int, component_id: int) -> bool:
 	if !_components.has(component_id):
 		return false
-	var component: ComponentBaseArray = _components[component_id]
+	var component: ECSComponentBaseArray = _components[component_id]
 	return component.has_entity(entity_id)
 
 func add_component(entity_id: int, component_id: int) -> void:
@@ -218,7 +218,7 @@ func add_component(entity_id: int, component_id: int) -> void:
 		return  # Компонент не зарегистрирован
 	
 	# Получаем текущий архетип
-	var old_archetype: Archetype = get_entity_archetype(entity_id)
+	var old_archetype: ECSArchetype = get_entity_archetype(entity_id)
 	if old_archetype == null:
 		return
 
@@ -231,9 +231,9 @@ func add_component(entity_id: int, component_id: int) -> void:
 
 	var new_archetype_hash: int = _work_bitmask_hash()
 	if !_archetypes.has(new_archetype_hash):
-		_archetypes[new_archetype_hash] = Archetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate())
+		_archetypes[new_archetype_hash] = ECSArchetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate())
 
-	var new_archetype: Archetype = _archetypes[new_archetype_hash]
+	var new_archetype: ECSArchetype = _archetypes[new_archetype_hash]
 	
 	# Перемещаем сущность из старого архетипа в новый
 	old_archetype.remove_entity(entity_id)
@@ -243,7 +243,7 @@ func add_component(entity_id: int, component_id: int) -> void:
 	_entities_to_archetypes[entity_id] = new_archetype_hash
 	
 	# Добавляем сущность в новый компонент
-	var component: ComponentBaseArray = _components[component_id]
+	var component: ECSComponentBaseArray = _components[component_id]
 	if component != null:
 		component.add_entity(entity_id)
 
@@ -255,7 +255,7 @@ func remove_component(entity_id: int, component_id: int) -> void:
 		return  # Компонента нет
 	
 	# Получаем текущий архетип
-	var old_archetype: Archetype = get_entity_archetype(entity_id)
+	var old_archetype: ECSArchetype = get_entity_archetype(entity_id)
 	if old_archetype == null:
 		return
 
@@ -271,9 +271,9 @@ func remove_component(entity_id: int, component_id: int) -> void:
 
 	var new_archetype_hash: int = _work_bitmask_hash()
 	if !_archetypes.has(new_archetype_hash):
-		_archetypes[new_archetype_hash] = Archetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate())
+		_archetypes[new_archetype_hash] = ECSArchetype.new(_work_bitmask._bits.duplicate(), _work_component_ids.duplicate())
 
-	var new_archetype: Archetype = _archetypes[new_archetype_hash]
+	var new_archetype: ECSArchetype = _archetypes[new_archetype_hash]
 	
 	# Перемещаем сущность из старого архетипа в новый
 	old_archetype.remove_entity(entity_id)
@@ -283,6 +283,6 @@ func remove_component(entity_id: int, component_id: int) -> void:
 	_entities_to_archetypes[entity_id] = new_archetype_hash
 	
 	# Удаляем сущность из компонента
-	var component: ComponentBaseArray = _components[component_id]
+	var component: ECSComponentBaseArray = _components[component_id]
 	if component != null:
 		component.remove_entity(entity_id)

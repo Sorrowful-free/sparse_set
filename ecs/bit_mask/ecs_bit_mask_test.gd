@@ -3,7 +3,7 @@ extends EditorScript
 class_name bit_mask_test
 
 func _run():
-	var bit_mask: BitMask = BitMask.new(3)
+	var bit_mask: ECSBitMask = ECSBitMask.new(3)
 	bit_mask.bit_set(0, true)
 	bit_mask.bit_set(1, true)
 	bit_mask.bit_set(2, true)
@@ -15,7 +15,7 @@ func _run():
 	print(bit_mask.bit_test(1))
 	print(bit_mask.bit_test(2))
 
-	var bit_mask_2: BitMask = BitMask.new(3)
+	var bit_mask_2: ECSBitMask = ECSBitMask.new(3)
 	
 	print("initial hash")
 	print(hash(bit_mask))

@@ -66,7 +66,7 @@ func assert_lt(a: float, b: float, message: String = "") -> void:
 		_passed += 1
 	else:
 		_failed += 1
-		_push_fail("assert_lt", message if message else "expected %s > %s" % [a, b])
+		_push_fail("assert_lt", message if message else "expected %s < %s" % [a, b])
 
 func _deep_equal(a: Variant, b: Variant) -> bool:
 	if a == null and b == null:

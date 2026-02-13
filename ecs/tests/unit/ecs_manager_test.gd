@@ -33,7 +33,7 @@ func test_add_remove_component(runner: ECSTestRunner) -> void:
 func test_set_get_component(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	var pos: ComponentVector2Array = ecs.get_component_array(POSITION_ID) as ComponentVector2Array
+	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
 	var eid: int = ecs.create_entity(POSITION_ID)
 	pos.set_component(eid, Vector2(10.0, 20.0))
 	runner.assert_eq(pos.get_component(eid), Vector2(10.0, 20.0))
@@ -59,7 +59,7 @@ func test_same_archetype_reused(runner: ECSTestRunner) -> void:
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	var e1: int = ecs.create_entity(POSITION_ID)
 	var e2: int = ecs.create_entity(POSITION_ID)
-	var a1: Archetype = ecs.get_entity_archetype(e1)
-	var a2: Archetype = ecs.get_entity_archetype(e2)
+	var a1: ECSArchetype = ecs.get_entity_archetype(e1)
+	var a2: ECSArchetype = ecs.get_entity_archetype(e2)
 	runner.assert_not_null(a1)
 	runner.assert_true(a1 == a2)

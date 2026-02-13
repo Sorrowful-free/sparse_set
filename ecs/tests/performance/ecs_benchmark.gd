@@ -61,7 +61,7 @@ func benchmark_query_get_entity_ids() -> float:
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	for i in range(_iterations):
 		_ecs.create_entity(POSITION_ID, HEALTH_ID)
-	var query: Query = QueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
 	return _time_block("query.get_entity_ids() x %d (world size %d)" % [runs, _iterations], func():
 		for j in range(runs):

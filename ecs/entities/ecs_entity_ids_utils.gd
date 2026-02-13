@@ -1,6 +1,6 @@
 extends RefCounted
 
-class_name EntityIdsUtils
+class_name ECSEntityIdsUtils
 
 ## Единый размер чанка для архетипов и компонентов (см. ecs/DESIGN.md, фаза 0).
 const NULL_ENTITY_ID: int = -1

@@ -1,4 +1,4 @@
-@abstract class_name ComponentBaseArrayChunk extends RefCounted
+@abstract class_name ECSComponentBaseArrayChunk extends RefCounted
 
 var _entity_ids: PackedInt32Array
 
@@ -11,10 +11,10 @@ func get_size() -> int:
 func get_entity_ids() -> PackedInt32Array:
 	return _entity_ids
 
-## Освобождает слот по индексу (записывает значение по умолчанию для типа). Вызывается из ComponentBaseArray.remove_entity.
+## Освобождает слот по индексу (записывает значение по умолчанию для типа). Вызывается из ECSComponentBaseArray.remove_entity.
 @abstract func remove_component(index: int) -> void
 
-## Проверяет, есть ли в чанке данные для сущности. Вызывается из ComponentBaseArray.has_entity.
+## Проверяет, есть ли в чанке данные для сущности. Вызывается из ECSComponentBaseArray.has_entity.
 @abstract func has_component(entity_id: int) -> bool
 
 func clear() -> void:

@@ -1,4 +1,4 @@
-class_name SystemBase extends RefCounted
+class_name ECSSystemBase extends RefCounted
 
 var _ecs_manager: ECSManager
 var _command_buffer: ECSCommandBuffer

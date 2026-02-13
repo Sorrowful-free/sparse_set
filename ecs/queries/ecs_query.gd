@@ -1,8 +1,8 @@
-class_name Query extends RefCounted
+class_name ECSQuery extends RefCounted
 
 
-var _components_bitmask: BitMask
-var _without_components_bitmask: BitMask
+var _components_bitmask: ECSBitMask
+var _without_components_bitmask: ECSBitMask
 
 var _component_ids: PackedInt64Array
 var _without_component_ids: PackedInt64Array
@@ -21,8 +21,8 @@ func _init(ecs_manager: ECSManager, component_ids: PackedInt64Array, without_com
 		if component_id > max_component_id:
 			max_component_id = component_id
 	var mask_capacity: int = max(1, max_component_id + 1)
-	_components_bitmask = BitMask.new(mask_capacity)
-	_without_components_bitmask = BitMask.new(mask_capacity)
+	_components_bitmask = ECSBitMask.new(mask_capacity)
+	_without_components_bitmask = ECSBitMask.new(mask_capacity)
 	for component_id in component_ids:
 		_components_bitmask.bit_set(component_id, true)
 	for component_id in without_component_ids:
@@ -47,10 +47,10 @@ func get_entity_ids() -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
 	var archetypes: Array = _ecs_manager.get_archetypes()
 	for archetype in archetypes:
-		var arch: Archetype = archetype as Archetype
+		var arch: ECSArchetype = archetype as ECSArchetype
 		if arch == null:
 			continue
-		var arch_mask: BitMask = BitMask.new(arch._bits.size() * BitMask.MAX_INT_CAPACITY)
+		var arch_mask: ECSBitMask = ECSBitMask.new(arch._bits.size() * ECSBitMask.MAX_INT_CAPACITY)
 		arch_mask.bit_copy_from(arch._bits)
 		if !arch_mask.bit_match(_components_bitmask):
 			continue

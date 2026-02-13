@@ -1,17 +1,17 @@
-class_name SystemRunner extends RefCounted
+class_name ECSSystemRunner extends RefCounted
 
 ## Вызывает update() у всех систем по порядку, затем execute() у каждого command buffer.
 ## Использование: add_system(system); run(delta) каждый кадр.
 
-var _systems: Array[SystemBase] = []
+var _systems: Array[ECSSystemBase] = []
 
-func add_system(system: SystemBase) -> void:
+func add_system(system: ECSSystemBase) -> void:
 	_systems.append(system)
 
-func remove_system(system: SystemBase) -> void:
+func remove_system(system: ECSSystemBase) -> void:
 	_systems.erase(system)
 
-func get_systems() -> Array[SystemBase]:
+func get_systems() -> Array[ECSSystemBase]:
 	return _systems.duplicate()
 
 ## Обновляет все системы, затем выполняет все command buffer'ы.

@@ -1,6 +1,6 @@
 extends RefCounted
 
-class_name BitMaskOperations
+class_name ECSBitMaskOperations
 
 static func bit_test(num: int, bit: int) -> bool:
 	return ((num >> bit) % 2 != 0)
