@@ -1,0 +1,65 @@
+extends RefCounted
+class_name ECSManagerTest
+
+const POSITION_ID: int = 1
+const HEALTH_ID: int = 2
+
+func test_register_and_create_entity(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var eid: int = ecs.create_entity(POSITION_ID)
+	runner.assert_gt(eid, 0)
+	runner.assert_true(ecs.has_component(eid, POSITION_ID))
+
+func test_destroy_entity(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var eid: int = ecs.create_entity(POSITION_ID)
+	runner.assert_true(ecs.has_component(eid, POSITION_ID))
+	ecs.destroy_entity(eid)
+	runner.assert_false(ecs.has_component(eid, POSITION_ID))
+
+func test_add_remove_component(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var eid: int = ecs.create_entity(POSITION_ID)
+	runner.assert_false(ecs.has_component(eid, HEALTH_ID))
+	ecs.add_component(eid, HEALTH_ID)
+	runner.assert_true(ecs.has_component(eid, HEALTH_ID))
+	ecs.remove_component(eid, HEALTH_ID)
+	runner.assert_false(ecs.has_component(eid, HEALTH_ID))
+
+func test_set_get_component(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var pos: ComponentVector2Array = ecs.get_component_array(POSITION_ID) as ComponentVector2Array
+	var eid: int = ecs.create_entity(POSITION_ID)
+	pos.set_component(eid, Vector2(10.0, 20.0))
+	runner.assert_eq(pos.get_component(eid), Vector2(10.0, 20.0))
+
+func test_create_entities_batch(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities(10, POSITION_ID)
+	runner.assert_eq(ids.size(), 10)
+	for eid in ids:
+		runner.assert_true(ecs.has_component(eid, POSITION_ID))
+
+func test_destroy_entities_batch(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities(5, POSITION_ID)
+	ecs.destroy_entities(ids)
+	for eid in ids:
+		runner.assert_false(ecs.has_component(eid, POSITION_ID))
+
+func test_same_archetype_reused(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var e1: int = ecs.create_entity(POSITION_ID)
+	var e2: int = ecs.create_entity(POSITION_ID)
+	var a1: Archetype = ecs.get_entity_archetype(e1)
+	var a2: Archetype = ecs.get_entity_archetype(e2)
+	runner.assert_not_null(a1)
+	runner.assert_true(a1 == a2)

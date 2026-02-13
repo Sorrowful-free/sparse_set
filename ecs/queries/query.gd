@@ -7,28 +7,62 @@ var _without_components_bitmask: BitMask
 var _component_ids: PackedInt64Array
 var _without_component_ids: PackedInt64Array
 
-var _ecs_manager: EcsManager
+var _ecs_manager: ECSManager
 
-func _init(ecs_manager: EcsManager, component_ids: PackedInt64Array, without_component_ids: PackedInt64Array) -> void:
-    _ecs_manager = ecs_manager
-    _component_ids = component_ids
-    _without_component_ids = without_component_ids
-    _components_bitmask = BitMask.new(component_ids.size())
-    _without_components_bitmask = BitMask.new(without_component_ids.size())
-    for component_id in component_ids:
-        _components_bitmask.bit_set(component_id, true)
-    for component_id in without_component_ids:
-        _without_components_bitmask.bit_set(component_id, true)
+func _init(ecs_manager: ECSManager, component_ids: PackedInt64Array, without_component_ids: PackedInt64Array) -> void:
+	_ecs_manager = ecs_manager
+	_component_ids = component_ids
+	_without_component_ids = without_component_ids
+	var max_component_id: int = 0
+	for component_id in component_ids:
+		if component_id > max_component_id:
+			max_component_id = component_id
+	for component_id in without_component_ids:
+		if component_id > max_component_id:
+			max_component_id = component_id
+	var mask_capacity: int = max(1, max_component_id + 1)
+	_components_bitmask = BitMask.new(mask_capacity)
+	_without_components_bitmask = BitMask.new(mask_capacity)
+	for component_id in component_ids:
+		_components_bitmask.bit_set(component_id, true)
+	for component_id in without_component_ids:
+		_without_components_bitmask.bit_set(component_id, true)
 
 func match(entity_id: int) -> bool:
-    # Проверяем наличие обязательных компонентов
-    for component_id in _component_ids:
-        if !_ecs_manager.has_component(entity_id, component_id):
-            return false
-    
-    # Проверяем отсутствие запрещенных компонентов
-    for component_id in _without_component_ids:
-        if _ecs_manager.has_component(entity_id, component_id):
-            return false
-    
-    return true
+	# Проверяем наличие обязательных компонентов
+	for component_id in _component_ids:
+		if !_ecs_manager.has_component(entity_id, component_id):
+			return false
+	
+	# Проверяем отсутствие запрещенных компонентов
+	for component_id in _without_component_ids:
+		if _ecs_manager.has_component(entity_id, component_id):
+			return false
+	
+	return true
+
+## Возвращает все entity_id, подходящие под запрос, без вызова match() по каждой сущности.
+## Обходит только архетипы, подходящие под with/without, затем чанки сущностей.
+func get_entity_ids() -> PackedInt64Array:
+	var result: PackedInt64Array = PackedInt64Array()
+	var archetypes: Array = _ecs_manager.get_archetypes()
+	for archetype in archetypes:
+		var arch: Archetype = archetype as Archetype
+		if arch == null:
+			continue
+		var arch_mask: BitMask = BitMask.new(arch._bits.size() * BitMask.MAX_INT_CAPACITY)
+		arch_mask.bit_copy_from(arch._bits)
+		if !arch_mask.bit_match(_components_bitmask):
+			continue
+		var has_forbidden: bool = false
+		for without_id in _without_component_ids:
+			if arch_mask.bit_test(without_id):
+				has_forbidden = true
+				break
+		if has_forbidden:
+			continue
+		for chunk in arch.get_chunks():
+			for i in range(chunk.size()):
+				if chunk[i] >= 0:
+					result.append(chunk[i])
+	return result

@@ -23,6 +23,11 @@ func bit_test(index: int) -> bool:
 func bit_resize(capacity: int) -> void:
 	_bits.resize(max(1, (capacity / MAX_INT_CAPACITY) + 1))
 
+## Обнуляет все биты маски (для переиспользования буфера, Фаза D).
+func bit_clear_all() -> void:
+	for i in range(_bits.size()):
+		_bits[i] = 0
+
 func bit_match(small: BitMask) -> bool:
 	for i in range(0, _bits.size()):
 		var small_num: int = small._bits[i] if i < small._bits.size() else 0
@@ -31,6 +36,14 @@ func bit_match(small: BitMask) -> bool:
 			return false
 
 	return true
+
+## Возвращает true, если эта маска и other имеют хотя бы один общий установленный бит.
+func bit_has_any(other: BitMask) -> bool:
+	var min_size: int = min(_bits.size(), other._bits.size())
+	for i in range(min_size):
+		if (_bits[i] & other._bits[i]) != 0:
+			return true
+	return false
 
 func bit_hash() -> int:
 	return hash(_bits)
