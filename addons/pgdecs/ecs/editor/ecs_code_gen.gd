@@ -2,8 +2,8 @@
 extends EditorScript
 class_name ECSCodeGen
 
-const templates_path: String = "res://ecs/editor/templates"
-const components_path: String = "res://ecs/components/generated"
+const templates_path: String = "res://addons/pgdecs/ecs/editor/templates"
+const components_path: String = "res://addons/pgdecs/ecs/components/generated"
 const components: Array = [
 	{"value_type": "int", "default_value": "0", "packed_type": "PackedByteArray", "part_name":"Byte"},
 	{"value_type": "int", "default_value": "0", "packed_type": "PackedInt64Array", "part_name":"Int64"},

@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="sparse_set"
+config/name="pgdecs"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
