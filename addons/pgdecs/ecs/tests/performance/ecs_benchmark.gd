@@ -84,6 +84,76 @@ func benchmark_query_iterate_chunks() -> float:
 				total += chunk.get_entity_count()
 		)
 
+## Итерация по сущностям с чтением всех компонентов: get_chunks() + для каждого чанка get_component_chunk()
+## и обход по слотам с чтением position и health (SoA-стиль, как в реальной системе).
+func benchmark_query_iterate_entities_with_components() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	var runs: int = 100
+	return _time_block("query iterate entities+components (chunks) x %d (world size %d)" % [runs, _iterations], func():
+		for j in range(runs):
+			var acc: float = 0.0
+			var chunks: Array[ECSQueryChunk] = query.get_chunks()
+			for chunk in chunks:
+				var pos_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(POSITION_ID)
+				var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(HEALTH_ID)
+				if pos_chunk == null || health_chunk == null:
+					continue
+				var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
+				var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
+				for i in range(chunk.get_size()):
+					var eid: int = chunk.get_entity_id_at(i)
+					if eid >= 0:
+						var pos: Vector2 = pos_typed.get_component(eid)
+						var health: int = health_typed.get_component(eid)
+						acc += pos.x + pos.y + float(health)
+		)
+
+## То же, что iterate_entities_with_components, но чанки обрабатываются через WorkerThreadPool:
+## каждый воркер обрабатывает один чанк (читает position и health по слотам), пишет сумму в results[index].
+static func _process_chunk_entities_with_components(chunks: Array[ECSQueryChunk], results: PackedFloat32Array, position_id: int, health_id: int, index: int) -> void:
+	var chunk: ECSQueryChunk = chunks[index]
+	var pos_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(position_id)
+	var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(health_id)
+	if pos_chunk == null || health_chunk == null:
+		results[index] = 0.0
+		return
+	var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
+	var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
+	var acc: float = 0.0
+	for i in range(chunk.get_size()):
+		var eid: int = chunk.get_entity_id_at(i)
+		if eid >= 0:
+			var pos: Vector2 = pos_typed.get_component(eid)
+			var health: int = health_typed.get_component(eid)
+			acc += pos.x + pos.y + float(health)
+	results[index] = acc
+
+## Итерация по сущностям с чтением всех компонентов через WorkerThreadPool (аналог iterate_entities_with_components).
+func benchmark_query_iterate_entities_with_components_worker_pool() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	var runs: int = 100
+	return _time_block("query iterate entities+components WorkerThreadPool x %d (world size %d)" % [runs, _iterations], func():
+		for _run in range(runs):
+			var chunks: Array[ECSQueryChunk] = query.get_chunks()
+			if chunks.is_empty():
+				continue
+			var results: PackedFloat32Array = PackedFloat32Array()
+			results.resize(chunks.size())
+			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_entities_with_components.bind(chunks, results, POSITION_ID, HEALTH_ID), chunks.size())
+			WorkerThreadPool.wait_for_group_task_completion(group_id)
+			var acc: float = 0.0
+			for k in range(results.size()):
+				acc += results[k]
+		)
+
 ## Обработка чанков через WorkerThreadPool: в каждом прогоне get_chunks() + group task по индексам (сравнимо с get_entity_ids / iterate_chunks).
 func benchmark_query_worker_pool() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
@@ -155,6 +225,14 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_chunks()
 	print("  query.get_chunks() iterate: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components()
+	print("  query iterate entities+components: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components_worker_pool()
+	print("  query iterate entities+components WorkerThreadPool: %.3f s" % t)
 
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_worker_pool()

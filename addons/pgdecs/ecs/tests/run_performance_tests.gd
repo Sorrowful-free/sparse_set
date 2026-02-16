@@ -3,7 +3,7 @@ extends EditorScript
 class_name RunPerformanceTests
 
 func _run() -> void:
-	var scales: Array = [10_000, 50_000, 100_000]
+	var scales: Array = [5000, 15000, 25000]
 	for i in range(scales.size()):
 		var iterations: int = scales[i]
 		if i > 0:
