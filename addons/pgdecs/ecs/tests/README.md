@@ -4,18 +4,28 @@
 
 Запуск из редактора Godot: **Project → Tools → Run Unit Tests** (нужно один раз назначить скрипт `ecs/tests/run_unit_tests.gd` как EditorScript) или открыть скрипт `run_unit_tests.gd` и нажать **Run** в панели редактора.
 
-Или из консоли (если есть headless):  
-`godot -s res://ecs/tests/run_unit_tests.gd`
+Или из консоли (headless):
+
+```powershell
+& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_unit_tests_headless.gd
+```
 
 Тесты:
-- `unit/entity_ids_utils_test.gd` — индексы чанков и слотов
-- `unit/entity_ids_pool_test.gd` — пул ID (выдача и повторное использование)
-- `unit/archetype_test.gd` — архетип (add/has/remove, несколько чанков)
+- `unit/ecs_entity_ids_utils_test.gd` — индексы чанков и слотов
+- `unit/ecs_entity_ids_pool_test.gd` — пул ID (генерации, реюз, защита от double-free)
+- `unit/ecs_archetype_test.gd` — архетип (add/has/remove, несколько чанков)
+- `unit/ecs_bit_mask_test.gd` — ECSBitMask (set/test/match/hash, bounds-guard)
+- `unit/ecs_sparse_set_test.gd` — ECSSparseSet
+- `unit/ecs_component_factory_test.gd` — ECSComponentFactory
+- `unit/ecs_component_array_test.gd` — компоненты/чанки (add/get/set/remove, батчи, границы)
 - `unit/ecs_manager_test.gd` — создание/удаление сущностей, add/remove компонентов, set/get, батчи
-- `unit/query_test.gd` — Query (with/without, get_entity_ids)
-- `unit/ecs_world_state_test.gd` — валидность состояния мира: несколько компонентов, разные запросы (with/without), после destroy и add/remove
-- `unit/command_buffer_test.gd` — отложенные команды и execute
-- `unit/system_runner_test.gd` — SystemRunner (update, execute command buffer)
+- `unit/ecs_query_test.gd` — Query (with/without, get_entity_ids, get_chunks)
+- `unit/ecs_query_chunk_test.gd` — ECSQueryChunk (get_component_chunk по chunk_index)
+- `unit/ecs_world_state_test.gd` — валидность состояния мира
+- `unit/ecs_command_buffer_test.gd` — отложенные команды и execute
+- `unit/ecs_system_runner_test.gd` — SystemRunner
+- `unit/ecs_system_chunk_base_test.gd` — ECSSystemChunkBase (single-thread + worker pool)
+- `unit/ecs_regression_test.gd` — регрессии (without > max component, stale handle, add/remove)
 
 ## Тесты производительности
 
@@ -30,4 +40,4 @@
 - add_component + remove_component в цикле
 - command_buffer.execute() с накопленными create_entity
 
-Количество итераций по умолчанию: 10 000 (в `RunPerformanceTests` можно изменить).
+Количество итераций по умолчанию: 10 000 (в `RunPerformanceTests` можно изменить).

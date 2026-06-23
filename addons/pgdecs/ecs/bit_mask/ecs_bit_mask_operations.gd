@@ -15,4 +15,6 @@ static func bit_toggle(num: int, bit: int) -> int:
 	return bit_clear(num, bit) if bit_test(num, bit) else bit_set(num, bit)
 
 static func bit_match(numBig: int, numSmall: int) -> bool:
-	return numSmall > 0 && (numSmall & numBig) == numSmall
+	if numSmall == 0:
+		return true
+	return (numSmall & numBig) == numSmall

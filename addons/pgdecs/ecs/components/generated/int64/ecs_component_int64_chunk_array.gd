@@ -14,7 +14,8 @@ func _init() -> void:
 	_components_values.fill(0)
 
 func add_component(entity_id: int, component_value: int) -> void:
-	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
+	var entity_index: int = ECSEntityHandle.index_of(entity_id)
+	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	if _entity_ids[index] == -1:
 		_count += 1
 	_entity_ids[index] = entity_id
@@ -35,25 +36,29 @@ func remove_components_batch(indices: PackedInt32Array) -> void:
 
 func add_components_batch(entity_ids: PackedInt64Array) -> void:
 	for entity_id in entity_ids:
-		var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
+		var entity_index: int = ECSEntityHandle.index_of(entity_id)
+		var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 		if _entity_ids[index] == -1:
 			_count += 1
 		_entity_ids[index] = entity_id
 		_components_values[index] = 0
 
 func has_component(entity_id: int) -> bool:
-	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
+	var entity_index: int = ECSEntityHandle.index_of(entity_id)
+	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	return _entity_ids[index] == entity_id
 
 func set_component(entity_id: int, component_value: int) -> void:
-	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
+	var entity_index: int = ECSEntityHandle.index_of(entity_id)
+	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	_components_values[index] = component_value
 
 func get_component(entity_id: int) -> int:
-	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_id)
+	var entity_index: int = ECSEntityHandle.index_of(entity_id)
+	var index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	return _components_values[index]
 
-func get_size() -> int:
+func get_entity_count() -> int:
 	return _count
 
 func clear() -> void:

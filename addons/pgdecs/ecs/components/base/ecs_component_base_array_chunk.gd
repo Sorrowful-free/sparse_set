@@ -1,14 +1,14 @@
 @abstract class_name ECSComponentBaseArrayChunk extends RefCounted
 
-var _entity_ids: PackedInt32Array
+var _entity_ids: PackedInt64Array
 
 func _init() -> void:
-	_entity_ids = PackedInt32Array()
+	_entity_ids = PackedInt64Array()
 
 func get_size() -> int:
 	return _entity_ids.size()
 
-func get_entity_ids() -> PackedInt32Array:
+func get_entity_ids() -> PackedInt64Array:
 	return _entity_ids
 
 ## Освобождает слот по индексу (записывает значение по умолчанию для типа). Вызывается из ECSComponentBaseArray.remove_entity.

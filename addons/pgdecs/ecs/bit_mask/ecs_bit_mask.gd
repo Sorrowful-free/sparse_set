@@ -3,6 +3,8 @@ extends RefCounted
 class_name ECSBitMask
 
 const MAX_INT_CAPACITY: int = 64
+const INDEX_SHIFT: int = 6
+const INDEX_MASK: int = 63
 
 var _bits: PackedInt64Array
 
@@ -11,17 +13,24 @@ func _init(capacity: int) -> void:
 	bit_resize(capacity)
 
 func bit_set(index: int, value: bool) -> void:
-	var num_index: int = index / MAX_INT_CAPACITY
-	var bit_index: int = index % MAX_INT_CAPACITY
+	var num_index: int = index >> INDEX_SHIFT
+	var bit_index: int = index & INDEX_MASK
+	if num_index >= _bits.size():
+		bit_resize((num_index + 1) * MAX_INT_CAPACITY)
 	_bits[num_index] = ECSBitMaskOperations.bit_set(_bits[num_index], bit_index) if value else ECSBitMaskOperations.bit_clear(_bits[num_index], bit_index)
 
 func bit_test(index: int) -> bool:
-	var num_index: int = index / MAX_INT_CAPACITY
-	var bit_index: int = index % MAX_INT_CAPACITY
+	var num_index: int = index >> INDEX_SHIFT
+	var bit_index: int = index & INDEX_MASK
+	if num_index >= _bits.size():
+		return false
 	return ECSBitMaskOperations.bit_test(_bits[num_index], bit_index)
 
 func bit_resize(capacity: int) -> void:
-	_bits.resize(max(1, (capacity / MAX_INT_CAPACITY) + 1))
+	var word_count: int = 1
+	if capacity > 0:
+		word_count = ((capacity - 1) / MAX_INT_CAPACITY) + 1
+	_bits.resize(word_count)
 
 ## Обнуляет все биты маски (для переиспользования буфера, Фаза D).
 func bit_clear_all() -> void:
@@ -38,14 +47,22 @@ func bit_match(small: ECSBitMask) -> bool:
 
 ## Возвращает true, если эта маска и other имеют хотя бы один общий установленный бит.
 func bit_has_any(other: ECSBitMask) -> bool:
-	var min_size: int = min(_bits.size(), other._bits.size())
+	var min_size: int = mini(_bits.size(), other._bits.size())
 	for i in range(min_size):
 		if (_bits[i] & other._bits[i]) != 0:
 			return true
 	return false
 
 func bit_hash() -> int:
-	return hash(_bits)
+	return hash(_normalized_bits())
+
+func _normalized_bits() -> PackedInt64Array:
+	var last_nonzero: int = _bits.size() - 1
+	while last_nonzero >= 0 && _bits[last_nonzero] == 0:
+		last_nonzero -= 1
+	if last_nonzero < 0:
+		return PackedInt64Array([0])
+	return _bits.slice(0, last_nonzero + 1)
 
 func bit_copy_from(bits: PackedInt64Array) -> void:
 	_bits = bits.duplicate()

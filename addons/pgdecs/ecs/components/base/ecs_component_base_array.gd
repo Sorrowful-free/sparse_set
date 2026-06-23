@@ -1,15 +1,9 @@
 @abstract class_name ECSComponentBaseArray extends RefCounted
 
 var _chunks: Array[ECSComponentBaseArrayChunk]
-var _entity_set: ECSSparseSet
 
 func _init() -> void:
 	_chunks = []
-	_entity_set = ECSSparseSet.new()
-
-## Регистрирует entity_id в sparse set (вызывать из наследников при add_entity/add_component). O(1).
-func _append_entity_id(entity_id: int) -> void:
-	_entity_set.add(entity_id)
 
 ## Добавляет сущность в компонент с дефолтным значением. Реализуется в сгенерированных классах.
 @abstract func add_entity(entity_id: int) -> void
@@ -18,48 +12,45 @@ func _append_entity_id(entity_id: int) -> void:
 func add_entities_batch(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
 		return
-	var by_chunk: Dictionary = {}
-	for eid in entity_ids:
-		var ci: int = ECSEntityIdsUtils.get_chunk_index(eid)
-		if !by_chunk.has(ci):
-			by_chunk[ci] = PackedInt64Array()
-		by_chunk[ci].append(eid)
+	var by_chunk: Dictionary[int, PackedInt64Array] = {}
+	for entity_id in entity_ids:
+		var entity_index: int = ECSEntityHandle.index_of(entity_id)
+		var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
+		if !by_chunk.has(chunk_index):
+			by_chunk[chunk_index] = PackedInt64Array()
+		by_chunk[chunk_index].append(entity_id)
 	for chunk_index in by_chunk:
 		var ids_in_chunk: PackedInt64Array = by_chunk[chunk_index]
 		var chunk: ECSComponentBaseArrayChunk = get_or_create_chunk(ids_in_chunk[0])
 		chunk.add_components_batch(ids_in_chunk)
-		for eid in ids_in_chunk:
-			_append_entity_id(eid)
 
 func remove_entity(entity_id: int) -> void:
 	var chunk: ECSComponentBaseArrayChunk = get_chunk(entity_id)
 	if chunk != null:
-		chunk.remove_component(ECSEntityIdsUtils.get_chunk_entity_index(entity_id))
-	_entity_set.remove(entity_id)
+		var entity_index: int = ECSEntityHandle.index_of(entity_id)
+		chunk.remove_component(ECSEntityIdsUtils.get_chunk_entity_index(entity_index))
 
 ## Батч: удаляет сущности из компонента (группировка по чанкам, один проход по чанку).
 func remove_entities_batch(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
 		return
-	var by_chunk: Dictionary = {}
-	for eid in entity_ids:
-		var ci: int = ECSEntityIdsUtils.get_chunk_index(eid)
-		if !by_chunk.has(ci):
-			by_chunk[ci] = PackedInt64Array()
-		by_chunk[ci].append(eid)
+	var by_chunk: Dictionary[int, PackedInt64Array] = {}
+	for entity_id in entity_ids:
+		var entity_index: int = ECSEntityHandle.index_of(entity_id)
+		var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
+		if !by_chunk.has(chunk_index):
+			by_chunk[chunk_index] = PackedInt64Array()
+		by_chunk[chunk_index].append(entity_id)
 	for chunk_index in by_chunk:
 		var ids_in_chunk: PackedInt64Array = by_chunk[chunk_index]
 		var chunk: ECSComponentBaseArrayChunk = get_chunk(ids_in_chunk[0])
 		if chunk == null:
-			for eid in ids_in_chunk:
-				_entity_set.remove(eid)
 			continue
 		var indices: PackedInt32Array = PackedInt32Array()
-		for eid in ids_in_chunk:
-			indices.append(ECSEntityIdsUtils.get_chunk_entity_index(eid))
+		for entity_id in ids_in_chunk:
+			var entity_index: int = ECSEntityHandle.index_of(entity_id)
+			indices.append(ECSEntityIdsUtils.get_chunk_entity_index(entity_index))
 		chunk.remove_components_batch(indices)
-		for eid in ids_in_chunk:
-			_entity_set.remove(eid)
 
 func has_entity(entity_id: int) -> bool:
 	var chunk: ECSComponentBaseArrayChunk = get_chunk(entity_id)
@@ -69,28 +60,46 @@ func size_chunks() -> int:
 	return _chunks.size()
 
 func size_entities() -> int:
-	return _entity_set.size()
+	var total: int = 0
+	for chunk: ECSComponentBaseArrayChunk in _chunks:
+		var entity_ids: PackedInt64Array = chunk.get_entity_ids()
+		for i in range(entity_ids.size()):
+			if entity_ids[i] >= 0:
+				total += 1
+	return total
 
 func get_chunks() -> Array[ECSComponentBaseArrayChunk]:
 	return _chunks
 
+func get_chunk_by_index(chunk_index: int) -> ECSComponentBaseArrayChunk:
+	if chunk_index < 0 || chunk_index >= _chunks.size():
+		return null
+	return _chunks[chunk_index]
+
 func get_entities_ids() -> PackedInt64Array:
-	return _entity_set.get_ids()
+	var result: PackedInt64Array = PackedInt64Array()
+	for chunk: ECSComponentBaseArrayChunk in _chunks:
+		var entity_ids: PackedInt64Array = chunk.get_entity_ids()
+		for i in range(entity_ids.size()):
+			if entity_ids[i] >= 0:
+				result.append(entity_ids[i])
+	return result
 
 func clear() -> void:
 	for chunk: ECSComponentBaseArrayChunk in _chunks:
 		chunk.clear()
 	_chunks.clear()
-	_entity_set.clear()
 
 func get_or_create_chunk(entity_id: int) -> ECSComponentBaseArrayChunk:
-	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_id)
+	var entity_index: int = ECSEntityHandle.index_of(entity_id)
+	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
 	while _chunks.size() <= chunk_index:
 		_chunks.append(create_chunk())
 	return _chunks[chunk_index]
 
 func get_chunk(entity_id: int) -> ECSComponentBaseArrayChunk:
-	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_id)
+	var entity_index: int = ECSEntityHandle.index_of(entity_id)
+	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
 	if _chunks.size() <= chunk_index:
 		return null
 	return _chunks[chunk_index]

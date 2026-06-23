@@ -114,11 +114,7 @@ func _execute_create_entity(command: Command) -> void:
 	if _ecs_manager == null:
 		return
 	
-	var component_ids_array: Array = []
-	for component_id in command.component_ids:
-		component_ids_array.append(component_id)
-	
-	var real_entity_id: int = _ecs_manager.create_entity.callv(component_ids_array)
+	var real_entity_id: int = _ecs_manager.create_entity_packed(command.component_ids)
 	
 	# Сохраняем маппинг временного ID на реальный
 	if command.entity_ids.size() > 0:
@@ -130,11 +126,7 @@ func _execute_create_entities(command: Command) -> void:
 	if _ecs_manager == null:
 		return
 	
-	var args: Array = [command.count]
-	for component_id in command.component_ids:
-		args.append(component_id)
-	
-	var real_entity_ids: PackedInt64Array = _ecs_manager.create_entities.callv(args)
+	var real_entity_ids: PackedInt64Array = _ecs_manager.create_entities_packed(command.count, command.component_ids)
 	
 	# Сохраняем маппинг временных ID на реальные
 	for i in range(min(real_entity_ids.size(), command.entity_ids.size())):
@@ -150,7 +142,7 @@ func _execute_add_component(command: Command) -> void:
 		return
 	
 	var real_entity_id: int = _get_real_entity_id(command.entity_ids[0])
-	if real_entity_id < 0:
+	if real_entity_id == 0 || !_ecs_manager.is_alive(real_entity_id):
 		return  # Сущность не существует
 	
 	_ecs_manager.add_component(real_entity_id, command.component_ids[0])
@@ -163,7 +155,7 @@ func _execute_remove_component(command: Command) -> void:
 		return
 	
 	var real_entity_id: int = _get_real_entity_id(command.entity_ids[0])
-	if real_entity_id < 0:
+	if real_entity_id == 0 || !_ecs_manager.is_alive(real_entity_id):
 		return  # Сущность не существует
 	
 	_ecs_manager.remove_component(real_entity_id, command.component_ids[0])
@@ -176,7 +168,7 @@ func _execute_destroy_entity(command: Command) -> void:
 		return
 	
 	var real_entity_id: int = _get_real_entity_id(command.entity_ids[0])
-	if real_entity_id < 0:
+	if real_entity_id == 0 || !_ecs_manager.is_alive(real_entity_id):
 		return  # Сущность не существует
 	
 	_ecs_manager.destroy_entity(real_entity_id)
@@ -192,7 +184,7 @@ func _execute_destroy_entities(command: Command) -> void:
 	var real_entity_ids: PackedInt64Array = PackedInt64Array()
 	for entity_id in command.entity_ids:
 		var real_entity_id: int = _get_real_entity_id(entity_id)
-		if real_entity_id >= 0:
+		if real_entity_id != 0 && _ecs_manager.is_alive(real_entity_id):
 			real_entity_ids.append(real_entity_id)
 	
 	# Удаляем все сущности одним вызовом (оптимизировано)

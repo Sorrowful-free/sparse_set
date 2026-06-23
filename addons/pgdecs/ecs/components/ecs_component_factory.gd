@@ -22,4 +22,5 @@ static func create_component(component_type: Variant.Type) -> ECSComponentBaseAr
 		TYPE_PACKED_COLOR_ARRAY:
 			return ECSComponentColorArray.new()
 		_:
+			push_error("ECSComponentFactory: unsupported component type %d" % component_type)
 			return null

@@ -1,30 +1,39 @@
 extends RefCounted
 class_name ECSEntityIdsPoolTest
 
-func test_first_id_is_one(runner: ECSTestRunner) -> void:
+func test_first_handle_is_valid(runner: ECSTestRunner) -> void:
 	var pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
-	runner.assert_eq(pool.get_next_entity_id(), 1)
+	var handle: int = pool.get_next_entity_id()
+	runner.assert_true(ECSEntityHandle.is_valid_handle(handle))
+	runner.assert_true(pool.is_alive(handle))
+	runner.assert_eq(ECSEntityHandle.index_of(handle), 0)
+	runner.assert_eq(ECSEntityHandle.generation_of(handle), 1)
 
-func test_ids_increment(runner: ECSTestRunner) -> void:
+func test_handles_increment_index(runner: ECSTestRunner) -> void:
 	var pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
-	runner.assert_eq(pool.get_next_entity_id(), 1)
-	runner.assert_eq(pool.get_next_entity_id(), 2)
-	runner.assert_eq(pool.get_next_entity_id(), 3)
+	var h1: int = pool.get_next_entity_id()
+	var h2: int = pool.get_next_entity_id()
+	var h3: int = pool.get_next_entity_id()
+	runner.assert_eq(ECSEntityHandle.index_of(h1), 0)
+	runner.assert_eq(ECSEntityHandle.index_of(h2), 1)
+	runner.assert_eq(ECSEntityHandle.index_of(h3), 2)
 
 func test_reuse_after_free(runner: ECSTestRunner) -> void:
 	var pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
-	var a: int = pool.get_next_entity_id()
-	var b: int = pool.get_next_entity_id()
-	pool.free_entity_id(b)
-	var c: int = pool.get_next_entity_id()
-	runner.assert_eq(c, b)
+	var h_a: int = pool.get_next_entity_id()
+	var h_b: int = pool.get_next_entity_id()
+	pool.free_entity_id(h_b)
+	runner.assert_false(pool.is_alive(h_b))
+	var h_c: int = pool.get_next_entity_id()
+	runner.assert_eq(ECSEntityHandle.index_of(h_c), ECSEntityHandle.index_of(h_b))
+	runner.assert_ne(ECSEntityHandle.generation_of(h_c), ECSEntityHandle.generation_of(h_b))
 
-func test_multiple_free_reuse(runner: ECSTestRunner) -> void:
+func test_double_free_rejected(runner: ECSTestRunner) -> void:
 	var pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
-	for i in range(5):
-		var tmp = pool.get_next_entity_id()
-	pool.free_entity_id(3)
-	pool.free_entity_id(5)
-	runner.assert_eq(pool.get_next_entity_id(), 5)
-	runner.assert_eq(pool.get_next_entity_id(), 3)
-	runner.assert_eq(pool.get_next_entity_id(), 6)
+	var handle: int = pool.get_next_entity_id()
+	pool.free_entity_id(handle)
+	pool.free_entity_id(handle)
+	var h2: int = pool.get_next_entity_id()
+	var h3: int = pool.get_next_entity_id()
+	runner.assert_eq(ECSEntityHandle.index_of(h2), ECSEntityHandle.index_of(handle))
+	runner.assert_eq(ECSEntityHandle.index_of(h3), 1)
