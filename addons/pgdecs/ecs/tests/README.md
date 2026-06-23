@@ -20,6 +20,7 @@
 - `unit/ecs_component_factory_test.gd` — ECSComponentFactory
 - `unit/ecs_component_array_test.gd` — компоненты/чанки (add/get/set/remove, батчи, границы)
 - `unit/ecs_manager_test.gd` — создание/удаление сущностей, add/remove компонентов, set/get, батчи
+- `unit/ecs_manager_archetype_transition_test.gd` — нормализация component_ids, кэш переходов архетипов
 - `unit/ecs_query_test.gd` — Query (with/without, get_entity_ids, get_chunks)
 - `unit/ecs_query_chunk_test.gd` — ECSQueryChunk (get_component_chunk по chunk_index)
 - `unit/ecs_world_state_test.gd` — валидность состояния мира
@@ -33,6 +34,14 @@
 - `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()`
 
 CI: `.github/workflows/ecs-tests.yml` (best-effort на Windows runner с локальным путём Godot).
+
+## Composer quality gates
+
+См. [`agent_handoff/QUALITY_GATES.md`](../agent_handoff/QUALITY_GATES.md).
+
+```powershell
+& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
+```
 
 ## Тесты производительности
 

@@ -9,6 +9,7 @@ const _SparseSetTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_sparse_se
 const _ComponentFactoryTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_component_factory_test.gd")
 const _ComponentArrayTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_component_array_test.gd")
 const _ManagerTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_manager_test.gd")
+const _ManagerArchetypeTransitionTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_manager_archetype_transition_test.gd")
 const _QueryTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_query_test.gd")
 const _QueryChunkTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_query_chunk_test.gd")
 const _WorldStateTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_world_state_test.gd")
@@ -32,6 +33,7 @@ static func run_all(runner: ECSTestRunner) -> void:
 		_ComponentFactoryTest.new(),
 		_ComponentArrayTest.new(),
 		_ManagerTest.new(),
+		_ManagerArchetypeTransitionTest.new(),
 		_QueryTest.new(),
 		_QueryChunkTest.new(),
 		_WorldStateTest.new(),
@@ -45,7 +47,7 @@ static func run_all(runner: ECSTestRunner) -> void:
 	]
 	var names: PackedStringArray = PackedStringArray([
 		"EntityIdsUtils", "EntityIdsPool", "Archetype", "ArchetypeChunk", "BitMask", "SparseSet",
-		"ComponentFactory", "ComponentArray", "ECSManager", "Query", "QueryChunk",
+		"ComponentFactory", "ComponentArray", "ECSManager", "ManagerArchetypeTransition", "Query", "QueryChunk",
 		"WorldState", "CommandBuffer", "SystemRunner", "SystemChunkBase", "Regression",
 		"Membership", "DenseIteration", "WorldDemo"
 	])

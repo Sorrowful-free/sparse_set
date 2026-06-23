@@ -351,6 +351,13 @@ for i in range(count):
 - `ECSManager.create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array`
 - `ECSManager.precache_archetype_packed(component_ids: PackedInt64Array) -> void`
 
+Входные `component_ids` нормализуются внутри менеджера (`sort + unique`).  
+Переходы `add_component` / `remove_component` кэшируются по `(old_archetype_hash, component_id)`.
+
+## Composer handoff
+
+Шаблоны делегирования для Cursor Composer: [`agent_handoff/README.md`](agent_handoff/README.md).
+
 ## Вне скоупа ядра
 
 - **Node, String, Transform** — не в `ECSComponentFactory`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md): паттерн registry bridge (примитивный slot + side-table).

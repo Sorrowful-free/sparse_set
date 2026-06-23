@@ -46,6 +46,7 @@ class MyMovementSystem extends ECSSystemChunkBase:
 - [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, ограничения GDScript
 - [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — Node/String через реестры
 - [MIGRATION.md](ecs/MIGRATION.md) — миграция на strict packed API
+- [agent_handoff/](ecs/agent_handoff/README.md) — шаблоны для Composer (батчи, gates, self-check)
 - [tests/README.md](ecs/tests/README.md) — юнит- и perf-тесты
 
 ## Тесты
