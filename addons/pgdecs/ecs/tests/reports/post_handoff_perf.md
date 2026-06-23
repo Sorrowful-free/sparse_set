@@ -81,3 +81,52 @@ Unit после Batch A: **545/545**.
 2. **`destroy_entities batch`** — +3.3% к post-handoff (в шуме): батчи после группировки по архетипу часто multi-chunk, overhead counting-sort заметнее.
 3. **Query/create_entity** — без значимых изменений (ожидаемо: Batch A не трогал query path).
 4. **Следующий кандидат** — coalescing command buffer (Batch B) или alloc-free query API.
+
+---
+
+## Batch B: command buffer coalescing
+
+Сырые логи: `multirun_post_coalesce/run_1.log` … `run_5.log`
+
+Unit после coalescing: **553/553**.
+
+| Benchmark | Baseline | Batch A med (5) | **Coalesce med (5)** | Δ med vs Batch A | Δ med vs baseline |
+|---|---:|---:|---:|---:|---:|
+| create_entities batch | 0.102 | 0.089 | **0.104** | +16.9% | +2.0% |
+| destroy_entity | 0.219 | 0.142 | **0.163** | +14.8% | **-25.6%** |
+| destroy_entities batch | 0.181 | 0.124 | **0.147** | +18.5% | **-18.8%** |
+| create_entity | 0.298 | 0.232 | **0.268** | +15.5% | **-10.1%** |
+| add/remove_component | 0.182 | 0.110 | **0.128** | +16.4% | **-29.7%** |
+| query iterate entities+components | 3.480 | 2.640 | **3.069** | +16.2% | **-11.8%** |
+| command_buffer execute | 0.014 | 0.011 | **0.014** | +27.3% | 0.0% |
+| query.get_entity_ids | 0.094 | 0.073 | **0.080** | +9.6% | **-14.9%** |
+| query.get_chunks() iterate | 0.022 | 0.011 | **0.012** | +9.1% | **-45.5%** |
+
+Разброс coalesce (`create_entities batch`): min **0.095** — med **0.104** — max **0.115** s.
+
+### Выводы coalescing
+
+1. **Относительно Batch A** — все бенчмарки выглядят медленнее (~+10–18%), включая query-пути, которые coalescing не трогал → **скорее шум между сессиями замера**, не регрессия кода.
+2. **Относительно baseline** — по-прежнему быстрее на destroy/create/query (кроме `create_entities batch` ≈ +2% к baseline).
+3. **`command_buffer execute`** — бенчмарк только 1000× `create_entity` без схлопываемых команд; +27% к Batch A в пределах шума (~0.011 vs 0.014 s).
+4. Для честной оценки coalescing нужен **отдельный бенчмарк** с add/remove/destroy в одном буфере (сейчас не покрыт).
+
+---
+
+## Повторный прогон (подтверждение шума сессии)
+
+Сырые логи: `multirun_rerun/run_1.log` … `run_5.log` (сразу после coalescing, 5 прогонов подряд).
+
+| Benchmark | Batch A med | Coalesce₁ med (первая серия) | **Rerun med** | Rerun vs Coalesce₁ | Rerun vs Batch A |
+|---|---:|---:|---:|---:|---:|
+| create_entities batch | 0.089 | 0.104 | **0.086** | **−17.3%** | **−3.4%** |
+| destroy_entity | 0.142 | 0.163 | **0.137** | **−16.0%** | **−3.5%** |
+| destroy_entities batch | 0.124 | 0.147 | **0.122** | **−17.0%** | **−1.6%** |
+| create_entity | 0.232 | 0.268 | **0.225** | **−16.0%** | **−3.0%** |
+| query iterate e+c | 2.640 | 3.069 | **2.607** | **−15.1%** | **−1.2%** |
+| add/remove_component | 0.110 | 0.128 | **0.109** | **−14.8%** | **−0.9%** |
+| command_buffer execute | 0.011 | 0.014 | **0.013** | −7.1% | +18.2%* |
+
+\* `command_buffer` ~0.011–0.020 s — в шуме.
+
+**Вывод:** первая серия `multirun_post_coalesce` была медленнее на ~15–18% по всем метрикам, включая query (код не менялся). Повторный прогон вернул значения к уровню Batch A ±3%. Регрессии от coalescing **нет** — это межсессионный шум ОС.
