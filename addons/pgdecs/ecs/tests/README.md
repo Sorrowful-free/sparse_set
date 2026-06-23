@@ -36,7 +36,13 @@ CI: `.github/workflows/ecs-tests.yml` (best-effort на Windows runner с лок
 
 ## Тесты производительности
 
-Запуск: открыть `ecs/tests/run_performance_tests.gd` в редакторе и нажать **Run** (EditorScript).
+Запуск из редактора: открыть `ecs/tests/run_performance_tests.gd` и нажать **Run** (EditorScript).
+
+Запуск из консоли (headless):
+
+```powershell
+& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_performance_tests_headless.gd
+```
 
 Бенчмарки:
 - create_entity × N
@@ -48,3 +54,11 @@ CI: `.github/workflows/ecs-tests.yml` (best-effort на Windows runner с лок
 - command_buffer.execute() с накопленными create_entity
 
 Количество итераций по умолчанию: 10 000 (в `RunPerformanceTests` можно изменить).
+
+## Перегенерация компонентного кода
+
+Для синхронизации `components/generated/*` с шаблонами:
+
+```powershell
+& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_codegen_headless.gd
+```

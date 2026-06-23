@@ -4,6 +4,7 @@ class_name ECSArchetypeChunk extends RefCounted
 
 var _slots: PackedInt64Array
 var _dense: PackedInt64Array
+var _slot_to_dense: PackedInt32Array
 var _count: int = 0
 
 func _init() -> void:
@@ -12,13 +13,25 @@ func _init() -> void:
 	_slots.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
 	_dense = PackedInt64Array()
 	_dense.resize(ECSEntityIdsUtils.CHUNK_SIZE)
+	_dense.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
+	_slot_to_dense = PackedInt32Array()
+	_slot_to_dense.resize(ECSEntityIdsUtils.CHUNK_SIZE)
+	_slot_to_dense.fill(-1)
 
 func add_entity(handle: int) -> void:
 	var entity_index: int = ECSEntityHandle.index_of(handle)
 	var slot: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
-	if _slots[slot] == ECSEntityIdsUtils.NULL_ENTITY_ID:
+	var existing_handle: int = _slots[slot]
+	if existing_handle == ECSEntityIdsUtils.NULL_ENTITY_ID:
 		_dense[_count] = handle
+		_slot_to_dense[slot] = _count
 		_count += 1
+	elif existing_handle == handle:
+		return
+	else:
+		var dense_index: int = _slot_to_dense[slot]
+		if dense_index >= 0 && dense_index < _count:
+			_dense[dense_index] = handle
 	_slots[slot] = handle
 
 func remove_entity(handle: int) -> void:
@@ -26,14 +39,20 @@ func remove_entity(handle: int) -> void:
 	var slot: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	if _slots[slot] != handle:
 		return
+	var dense_index: int = _slot_to_dense[slot]
+	if dense_index < 0 || dense_index >= _count:
+		_slots[slot] = ECSEntityIdsUtils.NULL_ENTITY_ID
+		return
 	_slots[slot] = ECSEntityIdsUtils.NULL_ENTITY_ID
-	for i in range(_count):
-		if _dense[i] == handle:
-			var last_idx: int = _count - 1
-			if i != last_idx:
-				_dense[i] = _dense[last_idx]
-			_count -= 1
-			return
+	_slot_to_dense[slot] = -1
+	var last_idx: int = _count - 1
+	if dense_index != last_idx:
+		var swapped_handle: int = _dense[last_idx]
+		_dense[dense_index] = swapped_handle
+		var swapped_slot: int = ECSEntityIdsUtils.slot_from_handle(swapped_handle)
+		_slot_to_dense[swapped_slot] = dense_index
+	_dense[last_idx] = ECSEntityIdsUtils.NULL_ENTITY_ID
+	_count -= 1
 
 func has_entity(handle: int) -> bool:
 	var entity_index: int = ECSEntityHandle.index_of(handle)
@@ -62,4 +81,6 @@ func get_slots() -> PackedInt64Array:
 
 func clear() -> void:
 	_slots.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
+	_dense.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
+	_slot_to_dense.fill(-1)
 	_count = 0

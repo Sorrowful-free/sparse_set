@@ -76,9 +76,8 @@ func register_component(component_id: int, component_type: Variant.Type) -> void
 	_components[component_id] = component
 
 ## Предрасчёт архетипа для набора компонентов (кэш + создание архетипа).
-func precache_archetype(...component_ids: Array) -> void:
-	var packed: PackedInt64Array = PackedInt64Array(component_ids)
-	var info: ECSArchetypeInfo = _get_or_create_archetype_info_packed(packed)
+func precache_archetype_packed(component_ids: PackedInt64Array) -> void:
+	var info: ECSArchetypeInfo = _get_or_create_archetype_info_packed(component_ids)
 	_register_archetype(info.bitmask.bit_hash(), info.bitmask, info.packed)
 
 func get_component_array(component_id: int) -> ECSComponentBaseArray:
@@ -101,9 +100,6 @@ func create_entity_packed(component_ids: PackedInt64Array) -> int:
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entity(entity_id)
 	return entity_id
-
-func create_entity(...component_ids: Array) -> int:
-	return create_entity_packed(PackedInt64Array(component_ids))
 
 func create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array:
 	if count <= 0:
@@ -128,9 +124,6 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entities_batch(entity_ids)
 	return entity_ids
-
-func create_entities(count: int, ...component_ids: Array) -> PackedInt64Array:
-	return create_entities_packed(count, PackedInt64Array(component_ids))
 
 func destroy_entity(entity_id: int) -> void:
 	if !is_alive(entity_id):

@@ -11,7 +11,6 @@ on:
 jobs:
   test:
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Run ECS unit tests (Godot headless)
@@ -22,6 +21,6 @@ jobs:
             & $godot --headless --path . --import
             & $godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_unit_tests_headless.gd
           } else {
-            Write-Host "Godot not found at $godot — run tests locally (see addons/pgdecs/ecs/tests/README.md)"
+            Write-Host "::warning::Godot not found at $godot. ECS tests skipped in CI; run locally (addons/pgdecs/ecs/tests/README.md)."
             exit 0
           }

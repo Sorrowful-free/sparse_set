@@ -9,7 +9,7 @@ const HEALTH_ID: int = 2
 const TAG_ID: int = 3
 
 func _sorted_ids(ids: PackedInt64Array) -> PackedInt64Array:
-	var arr: Array = []
+	var arr: Array[int] = []
 	for i in range(ids.size()):
 		arr.append(ids[i])
 	arr.sort()
@@ -18,7 +18,7 @@ func _sorted_ids(ids: PackedInt64Array) -> PackedInt64Array:
 		out.append(x)
 	return out
 
-func _assert_query_ids(runner: ECSTestRunner, query: ECSQuery, expected: Array) -> void:
+func _assert_query_ids(runner: ECSTestRunner, query: ECSQuery, expected: Array[int]) -> void:
 	var result: PackedInt64Array = query.get_entity_ids()
 	var expected_packed: PackedInt64Array = PackedInt64Array()
 	for e in expected:
@@ -36,11 +36,11 @@ func test_three_components_queries_return_correct_entities(runner: ECSTestRunner
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
 
-	var e_pos_only: int = ecs.create_entity(POSITION_ID)
-	var e_health_only: int = ecs.create_entity(HEALTH_ID)
-	var e_pos_health: int = ecs.create_entity(POSITION_ID, HEALTH_ID)
-	var e_pos_tag: int = ecs.create_entity(POSITION_ID, TAG_ID)
-	var e_all: int = ecs.create_entity(POSITION_ID, HEALTH_ID, TAG_ID)
+	var e_pos_only: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
+	var e_health_only: int = ecs.create_entity_packed(PackedInt64Array([HEALTH_ID]))
+	var e_pos_health: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var e_pos_tag: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, TAG_ID]))
+	var e_all: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID, TAG_ID]))
 
 	# With Position -> e_pos_only, e_pos_health, e_pos_tag, e_all
 	var q_pos: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
@@ -76,9 +76,9 @@ func test_queries_after_destroy(runner: ECSTestRunner) -> void:
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 
-	var e1: int = ecs.create_entity(POSITION_ID)
-	var e2: int = ecs.create_entity(POSITION_ID, HEALTH_ID)
-	var e3: int = ecs.create_entity(POSITION_ID, HEALTH_ID)
+	var e1: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
+	var e2: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var e3: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 
 	var q_both: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	_assert_query_ids(runner, q_both, [e2, e3])
@@ -98,7 +98,7 @@ func test_queries_after_add_remove_component(runner: ECSTestRunner) -> void:
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 
-	var e: int = ecs.create_entity(POSITION_ID)
+	var e: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var q_pos: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
 	var q_both: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 
@@ -119,8 +119,8 @@ func test_batch_destroy_queries_stay_valid(runner: ECSTestRunner) -> void:
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 
-	var ids_both: PackedInt64Array = ecs.create_entities(5, POSITION_ID, HEALTH_ID)
-	var e_pos_only: int = ecs.create_entity(POSITION_ID)
+	var ids_both: PackedInt64Array = ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var e_pos_only: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 
 	var q_both: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var q_pos: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)

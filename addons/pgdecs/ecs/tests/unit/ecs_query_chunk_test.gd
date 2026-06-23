@@ -8,7 +8,7 @@ func test_get_component_chunk_by_index(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	var entity_id: int = ecs.create_entity(POSITION_ID, HEALTH_ID)
+	var entity_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var chunks: Array[ECSQueryChunk] = query.get_chunks()
 	runner.assert_gt(chunks.size(), 0)

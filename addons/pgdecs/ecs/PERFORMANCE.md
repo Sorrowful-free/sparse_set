@@ -16,19 +16,20 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Итерация query/system | Dense sidecar в `ECSArchetypeChunk`: O(alive) на чанк, не O(256) |
 | `get_entity_count()` | O(1) из `_count`, без скана слотов |
 | Членство | Только archetype — нет дубля `_entity_ids` на каждый компонент (−256×int64 на чанк×тип) |
+| Remove в чанке | `slot -> dense_index` sidecar: swap-remove за O(1) без линейного поиска |
 | Доступ к данным | index→slot O(1) сохранён |
-| Архетипы | Кэш по hash маски, `precache_archetype()` |
+| Архетипы | Кэш по hash маски, `precache_archetype_packed()` |
 | Query | Кэш подходящих архетипов, пул `ECSQueryChunk` в `get_chunks()` |
 | Handles | Generational id — безопасный реюз без stale access через `has_component` |
 | Destroy | Итерация только по `component_ids` архетипа, батч `remove_entities_batch` |
-| BitMask | Bounds-guard, стабильный hash |
+| BitMask | Bounds-guard, стабильный hash без временных `slice` в `bit_hash()` |
 
 ## Рекомендации hot path
 
 1. **Dense iteration** — `chunk.get_dense_entities()` + `chunk.get_entity_count()`.
 2. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
-3. **`precache_archetype()`** — до массового spawn с известным набором компонентов.
-4. **Батчи** — `create_entities()`, `destroy_entities()`, command buffer.
+3. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
+4. **Батчи** — `create_entities_packed()`, `destroy_entities()`, command buffer.
 5. **Не вызывать** `get_entity_ids()` каждый кадр, если достаточно chunk-system с dense loop.
 
 ## Пример итерации (система)
@@ -52,7 +53,9 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 
 ## Бенчмарки
 
-`ecs/tests/performance/ecs_benchmark.gd` — create/destroy, query, dense chunk iteration. Запуск через `run_performance_tests.gd` в редакторе.
+`ecs/tests/performance/ecs_benchmark.gd` — create/destroy, query, dense chunk iteration.
+- В редакторе: `run_performance_tests.gd`
+- Headless: `run_performance_tests_headless.gd`
 
 ## Честные ожидания
 

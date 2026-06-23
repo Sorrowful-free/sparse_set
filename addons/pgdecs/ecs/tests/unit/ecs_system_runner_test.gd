@@ -47,7 +47,7 @@ func test_chunk_system_processes_all_entities(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	var ids: PackedInt64Array = ecs.create_entities(10, POSITION_ID, HEALTH_ID)
+	var ids: PackedInt64Array = ecs.create_entities_packed(10, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var sys: ChunkCountSystem = ChunkCountSystem.new(ecs)
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	run.add_system(sys)
@@ -59,7 +59,7 @@ func test_chunk_system_worker_pool_runs(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	var ids: PackedInt64Array = ecs.create_entities(10, POSITION_ID, HEALTH_ID)
+	var ids: PackedInt64Array = ecs.create_entities_packed(10, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var sys: ChunkCountSystem = ChunkCountSystem.new(ecs)
 	sys.use_worker_pool = true
 	var run: ECSSystemRunner = ECSSystemRunner.new()

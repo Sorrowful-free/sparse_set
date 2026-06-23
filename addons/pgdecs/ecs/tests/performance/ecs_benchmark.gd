@@ -21,14 +21,14 @@ func benchmark_create_entity() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	return _time_block("create_entity x %d" % _iterations, func():
 		for i in range(_iterations):
-			var eid: int = _ecs.create_entity(POSITION_ID)
+			var eid: int = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	)
 
 func benchmark_destroy_entity() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	var ids: PackedInt64Array = PackedInt64Array()
 	for i in range(_iterations):
-		ids.append(_ecs.create_entity(POSITION_ID))
+		ids.append(_ecs.create_entity_packed(PackedInt64Array([POSITION_ID])))
 	return _time_block("destroy_entity x %d" % _iterations, func():
 		for eid in ids:
 			_ecs.destroy_entity(eid)
@@ -40,7 +40,7 @@ func benchmark_create_entities_batch() -> float:
 	var total: int = batches * 100
 	return _time_block("create_entities(100) x %d = %d entities" % [batches, total], func():
 		for i in range(batches):
-			var tmp = _ecs.create_entities(100, POSITION_ID)
+			var tmp = _ecs.create_entities_packed(100, PackedInt64Array([POSITION_ID]))
 	)
 
 func benchmark_destroy_entities_batch() -> float:
@@ -49,7 +49,7 @@ func benchmark_destroy_entities_batch() -> float:
 	var batches: int = maxi(1, _iterations / 100)
 	var all_ids: PackedInt64Array = PackedInt64Array()
 	for i in range(batches):
-		var ids: PackedInt64Array = _ecs.create_entities(batch_size, POSITION_ID)
+		var ids: PackedInt64Array = _ecs.create_entities_packed(batch_size, PackedInt64Array([POSITION_ID]))
 		for eid in ids:
 			all_ids.append(eid)
 	return _time_block("destroy_entities batch (total %d)" % all_ids.size(), func():
@@ -60,7 +60,7 @@ func benchmark_query_get_entity_ids() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	for i in range(_iterations):
-		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
 	return _time_block("query.get_entity_ids() x %d (world size %d)" % [runs, _iterations], func():
@@ -73,7 +73,7 @@ func benchmark_query_iterate_chunks() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	for i in range(_iterations):
-		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
 	return _time_block("query.get_chunks() iterate x %d (world size %d)" % [runs, _iterations], func():
@@ -90,7 +90,7 @@ func benchmark_query_iterate_entities_with_components() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	for i in range(_iterations):
-		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
 	return _time_block("query iterate entities+components (chunks) x %d (world size %d)" % [runs, _iterations], func():
@@ -137,7 +137,7 @@ func benchmark_query_iterate_entities_with_components_worker_pool() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	for i in range(_iterations):
-		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
 	return _time_block("query iterate entities+components WorkerThreadPool x %d (world size %d)" % [runs, _iterations], func():
@@ -159,7 +159,7 @@ func benchmark_query_worker_pool() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	for i in range(_iterations):
-		_ecs.create_entity(POSITION_ID, HEALTH_ID)
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
 	return _time_block("query get_chunks()+WorkerThreadPool x %d (world %d)" % [runs, _iterations], func():
@@ -180,7 +180,7 @@ static func _process_chunk_index(chunks: Array[ECSQueryChunk], results: PackedIn
 func benchmark_add_remove_component() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	var eid: int = _ecs.create_entity(POSITION_ID)
+	var eid: int = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var runs: int = min(_iterations, 5000)
 	return _time_block("add_component + remove_component x %d" % runs, func():
 		for i in range(runs):
@@ -202,7 +202,6 @@ func benchmark_command_buffer_execute() -> float:
 func run_all() -> void:
 	print("--- ECS Performance (iterations=%d) ---" % _iterations)
 	var ecs_fresh: ECSManager = ECSManager.new()
-	ecs_fresh.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	var t: float = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_create_entity()
 	print("  create_entity: %.3f s" % t)
 

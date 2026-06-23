@@ -64,3 +64,23 @@ func test_bit_match_zero_word_is_noop(runner: ECSTestRunner) -> void:
 func test_bit_test_out_of_bounds_returns_false(runner: ECSTestRunner) -> void:
 	var mask: ECSBitMask = ECSBitMask.new(2)
 	runner.assert_false(mask.bit_test(100))
+
+func test_bit_hash_recomputed_after_mutation(runner: ECSTestRunner) -> void:
+	var mask: ECSBitMask = ECSBitMask.new(64)
+	mask.bit_set(1, true)
+	mask.bit_set(2, true)
+	var cached_hash: int = mask.bit_hash()
+	runner.assert_eq(mask.bit_hash(), cached_hash)
+	mask.bit_set(10, true)
+	var expected: ECSBitMask = ECSBitMask.new(64)
+	expected.bit_set(1, true)
+	expected.bit_set(2, true)
+	expected.bit_set(10, true)
+	runner.assert_eq(mask.bit_hash(), expected.bit_hash())
+
+func test_bit_hash_recomputed_after_copy(runner: ECSTestRunner) -> void:
+	var mask: ECSBitMask = ECSBitMask.new(64)
+	mask.bit_set(1, true)
+	mask.bit_hash()
+	mask.bit_copy_from(PackedInt64Array([0]))
+	runner.assert_eq(mask.bit_hash(), 0)

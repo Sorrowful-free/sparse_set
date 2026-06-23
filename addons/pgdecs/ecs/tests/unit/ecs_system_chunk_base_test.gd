@@ -26,7 +26,7 @@ class _SumChunkSystem extends ECSSystemChunkBase:
 func test_process_chunk_single_thread(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	ecs.create_entities(3, VALUE_ID)
+	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.update(0.016)
 	runner.assert_gt(system.processed_chunks, 0)
@@ -35,7 +35,7 @@ func test_process_chunk_single_thread(runner: ECSTestRunner) -> void:
 func test_process_chunk_worker_pool_matches_single_thread(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	ecs.create_entities(8, VALUE_ID)
+	ecs.create_entities_packed(8, PackedInt64Array([VALUE_ID]))
 	var single: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	single.update(0.016)
 	var parallel: _SumChunkSystem = _SumChunkSystem.new(ecs)

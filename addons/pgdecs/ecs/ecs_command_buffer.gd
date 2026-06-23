@@ -15,7 +15,7 @@ class Command:
 	var entity_ids: PackedInt64Array  # Для массовых операций
 	var count: int  # Количество сущностей для создания
 	
-	func _init(cmd_type: CommandType, c_ids: PackedInt64Array = PackedInt64Array(), e_ids: PackedInt64Array = PackedInt64Array(), cnt: int = 0):
+	func _init(cmd_type: CommandType, c_ids: PackedInt64Array = PackedInt64Array(), e_ids: PackedInt64Array = PackedInt64Array(), cnt: int = 0) -> void:
 		type = cmd_type
 		component_ids = c_ids
 		entity_ids = e_ids
@@ -23,7 +23,7 @@ class Command:
 
 var _ecs_manager: ECSManager
 var _commands: Array[Command] = []
-var _temp_id_to_real_id: Dictionary = {}  # Маппинг временных ID на реальные
+var _temp_id_to_real_id: Dictionary[int, int] = {}  # Маппинг временных ID на реальные
 var _next_temp_id: int = -1  # Счетчик для генерации уникальных временных ID
 
 func _init(ecs_manager: ECSManager) -> void:

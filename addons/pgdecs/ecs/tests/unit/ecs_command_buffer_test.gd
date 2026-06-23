@@ -17,7 +17,7 @@ func test_create_entity_via_buffer(runner: ECSTestRunner) -> void:
 func test_destroy_via_buffer(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	var real_id: int = ecs.create_entity(POSITION_ID)
+	var real_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	buf.destroy_entity(real_id)
 	buf.execute()

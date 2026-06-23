@@ -285,7 +285,8 @@
 - Добавлено поле `var _command_buffer: ECSCommandBuffer`, в `_init()` создаётся `ECSCommandBuffer.new(ecs_manager)`.
 
 **4.2. ECSCommandBuffer** (`ecs/ecs_command_buffer.gd`):
-- Исправлена совместимость с varargs в ECSManager: вызовы `create_entity` и `create_entities` переведены на `.callv(...)`, чтобы передавать аргументы из массива как отдельные параметры (вместо одного аргумента-массива).
+- Работает со strict packed API менеджера: `create_entity_packed()` и `create_entities_packed()`.
+- Временные ID (`< 0`) типизировано маппятся в реальные `entity_id` через `Dictionary[int, int]`.
 
 ---
 
@@ -295,7 +296,7 @@
 
 **5.2. Пример (example/)** — приведён к рабочему API без класса ComponentBaseView:
 - **GameComponents:** регистрирует компонент Position (id=1, TYPE_PACKED_VECTOR2_ARRAY), сохраняет типизированную ссылку `PositionComponent: ComponentVector2Array` через `get_component_array(1) as ComponentVector2Array`; константа `POSITION_COMPONENT_ID` для использования в сценах.
-- **Bootstrap:** в `_ready()` создаёт GameComponents, создаёт сущность с компонентом позиции (`create_entity(GameComponents.POSITION_COMPONENT_ID)`), устанавливает позицию через `PositionComponent.set_component(entity_id, Vector2(100, 200))`.
+- **Bootstrap:** в `_ready()` создаёт GameComponents, создаёт сущность через `create_entity_packed(PackedInt64Array([...]))`, устанавливает позицию через `PositionComponent.set_component(entity_id, Vector2(100, 200))`.
 
 **5.3. Проверка** — после запуска сцены с Bootstrap сущность создаётся, компонент записывается без ошибок. Существующие тесты (например, bit_mask_test) не затрагиваются.
 
@@ -311,10 +312,11 @@
 |------|------------|
 | `_slots[256]` | handle в слоте или `-1` (tombstone) |
 | `_dense[0..count)` | плотный список живых handle |
+| `_slot_to_dense[256]` | индекс handle в `_dense` для каждого слота (`-1` если пусто) |
 | `_count` | число живых сущностей в чанке (O(1)) |
 
 - Доступ по индексу: `chunk_index = entity_index >> 8`, `slot = entity_index & 0xFF` — без изменений (`ECSEntityIdsUtils`).
-- Удаление: tombstone в `_slots` + swap-remove в `_dense`.
+- Удаление: tombstone в `_slots` + swap-remove в `_dense` + обновление `_slot_to_dense` (O(1) без линейного поиска).
 - Итерация query/system: `for i in range(chunk.get_entity_count())` по `_dense`, не scan 0..255.
 
 ## Единый источник членства
@@ -342,6 +344,12 @@ for i in range(count):
     var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
     var value = comp_chunk.get_value_at_slot(slot)
 ```
+
+## Публичный API (breaking, strict packed)
+
+- `ECSManager.create_entity_packed(component_ids: PackedInt64Array) -> int`
+- `ECSManager.create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array`
+- `ECSManager.precache_archetype_packed(component_ids: PackedInt64Array) -> void`
 
 ## Вне скоупа ядра
 
