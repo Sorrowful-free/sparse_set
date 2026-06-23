@@ -51,3 +51,33 @@
 2. **Относительно 7 прогонов до handoff** — стабильное улучшение в `add/remove_component` (−17.5%, transition cache), batch create (−12%), query iterate (−13%). `create_entity` чуть хуже median prev7 (−2.5%), но сильный выброс в run_4 (0.385 s) — вероятный шум ОС/планировщика.
 3. **command_buffer** — абсолютные значения ~0.010–0.014 s; +10% к prev7 в пределах погрешности.
 4. Для production-профиля разумно снимать **≥5 прогонов** и смотреть median, не одиночный after-run.
+
+---
+
+## Batch A: fast-path batch (post handoff)
+
+Сырые логи: `multirun_post_batch_a/run_1.log` … `run_5.log`
+
+Изменение: chunk-wise batch в [`ecs_component_base_array.gd`](../components/base/ecs_component_base_array.gd) — counting-sort группировка без `Dictionary`, single-chunk fast-path, fallback на поэлементный цикл для `size < 2` и невалидных handle.
+
+Unit после Batch A: **545/545**.
+
+| Benchmark | Baseline | Post-handoff med (5) | **Batch A med (5)** | Δ med vs post-handoff | Δ med vs baseline |
+|---|---:|---:|---:|---:|---:|
+| create_entities batch | 0.102 | 0.091 | **0.089** | **-2.2%** | **-12.7%** |
+| destroy_entity | 0.219 | 0.151 | **0.142** | **-6.0%** | **-35.2%** |
+| destroy_entities batch | 0.181 | 0.120 | **0.124** | +3.3% | **-31.5%** |
+| add/remove_component | 0.182 | 0.113 | **0.110** | -2.7% | **-39.6%** |
+| query iterate entities+components | 3.480 | 2.675 | **2.640** | -1.3% | **-24.1%** |
+| query chunks WorkerThreadPool | 0.017 | 0.014 | **0.013** | -7.1% | -23.5% |
+| create_entity | 0.298 | 0.230 | **0.232** | +0.9% | -22.1% |
+| query.get_entity_ids | 0.094 | 0.072 | **0.073** | +1.4% | -22.3% |
+| query.get_chunks() iterate | 0.022 | 0.011 | **0.011** | 0.0% | -50.0% |
+| command_buffer execute | 0.014 | 0.011 | **0.011** | 0.0% | -21.4% |
+
+### Выводы Batch A
+
+1. **Целевые batch-сценарии** — `create_entities batch` ещё −2.2% к post-handoff; `destroy_entity` −6.0% (одиночный destroy через component remove).
+2. **`destroy_entities batch`** — +3.3% к post-handoff (в шуме): батчи после группировки по архетипу часто multi-chunk, overhead counting-sort заметнее.
+3. **Query/create_entity** — без значимых изменений (ожидаемо: Batch A не трогал query path).
+4. **Следующий кандидат** — coalescing command buffer (Batch B) или alloc-free query API.
