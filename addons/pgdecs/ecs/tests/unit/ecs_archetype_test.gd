@@ -43,3 +43,15 @@ func test_dense_swap_remove(runner: ECSTestRunner) -> void:
 	runner.assert_false(chunk.has_entity(e2))
 	runner.assert_true(chunk.has_entity(e1))
 	runner.assert_true(chunk.has_entity(e3))
+
+func test_remove_entities_batch(runner: ECSTestRunner) -> void:
+	var bits: PackedInt64Array = PackedInt64Array([1])
+	var arch: ECSArchetype = ECSArchetype.new(bits, PackedInt64Array([1]))
+	var handles: PackedInt64Array = PackedInt64Array()
+	for i in range(10):
+		var h: int = ECSEntityHandle.make(100 + i, 1)
+		arch.add_entity(h)
+		handles.append(h)
+	runner.assert_eq(arch.get_chunks()[0].get_entity_count(), 10)
+	arch.remove_entities_batch(handles)
+	runner.assert_eq(arch.get_chunks()[0].get_entity_count(), 0)

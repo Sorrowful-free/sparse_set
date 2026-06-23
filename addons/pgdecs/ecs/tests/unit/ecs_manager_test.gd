@@ -54,6 +54,17 @@ func test_destroy_entities_batch(runner: ECSTestRunner) -> void:
 	for eid in ids:
 		runner.assert_false(ecs.has_component(eid, POSITION_ID))
 
+func test_destroy_entities_multi_chunk(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities_packed(300, PackedInt64Array([POSITION_ID]))
+	var arch: ECSArchetype = ecs.get_entity_archetype(ids[0])
+	runner.assert_gt(arch.get_chunks().size(), 1)
+	ecs.destroy_entities(ids)
+	runner.assert_false(ecs.is_alive(ids[0]))
+	runner.assert_false(ecs.is_alive(ids[299]))
+	runner.assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0)
+
 func test_same_archetype_reused(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)

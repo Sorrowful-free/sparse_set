@@ -30,6 +30,10 @@ func remove_entity(entity: int) -> void:
 	if chunk != null:
 		chunk.remove_entity(entity)
 
+func remove_entities_batch(entity_ids: PackedInt64Array) -> void:
+	for entity_id: int in entity_ids:
+		remove_entity(entity_id)
+
 func has_entity(entity: int) -> bool:
 	var entity_index: int = ECSEntityHandle.index_of(entity)
 	var chunk: ECSArchetypeChunk = get_archetype_chunk(entity_index)

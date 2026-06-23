@@ -20,6 +20,12 @@ var _remove_transition_cache: Dictionary[int, Dictionary] = {}
 var _work_component_ids: PackedInt64Array = PackedInt64Array()
 var _work_bitmask: ECSBitMask = ECSBitMask.new(1)
 
+## Scratch для destroy_entities: группировка по archetype hash без Dictionary.
+var _destroy_entity_scratch: PackedInt64Array = PackedInt64Array()
+var _destroy_hash_scratch: PackedInt64Array = PackedInt64Array()
+var _destroy_sort_indices: Array[int] = []
+var _destroy_batch_scratch: PackedInt64Array = PackedInt64Array()
+
 func _init() -> void:
 	pass
 
@@ -235,7 +241,13 @@ func destroy_entity(entity_id: int) -> void:
 func destroy_entities(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
 		return
-	var by_archetype: Dictionary[int, PackedInt64Array] = {}
+	var estimated: int = entity_ids.size()
+	_destroy_entity_scratch.resize(estimated)
+	_destroy_hash_scratch.resize(estimated)
+	var write_index: int = 0
+	var first_hash: int = 0
+	var single_archetype: bool = true
+	var has_any: bool = false
 	for entity_id in entity_ids:
 		if !is_alive(entity_id):
 			continue
@@ -245,29 +257,63 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 		var archetype_hash: int = _entities_to_archetypes[entity_index]
 		if archetype_hash < 0:
 			continue
-		if !by_archetype.has(archetype_hash):
-			by_archetype[archetype_hash] = PackedInt64Array()
-		by_archetype[archetype_hash].append(entity_id)
-	for archetype_hash in by_archetype:
-		var batch: PackedInt64Array = by_archetype[archetype_hash]
-		var archetype: ECSArchetype = _archetypes.get(archetype_hash, null)
-		if archetype == null:
-			for entity_id in batch:
-				for component_id in _components:
-					var component: ECSComponentBaseArray = _components[component_id]
-					component.remove_entity(entity_id)
-				_entity_ids_pool.free_entity_id(entity_id)
-				_entities_to_archetypes[_entity_index(entity_id)] = -1
-			continue
+		if has_any:
+			if archetype_hash != first_hash:
+				single_archetype = false
+		else:
+			first_hash = archetype_hash
+			has_any = true
+		_destroy_entity_scratch[write_index] = entity_id
+		_destroy_hash_scratch[write_index] = archetype_hash
+		write_index += 1
+	var valid_count: int = write_index
+	if valid_count == 0:
+		return
+	if valid_count < estimated:
+		_destroy_entity_scratch.resize(valid_count)
+		_destroy_hash_scratch.resize(valid_count)
+	if single_archetype:
+		_destroy_archetype_batch(first_hash, _destroy_entity_scratch)
+		return
+	_destroy_sort_indices.resize(valid_count)
+	for i in range(valid_count):
+		_destroy_sort_indices[i] = i
+	_destroy_sort_indices.sort_custom(func(a: int, b: int) -> bool:
+		return _destroy_hash_scratch[a] < _destroy_hash_scratch[b]
+	)
+	var cursor: int = 0
+	while cursor < valid_count:
+		var archetype_hash: int = _destroy_hash_scratch[_destroy_sort_indices[cursor]]
+		var range_start: int = cursor
+		cursor += 1
+		while cursor < valid_count && _destroy_hash_scratch[_destroy_sort_indices[cursor]] == archetype_hash:
+			cursor += 1
+		var range_size: int = cursor - range_start
+		_destroy_batch_scratch.resize(range_size)
+		for i in range(range_size):
+			_destroy_batch_scratch[i] = _destroy_entity_scratch[_destroy_sort_indices[range_start + i]]
+		_destroy_archetype_batch(archetype_hash, _destroy_batch_scratch)
+
+func _destroy_archetype_batch(archetype_hash: int, batch: PackedInt64Array) -> void:
+	if batch.is_empty():
+		return
+	var archetype: ECSArchetype = _archetypes.get(archetype_hash, null)
+	if archetype == null:
 		for entity_id in batch:
-			archetype.remove_entity(entity_id)
-		for component_id in archetype._component_ids:
-			var component: ECSComponentBaseArray = _components.get(component_id, null)
-			if component != null:
-				component.remove_entities_batch(batch)
-		for entity_id in batch:
+			for component_id in _components:
+				var component: ECSComponentBaseArray = _components[component_id]
+				component.remove_entity(entity_id)
 			_entity_ids_pool.free_entity_id(entity_id)
 			_entities_to_archetypes[_entity_index(entity_id)] = -1
+		return
+	archetype.remove_entities_batch(batch)
+	for component_id in archetype._component_ids:
+		var component: ECSComponentBaseArray = _components.get(component_id, null)
+		if component != null:
+			component.remove_entities_batch(batch)
+	for entity_id in batch:
+		_entity_ids_pool.free_entity_id(entity_id)
+		_entities_to_archetypes[_entity_index(entity_id)] = -1
 
 func get_entity_archetype(entity_id: int) -> ECSArchetype:
 	if !is_alive(entity_id):
