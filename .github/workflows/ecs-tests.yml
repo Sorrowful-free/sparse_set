@@ -1,0 +1,27 @@
+name: ECS Unit Tests
+
+on:
+  push:
+    paths:
+      - 'addons/pgdecs/**'
+  pull_request:
+    paths:
+      - 'addons/pgdecs/**'
+
+jobs:
+  test:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ECS unit tests (Godot headless)
+        shell: pwsh
+        run: |
+          $godot = "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe"
+          if (Test-Path $godot) {
+            & $godot --headless --path . --import
+            & $godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_unit_tests_headless.gd
+          } else {
+            Write-Host "Godot not found at $godot — run tests locally (see addons/pgdecs/ecs/tests/README.md)"
+            exit 0
+          }

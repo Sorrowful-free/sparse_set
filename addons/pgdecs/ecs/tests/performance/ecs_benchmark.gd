@@ -104,12 +104,12 @@ func benchmark_query_iterate_entities_with_components() -> float:
 					continue
 				var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
 				var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
-				for i in range(chunk.get_size()):
+				for i in range(chunk.get_entity_count()):
 					var eid: int = chunk.get_entity_id_at(i)
-					if eid >= 0:
-						var pos: Vector2 = pos_typed.get_component(eid)
-						var health: int = health_typed.get_component(eid)
-						acc += pos.x + pos.y + float(health)
+					var slot: int = ECSEntityIdsUtils.slot_from_handle(eid)
+					var pos: Vector2 = pos_typed.get_value_at_slot(slot)
+					var health: int = health_typed.get_value_at_slot(slot)
+					acc += pos.x + pos.y + float(health)
 		)
 
 ## То же, что iterate_entities_with_components, но чанки обрабатываются через WorkerThreadPool:
@@ -124,12 +124,12 @@ static func _process_chunk_entities_with_components(chunks: Array[ECSQueryChunk]
 	var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
 	var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
 	var acc: float = 0.0
-	for i in range(chunk.get_size()):
+	for i in range(chunk.get_entity_count()):
 		var eid: int = chunk.get_entity_id_at(i)
-		if eid >= 0:
-			var pos: Vector2 = pos_typed.get_component(eid)
-			var health: int = health_typed.get_component(eid)
-			acc += pos.x + pos.y + float(health)
+		var slot: int = ECSEntityIdsUtils.slot_from_handle(eid)
+		var pos: Vector2 = pos_typed.get_value_at_slot(slot)
+		var health: int = health_typed.get_value_at_slot(slot)
+		acc += pos.x + pos.y + float(health)
 	results[index] = acc
 
 ## Итерация по сущностям с чтением всех компонентов через WorkerThreadPool (аналог iterate_entities_with_components).

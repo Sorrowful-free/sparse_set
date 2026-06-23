@@ -10,8 +10,8 @@ func test_add_get_set_remove(runner: ECSTestRunner) -> void:
 	var entity_id: int = ecs.create_entity(POSITION_ID)
 	pos.set_component(entity_id, Vector2(3.0, 4.0))
 	runner.assert_eq(pos.get_component(entity_id), Vector2(3.0, 4.0))
-	pos.remove_component(entity_id)
-	runner.assert_false(pos.has_component(entity_id))
+	ecs.remove_component(entity_id, POSITION_ID)
+	runner.assert_false(ecs.has_component(entity_id, POSITION_ID))
 
 func test_batch_add_remove(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -19,9 +19,8 @@ func test_batch_add_remove(runner: ECSTestRunner) -> void:
 	var health_id: int = 2
 	ecs.register_component(health_id, TYPE_PACKED_FLOAT32_ARRAY)
 	var ids: PackedInt64Array = ecs.create_entities(4, POSITION_ID, health_id)
-	var health: ECSComponentFloat32Array = ecs.get_component_array(health_id) as ECSComponentFloat32Array
 	for entity_id in ids:
-		runner.assert_true(health.has_component(entity_id))
+		runner.assert_true(ecs.has_component(entity_id, health_id))
 	ecs.destroy_entities(ids)
 	for entity_id in ids:
 		runner.assert_false(ecs.is_alive(entity_id))
@@ -35,3 +34,13 @@ func test_chunk_boundary(runner: ECSTestRunner) -> void:
 	for entity_id in ids:
 		comp.set_component(entity_id, 42)
 		runner.assert_eq(comp.get_component(entity_id), 42)
+
+func test_slot_api(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var entity_id: int = ecs.create_entity(POSITION_ID)
+	var chunk: ECSComponentVector2ArrayChunk = ecs.get_component_array(POSITION_ID).get_chunk(entity_id) as ECSComponentVector2ArrayChunk
+	runner.assert_not_null(chunk)
+	var slot: int = ECSEntityIdsUtils.slot_from_handle(entity_id)
+	chunk.set_value_at_slot(slot, Vector2(5.0, 6.0))
+	runner.assert_eq(chunk.get_value_at_slot(slot), Vector2(5.0, 6.0))

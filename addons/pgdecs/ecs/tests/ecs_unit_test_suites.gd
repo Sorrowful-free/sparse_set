@@ -16,12 +16,17 @@ const _CommandBufferTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_comma
 const _SystemRunnerTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_system_runner_test.gd")
 const _SystemChunkBaseTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_system_chunk_base_test.gd")
 const _RegressionTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_regression_test.gd")
+const _ArchetypeChunkTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_archetype_chunk_test.gd")
+const _MembershipTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_membership_test.gd")
+const _DenseIterationTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_dense_iteration_test.gd")
+const _WorldDemoTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_world_demo_test.gd")
 
 static func run_all(runner: ECSTestRunner) -> void:
 	var suites: Array[RefCounted] = [
 		_EntityIdsUtilsTest.new(),
 		_EntityIdsPoolTest.new(),
 		_ArchetypeTest.new(),
+		_ArchetypeChunkTest.new(),
 		_BitMaskTest.new(),
 		_SparseSetTest.new(),
 		_ComponentFactoryTest.new(),
@@ -33,12 +38,16 @@ static func run_all(runner: ECSTestRunner) -> void:
 		_CommandBufferTest.new(),
 		_SystemRunnerTest.new(),
 		_SystemChunkBaseTest.new(),
-		_RegressionTest.new()
+		_RegressionTest.new(),
+		_MembershipTest.new(),
+		_DenseIterationTest.new(),
+		_WorldDemoTest.new()
 	]
 	var names: PackedStringArray = PackedStringArray([
-		"EntityIdsUtils", "EntityIdsPool", "Archetype", "BitMask", "SparseSet",
+		"EntityIdsUtils", "EntityIdsPool", "Archetype", "ArchetypeChunk", "BitMask", "SparseSet",
 		"ComponentFactory", "ComponentArray", "ECSManager", "Query", "QueryChunk",
-		"WorldState", "CommandBuffer", "SystemRunner", "SystemChunkBase", "Regression"
+		"WorldState", "CommandBuffer", "SystemRunner", "SystemChunkBase", "Regression",
+		"Membership", "DenseIteration", "WorldDemo"
 	])
 	print("--- ECS Unit Tests ---")
 	for i in range(suites.size()):

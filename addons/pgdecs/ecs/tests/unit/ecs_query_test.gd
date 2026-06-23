@@ -50,10 +50,10 @@ func test_get_chunks_same_entities_as_get_entity_ids(runner: ECSTestRunner) -> v
 	var from_ids: PackedInt64Array = query.get_entity_ids()
 	var from_chunks: PackedInt64Array = PackedInt64Array()
 	for chunk in query.get_chunks():
-		var ids: PackedInt64Array = chunk.get_entity_ids()
-		for i in range(ids.size()):
-			if ids[i] >= 0:
-				from_chunks.append(ids[i])
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		var count: int = chunk.get_entity_count()
+		for i in range(count):
+			from_chunks.append(dense[i])
 	runner.assert_eq(from_chunks.size(), from_ids.size())
 	runner.assert_true(from_chunks.find(e2) >= 0)
 	runner.assert_true(from_chunks.find(e3) >= 0)
@@ -72,10 +72,7 @@ func test_get_chunks_iterate_by_chunk(runner: ECSTestRunner) -> void:
 		var qc: ECSQueryChunk = chunk as ECSQueryChunk
 		runner.assert_not_null(qc)
 		var count: int = qc.get_entity_count()
-		var by_slot: int = 0
-		for i in range(qc.get_size()):
-			if qc.get_entity_id_at(i) >= 0:
-				by_slot += 1
-		runner.assert_eq(count, by_slot)
+		for i in range(count):
+			runner.assert_true(qc.get_entity_id_at(i) >= 0)
 		total += count
 	runner.assert_eq(total, created.size())

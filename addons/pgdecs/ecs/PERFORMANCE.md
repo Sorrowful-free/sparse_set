@@ -1,181 +1,59 @@
-# Оценка производительности ECS и план оптимизаций
+# Производительность PGDECS
 
-## Критичные узкие места (по приоритету)
+PGDECS оптимизирует **layout данных и итерацию** в GDScript. Это не замена C++/Rust ECS: интерпретатор, GC и отсутствие SIMD задают потолок.
 
-### 1. **`_entities_ids.erase(entity_id)` — O(n) при каждом удалении**
+## Ограничения GDScript
 
-**Где:** `ComponentBaseArray.remove_entity()`, плюс во всех сгенерированных компонентах в `remove_component()`.
+- **RefCounted** — аллокации при `new()` (QueryChunk, временные объекты). Горячий путь систем должен работать с packed-массивами и slot API.
+- **WorkerThreadPool** + GDScript в headless/редакторе — ограниченная выгода; chunk-системы предпочтительно в main thread без shared mutable state.
+- **Нет SIMD** — векторные операции по одному элементу за итерацию.
+- **Packed arrays** — быстрый доступ по индексу, но `erase`/сдвиги O(n); избегать в hot path.
 
-**Почему плохо:** В GDScript `PackedInt64Array.erase(value)` делает линейный поиск и сдвиг элементов — O(n). При `destroy_entity()` этот путь вызывается для **каждого** зарегистрированного компонента. При 10 компонентах и 50k сущностей в компоненте удаление одной сущности даёт до 10 × O(50000) операций.
+## Сделанные оптимизации
 
-**Предложение:**
-- Не хранить плоский список `_entities_ids` для целей удаления по entity_id. Удаление по entity_id уже однозначно: чанк и индекс в чанке задаются формулой (`get_chunk_index`, `get_chunk_entity_index`). Список `_entities_ids` можно:
-  - либо убрать из горячего пути удаления (удалять только чанк по индексу; список поддерживать только для итерации «все сущности компонента», с примирением при итерации или ленивым пересчётом),
-  - либо заменить на структуру с O(1) удалением: например, хранить в компоненте `entity_id -> true` через Dictionary (но тогда итерация по всем сущностям станет медленнее), либо двойная индексация: плотный массив + `entity_id → индекс` (swap-with-last при удалении для O(1)).
-- Практичный минимум: в `remove_entity` не вызывать `_entities_ids.erase(entity_id)`, а только очищать слот в чанке; список `_entities_ids` обновлять только там, где он реально нужен (например, при итерации по компоненту — тогда можно считать «живые» по чанкам или вести список с swap-with-last).
+| Область | Решение |
+|---------|---------|
+| Итерация query/system | Dense sidecar в `ECSArchetypeChunk`: O(alive) на чанк, не O(256) |
+| `get_entity_count()` | O(1) из `_count`, без скана слотов |
+| Членство | Только archetype — нет дубля `_entity_ids` на каждый компонент (−256×int64 на чанк×тип) |
+| Доступ к данным | index→slot O(1) сохранён |
+| Архетипы | Кэш по hash маски, `precache_archetype()` |
+| Query | Кэш подходящих архетипов, пул `ECSQueryChunk` в `get_chunks()` |
+| Handles | Generational id — безопасный реюз без stale access через `has_component` |
+| Destroy | Итерация только по `component_ids` архетипа, батч `remove_entities_batch` |
+| BitMask | Bounds-guard, стабильный hash |
 
----
+## Рекомендации hot path
 
-### 2. **`_entities_ids.find(entity_id)` в `add_component(entity_id, value)` — O(n)**
+1. **Dense iteration** — `chunk.get_dense_entities()` + `chunk.get_entity_count()`.
+2. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
+3. **`precache_archetype()`** — до массового spawn с известным набором компонентов.
+4. **Батчи** — `create_entities()`, `destroy_entities()`, command buffer.
+5. **Не вызывать** `get_entity_ids()` каждый кадр, если достаточно chunk-system с dense loop.
 
-**Где:** Во всех сгенерированных компонентах, например `component_vector2_array.gd`:  
-`if _entities_ids.find(entity_id) < 0: _entities_ids.append(entity_id)`.
+## Пример итерации (система)
 
-**Почему плохо:** При каждом вызове `set_component`/`add_component` с значением — линейный проход по всем сущностям компонента.
+```gdscript
+func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
+    var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
+    var count: int = chunk.get_entity_count()
+    var dense: PackedInt64Array = chunk.get_dense_entities()
+    for i in range(count):
+        var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
+        pos_chunk.set_value_at_slot(slot, pos_chunk.get_value_at_slot(slot) + Vector2(1, 0))
+```
 
-**Предложение:**
-- Заменить на проверку через чанк: `has_component(entity_id)` уже есть и работает через индекс в чанке — O(1). Если `!has_component(entity_id)`, тогда `append(entity_id)`.
-- Либо убрать дублирование: если вызывается `chunk.add_component(entity_id, value)`, слот уже помечается в чанке; можно один раз в кадре/фазу сверять `_entities_ids` с чанками или вести учёт только в чанках и не дублировать в `_entities_ids` для этого пути.
+## Устаревшие проблемы (исправлено)
 
----
+- `_entities_ids.erase` / `find` в component arrays — списки сущностей на уровне компонента убраны.
+- Двойное членство archetype + component `_entity_ids` — только archetype.
+- Scan 256 слотов в `get_entity_count()` query chunk — dense `_count`.
+- `get_or_create_chunk` с одним чанком — расширение до `chunk_index` как в archetype.
 
-### 3. **`destroy_entity` вызывается в цикле из `destroy_entities` — нет батчинга**
+## Бенчмарки
 
-**Где:** `ECSManager.destroy_entities()` в цикле вызывает `destroy_entity()` для каждой сущности.
+`ecs/tests/performance/ecs_benchmark.gd` — create/destroy, query, dense chunk iteration. Запуск через `run_performance_tests.gd` в редакторе.
 
-**Почему плохо:** Для каждой сущности заново: поиск архетипа, итерация по `_components.keys()`, для каждого компонента `has_entity` + `remove_entity` (и там — erase по списку). Много повторных проходов по одним и тем же структурам.
+## Честные ожидания
 
-**Предложение:**
-- Реализовать батч-удаление: сгруппировать сущности по архетипу (по `_entities_to_archetypes[entity_id]`), затем для каждого архетипа вызвать `archetype.remove_entity(entity_id)` для списка сущностей одним проходом по чанкам; затем для каждого компонента этого архетипа — массовое удаление по списку entity_id (без повторного перебора всех компонентов менеджера).
-- Альтернатива: накапливать в command buffer и в `execute()` выполнять один раз групповое удаление с обходом по архетипам/компонентам, а не по сущностям.
-
----
-
-### 4. **`destroy_entity` перебирает все компоненты по `_components.keys()`**
-
-**Где:** `ECSManager.destroy_entity()`: цикл `for component_id in _components.keys()` и для каждого `has_entity` + `remove_entity`.
-
-**Почему плохо:** У сущности есть только компоненты её архетипа, но мы проверяем все зарегистрированные компоненты. При 20 типах компонентов и сущности с 3 компонентами — 20 проверок и 3 удаления вместо 3 удалений.
-
-**Предложение:**
-- Брать список компонентов из архетипа сущности: `old_archetype = get_entity_archetype(entity_id)`, затем `for component_id in old_archetype._component_ids` и только для них вызывать `remove_entity(entity_id)`. Тогда количество вызовов совпадает с числом компонентов сущности.
-
----
-
-### 5. **Создание BitMask и массивов при каждом `create_entity` / `add_component` / `remove_component`**
-
-**Где:**  
-- `create_entity`: каждый раз новый `BitMask`, `PackedInt64Array(component_ids)`, циклы для `max_component_id` и `bit_set`.  
-- `add_component` / `remove_component`: `duplicate()` списков компонентов, построение новой BitMask (циклы), создание нового архетипа при необходимости.
-
-**Почему плохо:** Лишние аллокации и проходы при частом создании сущностей или смене архетипа. Один и тот же набор component_ids часто повторяется (например, «игрок», «враг»).
-
-**Предложение:**
-- Кэшировать архетипы по ключу «набор component_ids»: например, по уже посчитанной BitMask или по хешу отсортированного списка id. При создании сущности — один хеш/сравнение и взятие архетипа из кэша (уже есть по сути через `_archetypes[archetype_hash]`).  
-- Для `create_entity` не создавать BitMask заново, если можно взять из кэша по `component_ids`: например, кэш `Dictionary[PackedInt64Array или хеш, BitMask]` или предзаполненные архетипы для типичных наборов.  
-- В `add_component`/`remove_component` минимизировать дублирование: переиспользовать временные буферы для `new_component_ids` и построения BitMask, если это возможно в рамках GDScript.
-
----
-
-### 6. **Query.match(entity_id) — N вызовов has_component**
-
-**Где:** `Query.match()`: для каждого `component_id` в with/without вызывается `_ecs_manager.has_component(entity_id, component_id)`.
-
-**Почему плохо:** Каждый `has_component` — словарь + `get_chunk` + проверка в чанке. При итерации «все сущности × match» получается много повторных обращений. Плюс нет обхода «по архетипам, подходящим под запрос» — только проверка по одной сущности.
-
-**Предложение:**
-- Ввести итерацию по архетипам: для Query заранее отфильтровать архетипы, где `archetype_bitmask.bit_match(query_with_mask)` и нет запрещённых компонентов. Тогда перебирать только сущности из этих архетипов (по чанкам), без вызова `match()` для каждой сущности.
-- Если оставить только `match(entity_id)`: кэшировать результат по entity_id в рамках одного кадра/запроса для одного и того же Query, если один и тот же entity проверяется многократно.
-
----
-
-### 7. **ComponentBaseArray.get_or_create_chunk — создаётся только один чанк (баг + риск по производительности)**
-
-**Где:** `ComponentBaseArray.get_or_create_chunk()`: при отсутствии чанка делается `create_chunk()` и один `_chunks.append(chunk)`.
-
-**Почему плохо:** Индекс чанка для entity_id — `entity_id >> 8`. Для entity_id = 1000 нужен chunk_index = 3. Сейчас в массив добавляется один чанк и он кладётся в `_chunks[0]`. Данные entity 1000 пишутся в этот чанк по слоту 232, но при последующем `get_chunk(1000)` возвращается null (chunk_index 3 >= size 1). Это **ошибка корректности**: данные теряются. В Archetype правильно: `while _chunks.size() <= chunk_index: _chunks.append(...)`.
-
-**Предложение:**
-- Привести логику к архетипу: пока `_chunks.size() <= chunk_index`, создавать и добавлять чанки, затем возвращать `_chunks[chunk_index]`. После исправления при первом появлении большого entity_id возможна серия аллокаций — это приемлемо и делается один раз.
-
----
-
-### 8. **get_size() в сгенерированных чанках — O(CHUNK_SIZE)**
-
-**Где:** Например, `ComponentVector2ArrayChunk.get_size()`: цикл по всем слотам чанка и подсчёт `_entity_ids[i] != -1`.
-
-**Почему плохо:** Вызов get_size() при частом использовании (например, при итерации или отладке) даёт до 256 сравнений на чанк.
-
-**Предложение:**
-- Хранить счётчик занятых слотов в чанке: при `add_component` увеличивать, при `remove_component(index)` уменьшать. Тогда get_size() — O(1). Либо не вызывать get_size() в горячем пути и оставить подсчёт только для отладочных/редких сценариев.
-
----
-
-### 9. **EntityIdsPool.get_next_entity_id и remove_at**
-
-**Где:** `_free_entity_ids.remove_at(free_entity_size - 1)`.
-
-**Почему может быть плохо:** В документации Godot 4 поведение `remove_at` для Packed*Array может подразумевать сдвиг хвоста — O(n). Для удаления с конца обычно O(1) в реализациях с «pop», но лучше не полагаться на это.
-
-**Предложение:**
-- Использовать «pop» явно, если API даёт такую возможность (например, метод, возвращающий последний элемент и уменьшающий размер). Либо оставить как есть и замерить; при большом пуле переиспользуемых id — рассмотреть альтернативу (например, хранение только «следующего свободного id» без полного списка, если приемлема стратегия повторного использования).
-
----
-
-### 10. **Дублирование массивов в Archetype и при смене архетипа**
-
-**Где:** `Archetype._init(bits, component_ids, ...)`: `_bits = bits.duplicate()`, `_component_ids = component_ids.duplicate()`. В add_component/remove_component — `old_archetype._component_ids.duplicate()` и построение нового архетипа.
-
-**Почему плохо:** Лишние аллокации при создании архетипов и при каждой смене набора компонентов.
-
-**Предложение:**
-- Если архетипы создаются редко, можно оставить. Если смена компонентов частая — рассмотреть переиспользование массивов (например, один общий пул или неизменяемые «шаблоны» наборов component_ids с передачей по ссылке без копирования, где это безопасно).
-
----
-
-## План правок (по приоритету)
-
-### Фаза A — Критичные исправления и быстрые победы
-
-1. **Исправить get_or_create_chunk в ComponentBaseArray**  
-   Реализовать расширение массива чанков до `chunk_index + 1` (как в Archetype), чтобы данные по entity_id не терялись и не попадали в «неправильный» чанк.
-
-2. **Убрать O(n) erase из горячего пути remove_entity** — **сделано (класс ECSSparseSet).**  
-   Выделен класс `ECSSparseSet` (ecs/entities/ecs_sparse_set.gd): плотный и разрежённый массивы — оба PackedInt64Array (`_dense`, `_sparse`). O(1) add/remove/has, swap-with-last при удалении. В компонентах используется через `_entity_set` и `_append_entity_id()`.
-
-3. **Убрать find из add_component (с значением)**  
-   Заменить `if _entities_ids.find(entity_id) < 0` на `if !has_component(entity_id)` и затем `_entities_ids.append(entity_id)` (если список всё ещё нужен). Либо не добавлять в _entities_ids в этом ветке, если решено вести учёт только через чанки.
-
-4. **destroy_entity: итерировать только компоненты архетипа**  
-   Получить архетип по entity_id; вызывать `remove_entity` только для `old_archetype._component_ids`, а не для `_components.keys()`.
-
-### Фаза B — Батчинг и меньше аллокаций
-
-5. **Батч destroy_entities**  
-   Группировать сущности по архетипу; для каждого архетипа и каждого его компонента выполнять массовое удаление (без цикла destroy_entity по одной).
-
-6. **Кэш BitMask/архетипов для create_entity**  
-   Кэшировать BitMask (или архетип) по ключу из набора component_ids (например, хеш PackedInt64Array или отсортированная строка id), чтобы не строить маску и не искать max_component_id при каждом create_entity с тем же набором.
-
-### Фаза C — Итерация и запросы
-
-7. **Query: итерация по подходящим архетипам**  
-   Реализовать в Query (или отдельном классе) обход архетипов, подходящих под with/without, с итерацией по чанкам сущностей без вызова match() для каждой сущности.
-
-8. **Опционально: счётчик размера в чанке**  
-   В сгенерированных чанках хранить `_count`, обновлять в add_component/remove_component(index), get_size() возвращать _count — убрать O(CHUNK_SIZE) из get_size().
-
-### Фаза D — Мелкие улучшения
-
-9. **Переиспользование буферов в add_component/remove_component**  
-   По возможности не делать duplicate() и не создавать временные массивы на каждый вызов; рассмотреть пулы буферов или статические буферы для типичных размеров.
-
-10. **EntityIdsPool**  
-    Уточнить по документации/исходникам Godot 4 поведение remove_at(last); при необходимости заменить на явный pop-back или другую структуру для O(1) получения следующего id.
-
----
-
-## Краткая сводка
-
-| Место | Проблема | Эффект правки |
-|-------|----------|----------------|
-| remove_entity + erase | O(n) по списку сущностей | Высокий при частом destroy |
-| add_component + find | O(n) при каждом set | Высокий при частых установках |
-| destroy_entities в цикле | Нет батчинга | Высокий при массовом удалении |
-| destroy_entity по всем компонентам | Лишние has_entity/remove_entity | Средний |
-| get_or_create_chunk (компонент) | Один чанк — баг и потери данных | Критично для корректности |
-| create_entity BitMask каждый раз | Аллокации и циклы | Средний при массовом создании |
-| Query только match(entity_id) | Нет обхода по архетипам | Высокий при больших мирах |
-| get_size() по 256 слотов | O(256) на чанк | Низкий, если редко вызывается |
-
-Рекомендуемый порядок: сначала **Фаза A** (включая исправление get_or_create_chunk и снятие O(n) с remove/add_component и destroy по архетипу), затем **Фаза B**, при необходимости — C и D.
+Для десятков тысяч сущностей с простой логикой PGDECS в GDScript приемлем. Для сотен тысяч с тяжёлой логикой на сущность — рассмотреть GDExtension/C# или вынести hot loop в нативный код. PGDECS даёт предсказуемый SoA layout и O(alive) итерацию в рамках GDScript.

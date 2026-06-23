@@ -149,7 +149,7 @@ func destroy_entity(entity_id: int) -> void:
 		component_ids_to_clear = PackedInt64Array(_components.keys())
 	for component_id in component_ids_to_clear:
 		var component: ECSComponentBaseArray = _components.get(component_id, null)
-		if component != null && component.has_entity(entity_id):
+		if component != null:
 			component.remove_entity(entity_id)
 	_entity_ids_pool.free_entity_id(entity_id)
 	_entities_to_archetypes[entity_index] = -1
@@ -177,8 +177,7 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 			for entity_id in batch:
 				for component_id in _components:
 					var component: ECSComponentBaseArray = _components[component_id]
-					if component.has_entity(entity_id):
-						component.remove_entity(entity_id)
+					component.remove_entity(entity_id)
 				_entity_ids_pool.free_entity_id(entity_id)
 				_entities_to_archetypes[_entity_index(entity_id)] = -1
 			continue
@@ -208,10 +207,14 @@ func get_archetypes() -> Array[ECSArchetype]:
 	return result
 
 func has_component(entity_id: int, component_id: int) -> bool:
-	if !is_alive(entity_id) || !_components.has(component_id):
+	if !is_alive(entity_id):
 		return false
-	var component: ECSComponentBaseArray = _components[component_id]
-	return component.has_entity(entity_id)
+	var archetype: ECSArchetype = get_entity_archetype(entity_id)
+	if archetype == null:
+		return false
+	if !archetype.get_bitmask().bit_test(component_id):
+		return false
+	return archetype.has_entity(entity_id)
 
 func add_component(entity_id: int, component_id: int) -> void:
 	if !is_alive(entity_id):

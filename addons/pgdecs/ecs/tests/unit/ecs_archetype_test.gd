@@ -9,8 +9,11 @@ func test_add_has_remove_entity(runner: ECSTestRunner) -> void:
 	runner.assert_false(arch.has_entity(entity))
 	arch.add_entity(entity)
 	runner.assert_true(arch.has_entity(entity))
+	var chunk: ECSArchetypeChunk = arch.get_archetype_chunk(100)
+	runner.assert_eq(chunk.get_entity_count(), 1)
 	arch.remove_entity(entity)
 	runner.assert_false(arch.has_entity(entity))
+	runner.assert_eq(chunk.get_entity_count(), 0)
 
 func test_multiple_chunks(runner: ECSTestRunner) -> void:
 	var bits: PackedInt64Array = PackedInt64Array([1])
@@ -23,3 +26,20 @@ func test_multiple_chunks(runner: ECSTestRunner) -> void:
 	runner.assert_true(arch.has_entity(ECSEntityHandle.make(256, 1)))
 	runner.assert_true(arch.has_entity(ECSEntityHandle.make(512, 1)))
 	runner.assert_eq(arch.get_chunks().size(), 3)
+
+func test_dense_swap_remove(runner: ECSTestRunner) -> void:
+	var bits: PackedInt64Array = PackedInt64Array([1])
+	var arch: ECSArchetype = ECSArchetype.new(bits, PackedInt64Array([1]))
+	var e1: int = ECSEntityHandle.make(10, 1)
+	var e2: int = ECSEntityHandle.make(11, 1)
+	var e3: int = ECSEntityHandle.make(12, 1)
+	arch.add_entity(e1)
+	arch.add_entity(e2)
+	arch.add_entity(e3)
+	var chunk: ECSArchetypeChunk = arch.get_archetype_chunk(10)
+	runner.assert_eq(chunk.get_entity_count(), 3)
+	arch.remove_entity(e2)
+	runner.assert_eq(chunk.get_entity_count(), 2)
+	runner.assert_false(chunk.has_entity(e2))
+	runner.assert_true(chunk.has_entity(e1))
+	runner.assert_true(chunk.has_entity(e3))

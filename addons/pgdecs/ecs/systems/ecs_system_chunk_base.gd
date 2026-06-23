@@ -37,7 +37,15 @@ func update(delta: float) -> void:
 			process_chunk(chunk, delta)
 
 ## Обрабатывает один чанк. Переопределяйте в наследниках.
-## Для доступа к компонентам по чанку используйте [method ECSQueryChunk.get_component_chunk].
+## Рекомендуемый hot path:
+## [codeblock]
+## var count := chunk.get_entity_count()
+## var dense := chunk.get_dense_entities()
+## var comp := chunk.get_component_chunk(MY_ID) as ECSComponentFloat32ArrayChunk
+## for i in range(count):
+##     var slot := ECSEntityIdsUtils.slot_from_handle(dense[i])
+##     var value := comp.get_value_at_slot(slot)
+## [/codeblock]
 ## При [member use_worker_pool] == true не вызывайте [method get_command_buffer] — только чтение.
 func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
 	pass

@@ -4,7 +4,7 @@ var _bits: PackedInt64Array
 var _component_ids: PackedInt64Array
 var _bitmask: ECSBitMask
 
-var _chunks: Array[PackedInt64Array]
+var _chunks: Array[ECSArchetypeChunk]
 
 func _init(bits: PackedInt64Array, component_ids: PackedInt64Array) -> void:
 	_bits = bits.duplicate()
@@ -22,40 +22,31 @@ func get_bitmask() -> ECSBitMask:
 
 func add_entity(entity: int) -> void:
 	var entity_index: int = ECSEntityHandle.index_of(entity)
-	var chunk: PackedInt64Array = get_or_create_chunk(entity_index)
-	var chunk_entity_index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
-	chunk[chunk_entity_index] = entity
+	get_or_create_chunk(entity_index).add_entity(entity)
 
 func remove_entity(entity: int) -> void:
 	var entity_index: int = ECSEntityHandle.index_of(entity)
-	var chunk: PackedInt64Array = get_chunk(entity_index)
-	if chunk.is_empty():
-		return
-	var chunk_entity_index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
-	chunk[chunk_entity_index] = -1
+	var chunk: ECSArchetypeChunk = get_archetype_chunk(entity_index)
+	if chunk != null:
+		chunk.remove_entity(entity)
 
 func has_entity(entity: int) -> bool:
 	var entity_index: int = ECSEntityHandle.index_of(entity)
-	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
-	if chunk_index >= _chunks.size():
+	var chunk: ECSArchetypeChunk = get_archetype_chunk(entity_index)
+	if chunk == null:
 		return false
-	var chunk: PackedInt64Array = _chunks[chunk_index]
-	var chunk_entity_index: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
-	return chunk[chunk_entity_index] == entity
+	return chunk.has_entity(entity)
 
-func get_chunk(entity_index: int) -> PackedInt64Array:
+func get_archetype_chunk(entity_index: int) -> ECSArchetypeChunk:
 	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
 	if chunk_index < 0 || chunk_index >= _chunks.size():
-		return PackedInt64Array()
+		return null
 	return _chunks[chunk_index]
 
-func get_or_create_chunk(entity_index: int) -> PackedInt64Array:
+func get_or_create_chunk(entity_index: int) -> ECSArchetypeChunk:
 	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
 	while _chunks.size() <= chunk_index:
-		var chunk: PackedInt64Array = PackedInt64Array()
-		chunk.resize(ECSEntityIdsUtils.CHUNK_SIZE)
-		chunk.fill(-1)
-		_chunks.append(chunk)
+		_chunks.append(ECSArchetypeChunk.new())
 	return _chunks[chunk_index]
 
 func add_component_id(component_id: int) -> void:
@@ -64,10 +55,10 @@ func add_component_id(component_id: int) -> void:
 func remove_component_id(component_id: int) -> void:
 	_component_ids.erase(component_id)
 
-func get_chunks() -> Array[PackedInt64Array]:
+func get_chunks() -> Array[ECSArchetypeChunk]:
 	return _chunks
 
 func clear() -> void:
-	for chunk: PackedInt64Array in _chunks:
+	for chunk: ECSArchetypeChunk in _chunks:
 		chunk.clear()
 	_chunks.clear()

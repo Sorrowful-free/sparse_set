@@ -298,3 +298,53 @@
 - **Bootstrap:** в `_ready()` создаёт GameComponents, создаёт сущность с компонентом позиции (`create_entity(GameComponents.POSITION_COMPONENT_ID)`), устанавливает позицию через `PositionComponent.set_component(entity_id, Vector2(100, 200))`.
 
 **5.3. Проверка** — после запуска сцены с Bootstrap сущность создаётся, компонент записывается без ошибок. Существующие тесты (например, bit_mask_test) не затрагиваются.
+
+---
+
+# Текущая архитектура (после dense sidecar)
+
+## Чанк архетипа: `ECSArchetypeChunk`
+
+Гибрид **index→slot O(1)** + **dense sidecar** для итерации:
+
+| Поле | Назначение |
+|------|------------|
+| `_slots[256]` | handle в слоте или `-1` (tombstone) |
+| `_dense[0..count)` | плотный список живых handle |
+| `_count` | число живых сущностей в чанке (O(1)) |
+
+- Доступ по индексу: `chunk_index = entity_index >> 8`, `slot = entity_index & 0xFF` — без изменений (`ECSEntityIdsUtils`).
+- Удаление: tombstone в `_slots` + swap-remove в `_dense`.
+- Итерация query/system: `for i in range(chunk.get_entity_count())` по `_dense`, не scan 0..255.
+
+## Единый источник членства
+
+- **Только archetype chunk** хранит, какие handle живы в чанке.
+- Component chunks хранят **только SoA values** по slot (`_components_values[slot]`).
+- `_entity_ids` в component chunks **удалён**.
+- Публичный контракт: `ECSManager.has_component(handle, component_id)`:
+  1. `is_alive(handle)`
+  2. маска архетипа содержит `component_id`
+  3. `archetype.has_entity(handle)`
+
+## Generational handles
+
+- `ECSEntityHandle`: index (low 32) + generation (high 32).
+- `ECSEntityIdsPool` выдаёт и переиспользует id с инкрементом generation.
+- Устаревший handle не проходит `is_alive` / `has_component`.
+
+## Hot path в системах
+
+```gdscript
+var dense: PackedInt64Array = chunk.get_dense_entities()
+var count: int = chunk.get_entity_count()
+for i in range(count):
+    var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
+    var value = comp_chunk.get_value_at_slot(slot)
+```
+
+## Вне скоупа ядра
+
+- **Node, String, Transform** — не в `ECSComponentFactory`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md): паттерн registry bridge (примитивный slot + side-table).
+- PGDECS оптимизирует layout и итерацию в GDScript, не заменяет C++ ECS. См. [PERFORMANCE.md](PERFORMANCE.md).
+

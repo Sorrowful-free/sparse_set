@@ -10,6 +10,8 @@ var _ecs_manager: ECSManager
 var _cached_archetypes: Array[ECSArchetype] = []
 var _cached_archetypes_version: int = -1
 var _cached_chunks: Array[ECSQueryChunk] = []
+var _chunk_pool: Array[ECSQueryChunk] = []
+var _chunk_pool_used: int = 0
 
 func _init(ecs_manager: ECSManager, component_ids: PackedInt64Array, without_component_ids: PackedInt64Array) -> void:
 	_ecs_manager = ecs_manager
@@ -44,10 +46,10 @@ func match(entity_id: int) -> bool:
 func get_entity_ids() -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
 	for chunk in get_chunks():
-		var ids: PackedInt64Array = chunk.get_entity_ids()
-		for i in range(ids.size()):
-			if ids[i] >= 0:
-				result.append(ids[i])
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		var count: int = chunk.get_entity_count()
+		for i in range(count):
+			result.append(dense[i])
 	return result
 
 func _ensure_archetype_cache() -> void:
@@ -69,14 +71,26 @@ func _ensure_archetype_cache() -> void:
 			continue
 		_cached_archetypes.append(archetype)
 
+func _acquire_query_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) -> ECSQueryChunk:
+	if _chunk_pool_used < _chunk_pool.size():
+		var pooled: ECSQueryChunk = _chunk_pool[_chunk_pool_used]
+		_chunk_pool_used += 1
+		pooled.reset(archetype_chunk, _ecs_manager, chunk_index)
+		return pooled
+	var query_chunk: ECSQueryChunk = ECSQueryChunk.new(archetype_chunk, _ecs_manager, chunk_index)
+	_chunk_pool.append(query_chunk)
+	_chunk_pool_used += 1
+	return query_chunk
+
 func get_chunks() -> Array[ECSQueryChunk]:
 	_ensure_archetype_cache()
 	_cached_chunks.clear()
+	_chunk_pool_used = 0
 	for archetype in _cached_archetypes:
-		var entity_chunks: Array[PackedInt64Array] = archetype.get_chunks()
-		for chunk_index in range(entity_chunks.size()):
-			var entity_ids_chunk: PackedInt64Array = entity_chunks[chunk_index]
-			if entity_ids_chunk.is_empty():
+		var archetype_chunks: Array[ECSArchetypeChunk] = archetype.get_chunks()
+		for chunk_index in range(archetype_chunks.size()):
+			var archetype_chunk: ECSArchetypeChunk = archetype_chunks[chunk_index]
+			if archetype_chunk.get_entity_count() == 0:
 				continue
-			_cached_chunks.append(ECSQueryChunk.new(entity_ids_chunk, _ecs_manager, chunk_index))
+			_cached_chunks.append(_acquire_query_chunk(archetype_chunk, chunk_index))
 	return _cached_chunks

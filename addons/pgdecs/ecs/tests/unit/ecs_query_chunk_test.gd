@@ -19,12 +19,13 @@ func test_get_component_chunk_by_index(runner: ECSTestRunner) -> void:
 	runner.assert_not_null(health_chunk)
 	pos_chunk.set_component(entity_id, Vector2(7.0, 8.0))
 	runner.assert_eq(pos_chunk.get_component(entity_id), Vector2(7.0, 8.0))
+	var slot: int = ECSEntityIdsUtils.slot_from_handle(entity_id)
+	runner.assert_eq(pos_chunk.get_value_at_slot(slot), Vector2(7.0, 8.0))
 
 func test_empty_chunk_returns_null(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	var empty_chunk: PackedInt64Array = PackedInt64Array()
-	empty_chunk.resize(ECSEntityIdsUtils.CHUNK_SIZE)
-	empty_chunk.fill(-1)
+	var empty_chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
 	var query_chunk: ECSQueryChunk = ECSQueryChunk.new(empty_chunk, ecs, 0)
+	runner.assert_eq(query_chunk.get_entity_count(), 0)
 	runner.assert_null(query_chunk.get_component_chunk(POSITION_ID))
