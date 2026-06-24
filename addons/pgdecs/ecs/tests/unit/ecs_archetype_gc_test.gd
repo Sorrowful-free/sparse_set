@@ -106,3 +106,26 @@ func test_partial_destroy_flushes_orphan_component_chunk(runner: ECSTestRunner) 
 	runner.assert_gt(ecs.count_registered_archetypes(), 0)
 	ecs.flush_archetype_gc()
 	runner.assert_null(pos.get_chunk_by_index(high_chunk_index))
+
+func test_evict_then_recreate_same_component_set(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = _make_ecs()
+	var e1: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	ecs.destroy_entity(e1)
+	ecs.flush_archetype_gc()
+	runner.assert_eq(ecs.count_registered_archetypes(), 0)
+	var e2: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	runner.assert_true(ecs.is_alive(e2))
+	runner.assert_true(ecs.has_component(e2, POSITION_ID))
+	runner.assert_true(ecs.has_component(e2, HEALTH_ID))
+	runner.assert_eq(ecs.count_registered_archetypes(), 1)
+
+func test_churn_gc_cycles_do_not_leak_archetypes(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = _make_ecs()
+	for _cycle in range(5):
+		var ids: PackedInt64Array = ecs.create_entities_packed(50, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+		ecs.destroy_entities_packed(ids)
+		ecs.flush_archetype_gc()
+		runner.assert_eq(ecs.count_registered_archetypes(), 0)
+	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
+	runner.assert_true(ecs.is_alive(eid))
+	runner.assert_eq(ecs.count_registered_archetypes(), 1)

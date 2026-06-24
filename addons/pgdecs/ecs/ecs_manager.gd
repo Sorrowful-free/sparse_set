@@ -1,19 +1,21 @@
 extends RefCounted
 class_name ECSManager
 
+class _ArchetypeCacheEntry extends RefCounted:
+	var key: PackedInt64Array
+	var info: ECSArchetypeInfo
+	var archetype_id: int = -1
+
 ## Контракт с компонентами: add_entity / remove_entity / has_entity. Размер чанка — ECSEntityIdsUtils.CHUNK_SIZE (см. ecs/DESIGN.md).
 var _entity_ids_pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
 
 var _components: Dictionary[int, ECSComponentBaseArray] = {}
 var _archetype_registry: Array[ECSArchetype] = []
 var _archetype_id_to_key: Dictionary[int, PackedInt64Array] = {}
-## PackedInt64Array → int (GDScript не типизирует PackedInt64Array как ключ Dictionary).
-var _archetype_key_to_id: Dictionary = {}
+## hash(normalized component ids) -> bucket[_ArchetypeCacheEntry]; equals на key при коллизии.
+var _archetype_cache_buckets: Dictionary[int, Variant] = {}
 var _entities_to_archetypes: PackedInt64Array = PackedInt64Array()
 var _archetypes_version: int = 0
-
-## Кэш для create_entity/create_entities: PackedInt64Array → ECSArchetypeInfo.
-var _archetype_cache: Dictionary = {}
 
 ## Кэш переходов архетипа: old_archetype_id -> component_id -> new_archetype_id.
 var _add_transition_cache: Dictionary[int, Dictionary] = {}
@@ -131,7 +133,7 @@ func _evict_archetype(archetype_id: int) -> void:
 		return
 	var key: PackedInt64Array = _archetype_id_to_key.get(archetype_id, PackedInt64Array())
 	if !key.is_empty():
-		_archetype_key_to_id.erase(key)
+		_remove_archetype_cache_entry(key)
 	_archetype_id_to_key.erase(archetype_id)
 	_archetype_registry[archetype_id] = null
 	_add_transition_cache.erase(archetype_id)
@@ -181,6 +183,101 @@ func _normalize_component_ids(component_ids: PackedInt64Array) -> PackedInt64Arr
 			has_prev = true
 	return unique_ids
 
+func _is_normalized_component_ids(component_ids: PackedInt64Array) -> bool:
+	if component_ids.is_empty():
+		return true
+	for i in range(1, component_ids.size()):
+		if component_ids[i] <= component_ids[i - 1]:
+			return false
+	return true
+
+func _ensure_normalized_component_ids(component_ids: PackedInt64Array) -> PackedInt64Array:
+	if _is_normalized_component_ids(component_ids):
+		return component_ids
+	return _normalize_component_ids(component_ids)
+
+func _find_cache_entry(hash_key: int, key: PackedInt64Array) -> _ArchetypeCacheEntry:
+	if !_archetype_cache_buckets.has(hash_key):
+		return null
+	var bucket: Array = _archetype_cache_buckets[hash_key] as Array
+	for entry in bucket:
+		var cache_entry: _ArchetypeCacheEntry = entry as _ArchetypeCacheEntry
+		if ECSArchetypeKey.equals(cache_entry.key, key):
+			return cache_entry
+	return null
+
+func _insert_cache_entry(hash_key: int, entry: _ArchetypeCacheEntry) -> void:
+	if !_archetype_cache_buckets.has(hash_key):
+		_archetype_cache_buckets[hash_key] = []
+	(_archetype_cache_buckets[hash_key] as Array).append(entry)
+
+func _remove_archetype_cache_entry(key: PackedInt64Array) -> void:
+	var hash_key: int = ECSArchetypeKey.hash_packed_ids(key)
+	if !_archetype_cache_buckets.has(hash_key):
+		return
+	var bucket: Array = _archetype_cache_buckets[hash_key] as Array
+	for i in range(bucket.size()):
+		var cache_entry: _ArchetypeCacheEntry = bucket[i] as _ArchetypeCacheEntry
+		if ECSArchetypeKey.equals(cache_entry.key, key):
+			bucket.remove_at(i)
+			break
+	if bucket.is_empty():
+		_archetype_cache_buckets.erase(hash_key)
+
+func _build_archetype_info(key: PackedInt64Array) -> ECSArchetypeInfo:
+	var max_component_id: int = 0
+	for component_id in key:
+		if component_id > max_component_id:
+			max_component_id = component_id
+	var bits: ECSBitMask = ECSBitMask.new(max_component_id + 1)
+	for component_id in key:
+		bits.bit_set(component_id, true)
+	return ECSArchetypeInfo.new(bits, key)
+
+func _append_archetype_to_registry(key: PackedInt64Array, info: ECSArchetypeInfo, cache_entry: _ArchetypeCacheEntry) -> int:
+	var archetype_id: int = _archetype_registry.size()
+	_archetype_registry.append(ECSArchetype.new(info.bitmask._bits, key))
+	_archetype_id_to_key[archetype_id] = key
+	cache_entry.archetype_id = archetype_id
+	_archetypes_version += 1
+	return archetype_id
+
+## Один lookup: info + archetype id. normalized_ids должен быть sort+unique.
+func _resolve_archetype_packed(normalized_ids: PackedInt64Array) -> int:
+	if normalized_ids.is_empty():
+		return -1
+	var hash_key: int = ECSArchetypeKey.hash_packed_ids(normalized_ids)
+	var existing: _ArchetypeCacheEntry = _find_cache_entry(hash_key, normalized_ids)
+	if existing != null:
+		if existing.archetype_id >= 0 && _get_archetype(existing.archetype_id) != null:
+			return existing.archetype_id
+		return _append_archetype_to_registry(existing.key, existing.info, existing)
+	var key: PackedInt64Array = normalized_ids.duplicate()
+	var info: ECSArchetypeInfo = _build_archetype_info(key)
+	var entry: _ArchetypeCacheEntry = _ArchetypeCacheEntry.new()
+	entry.key = key
+	entry.info = info
+	_insert_cache_entry(hash_key, entry)
+	return _append_archetype_to_registry(key, info, entry)
+
+## Transition path: bitmask уже построен, ids — нормализованный scratch (копируется).
+func _resolve_archetype_from_bitmask(bits: ECSBitMask, normalized_ids: PackedInt64Array) -> int:
+	if normalized_ids.is_empty():
+		return -1
+	var hash_key: int = ECSArchetypeKey.hash_packed_ids(normalized_ids)
+	var existing: _ArchetypeCacheEntry = _find_cache_entry(hash_key, normalized_ids)
+	if existing != null:
+		if existing.archetype_id >= 0 && _get_archetype(existing.archetype_id) != null:
+			return existing.archetype_id
+		return _append_archetype_to_registry(existing.key, existing.info, existing)
+	var key: PackedInt64Array = normalized_ids.duplicate()
+	var info: ECSArchetypeInfo = ECSArchetypeInfo.new(bits, key)
+	var entry: _ArchetypeCacheEntry = _ArchetypeCacheEntry.new()
+	entry.key = key
+	entry.info = info
+	_insert_cache_entry(hash_key, entry)
+	return _append_archetype_to_registry(key, info, entry)
+
 func _packed_from_array(component_ids: Array[int]) -> PackedInt64Array:
 	return PackedInt64Array(component_ids)
 
@@ -209,7 +306,7 @@ func _resolve_add_transition(old_archetype_id: int, component_id: int) -> int:
 		return old_archetype_id
 	_build_work_component_ids_after_add(old_archetype, component_id)
 	_prepare_work_bitmask()
-	var new_archetype_id: int = _register_archetype(_work_bitmask, _work_component_ids.duplicate())
+	var new_archetype_id: int = _resolve_archetype_from_bitmask(_work_bitmask, _work_component_ids)
 	if !_add_transition_cache.has(old_archetype_id):
 		var fresh: Dictionary[int, int] = {}
 		_add_transition_cache[old_archetype_id] = fresh
@@ -229,40 +326,13 @@ func _resolve_remove_transition(old_archetype_id: int, component_id: int) -> int
 	if _work_component_ids.is_empty():
 		return -1
 	_prepare_work_bitmask()
-	var new_archetype_id: int = _register_archetype(_work_bitmask, _work_component_ids.duplicate())
+	var new_archetype_id: int = _resolve_archetype_from_bitmask(_work_bitmask, _work_component_ids)
 	if !_remove_transition_cache.has(old_archetype_id):
 		var fresh: Dictionary[int, int] = {}
 		_remove_transition_cache[old_archetype_id] = fresh
 	var remove_inner: Dictionary[int, int] = _remove_transition_cache[old_archetype_id]
 	remove_inner[component_id] = new_archetype_id
 	return new_archetype_id
-
-func _get_or_create_archetype_info_packed(component_ids: PackedInt64Array) -> ECSArchetypeInfo:
-	var normalized_ids: PackedInt64Array = _normalize_component_ids(component_ids)
-	var key: PackedInt64Array = ECSArchetypeKey.make_from_packed_ids(normalized_ids)
-	if _archetype_cache.has(key):
-		return _archetype_cache[key]
-	var max_component_id: int = 0
-	for component_id in normalized_ids:
-		if component_id > max_component_id:
-			max_component_id = component_id
-	var bits: ECSBitMask = ECSBitMask.new(max_component_id + 1)
-	for component_id in normalized_ids:
-		bits.bit_set(component_id, true)
-	var info: ECSArchetypeInfo = ECSArchetypeInfo.new(bits, normalized_ids.duplicate())
-	_archetype_cache[key] = info
-	return info
-
-func _register_archetype(bits: ECSBitMask, packed_component_ids: PackedInt64Array) -> int:
-	var key: PackedInt64Array = ECSArchetypeKey.make_from_packed_ids(packed_component_ids)
-	if _archetype_key_to_id.has(key):
-		return _archetype_key_to_id[key]
-	var archetype_id: int = _archetype_registry.size()
-	_archetype_registry.append(ECSArchetype.new(bits._bits, packed_component_ids))
-	_archetype_id_to_key[archetype_id] = key
-	_archetype_key_to_id[key] = archetype_id
-	_archetypes_version += 1
-	return archetype_id
 
 func _entity_index(entity_id: int) -> int:
 	return ECSEntityHandle.index_of(entity_id)
@@ -283,11 +353,10 @@ func register_component(component_id: int, component_type: Variant.Type) -> void
 
 ## Предрасчёт архетипа для набора компонентов (кэш + создание архетипа).
 func precache_archetype_packed(component_ids: PackedInt64Array) -> void:
-	var normalized_ids: PackedInt64Array = _normalize_component_ids(component_ids)
+	var normalized_ids: PackedInt64Array = _ensure_normalized_component_ids(component_ids)
 	if normalized_ids.is_empty():
 		return
-	var info: ECSArchetypeInfo = _get_or_create_archetype_info_packed(normalized_ids)
-	_register_archetype(info.bitmask, info.packed)
+	_resolve_archetype_packed(normalized_ids)
 
 ## Внешний API: Array[int], PackedInt64Array создаётся внутри.
 func precache_archetype(component_ids: Array[int]) -> void:
@@ -305,7 +374,7 @@ func get_component_array(component_id: int) -> ECSComponentBaseArray:
 	return _components.get(component_id, null)
 
 func create_entity_packed(component_ids: PackedInt64Array) -> int:
-	var normalized_ids: PackedInt64Array = _normalize_component_ids(component_ids)
+	var normalized_ids: PackedInt64Array = _ensure_normalized_component_ids(component_ids)
 	if normalized_ids.is_empty():
 		push_error("ECSManager: empty component set in create_entity")
 		return 0
@@ -314,14 +383,13 @@ func create_entity_packed(component_ids: PackedInt64Array) -> int:
 			push_error("ECSManager: unregistered component %d in create_entity" % component_id)
 			return 0
 	var entity_id: int = _entity_ids_pool.get_next_entity_id()
-	var info: ECSArchetypeInfo = _get_or_create_archetype_info_packed(normalized_ids)
-	var archetype_id: int = _register_archetype(info.bitmask, info.packed)
+	var archetype_id: int = _resolve_archetype_packed(normalized_ids)
 	var archetype: ECSArchetype = _get_archetype(archetype_id)
 	archetype.add_entity(entity_id)
 	var entity_index: int = _entity_index(entity_id)
 	_ensure_entity_mapping_capacity(entity_index)
 	_entities_to_archetypes[entity_index] = archetype_id
-	for component_id in info.packed:
+	for component_id in archetype._component_ids:
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entity(entity_id)
 	return entity_id
@@ -333,7 +401,7 @@ func create_entity(component_ids: Array[int]) -> int:
 func create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array:
 	if count <= 0:
 		return PackedInt64Array()
-	var normalized_ids: PackedInt64Array = _normalize_component_ids(component_ids)
+	var normalized_ids: PackedInt64Array = _ensure_normalized_component_ids(component_ids)
 	if normalized_ids.is_empty():
 		push_error("ECSManager: empty component set in create_entities")
 		return PackedInt64Array()
@@ -343,8 +411,7 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 			return PackedInt64Array()
 	var entity_ids: PackedInt64Array = PackedInt64Array()
 	entity_ids.resize(count)
-	var info: ECSArchetypeInfo = _get_or_create_archetype_info_packed(normalized_ids)
-	var archetype_id: int = _register_archetype(info.bitmask, info.packed)
+	var archetype_id: int = _resolve_archetype_packed(normalized_ids)
 	var archetype: ECSArchetype = _get_archetype(archetype_id)
 	for i in range(count):
 		var entity_id: int = _entity_ids_pool.get_next_entity_id()
@@ -353,7 +420,7 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 		var entity_index: int = _entity_index(entity_id)
 		_ensure_entity_mapping_capacity(entity_index)
 		_entities_to_archetypes[entity_index] = archetype_id
-	for component_id in info.packed:
+	for component_id in archetype._component_ids:
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entities_batch(entity_ids)
 	return entity_ids
@@ -528,8 +595,7 @@ func reset() -> void:
 		component.clear()
 	_archetype_registry.clear()
 	_archetype_id_to_key.clear()
-	_archetype_key_to_id.clear()
-	_archetype_cache.clear()
+	_archetype_cache_buckets.clear()
 	_add_transition_cache.clear()
 	_remove_transition_cache.clear()
 	_entities_to_archetypes = PackedInt64Array()

@@ -61,11 +61,12 @@ func for_each_chunk(callback: Callable) -> void:
 	_ensure_archetype_cache()
 	_chunk_pool_used = 0
 	for archetype in _cached_archetypes:
-		for chunk_index: int in archetype.get_chunk_indices():
+		archetype.for_each_chunk_index(func(chunk_index: int) -> void:
 			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
 			if archetype_chunk.get_entity_count() == 0:
-				continue
+				return
 			callback.call(_acquire_query_chunk(archetype_chunk, chunk_index))
+		)
 
 func _ensure_archetype_cache() -> void:
 	var version: int = _ecs_manager.get_archetypes_version()
@@ -105,11 +106,12 @@ func collect_chunks(out_chunks: Array[ECSQueryChunk], _reuse_snapshot: bool = fa
 	out_chunks.clear()
 	_ensure_archetype_cache()
 	for archetype in _cached_archetypes:
-		for chunk_index: int in archetype.get_chunk_indices():
+		archetype.for_each_chunk_index(func(chunk_index: int) -> void:
 			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
 			if archetype_chunk.get_entity_count() == 0:
-				continue
+				return
 			out_chunks.append(_create_snapshot_chunk(archetype_chunk, chunk_index))
+		)
 
 ## Возвращает независимый снимок чанков; безопасно сохранять между вызовами query.
 func get_chunks() -> Array[ECSQueryChunk]:

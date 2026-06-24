@@ -52,3 +52,14 @@ func test_bit_equals_detects_different_masks(runner: ECSTestRunner) -> void:
 	runner.assert_false(mask_a.bit_equals(mask_b))
 	mask_a.bit_set(2, true)
 	runner.assert_true(mask_a.bit_equals(mask_b))
+
+func test_hash_packed_ids_stable_for_same_key(runner: ECSTestRunner) -> void:
+	var key: PackedInt64Array = PackedInt64Array([1, 2, 3])
+	var hash_a: int = ECSArchetypeKey.hash_packed_ids(key)
+	var hash_b: int = ECSArchetypeKey.hash_packed_ids(key.duplicate())
+	runner.assert_eq(hash_a, hash_b)
+
+func test_hash_packed_ids_differs_for_different_keys(runner: ECSTestRunner) -> void:
+	var key_a: PackedInt64Array = PackedInt64Array([1, 2])
+	var key_b: PackedInt64Array = PackedInt64Array([1, 3])
+	runner.assert_false(ECSArchetypeKey.hash_packed_ids(key_a) == ECSArchetypeKey.hash_packed_ids(key_b))

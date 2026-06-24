@@ -72,6 +72,11 @@ func get_chunk_indices() -> Array[int]:
 		result[i] = _dense_chunk_indices[i]
 	return result
 
+## Hot path: обход chunk_index без аллокации Array[int].
+func for_each_chunk_index(callback: Callable) -> void:
+	for i in range(_dense_chunk_indices.size()):
+		callback.call(_dense_chunk_indices[i])
+
 func get_archetype_chunk_by_index(chunk_index: int) -> ECSArchetypeChunk:
 	if chunk_index < 0 || chunk_index >= _chunk_sparse.size():
 		return null

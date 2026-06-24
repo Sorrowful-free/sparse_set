@@ -217,8 +217,8 @@ func _filter_commands(cancelled_temps: Dictionary[int, bool]) -> Array[Command]:
 
 func _coalesce_component_ops(commands: Array[Command]) -> Array[Command]:
 	var result: Array[Command] = []
-	var pending: Dictionary = {}  ## String -> Command
-	var removed: Dictionary = {}  ## Command -> bool (set отменённых)
+	var pending: Dictionary[String, Command] = {}
+	var removed: Dictionary[int, bool] = {}
 	for command: Command in commands:
 		if command.type != CommandType.ADD_COMPONENT && command.type != CommandType.REMOVE_COMPONENT:
 			result.append(command)
@@ -233,14 +233,14 @@ func _coalesce_component_ops(commands: Array[Command]) -> Array[Command]:
 				|| (prev_command.type == CommandType.REMOVE_COMPONENT && command.type == CommandType.ADD_COMPONENT)
 			)
 			if is_opposite:
-				removed[prev_command] = true
+				removed[prev_command.get_instance_id()] = true
 				pending.erase(key)
 				continue
 		pending[key] = command
 		result.append(command)
 	var coalesced: Array[Command] = []
 	for command: Command in result:
-		if !removed.has(command):
+		if !removed.has(command.get_instance_id()):
 			coalesced.append(command)
 	return coalesced
 
@@ -252,11 +252,11 @@ func _merge_destroy_entity_commands(commands: Array[Command]) -> Array[Command]:
 			pending_destroys.append(command.entity_ids[0])
 			continue
 		if !pending_destroys.is_empty():
-			result.append(Command.new(CommandType.DESTROY_ENTITIES, PackedInt64Array(), pending_destroys.duplicate()))
+			result.append(Command.new(CommandType.DESTROY_ENTITIES, PackedInt64Array(), pending_destroys))
 			pending_destroys = PackedInt64Array()
 		result.append(command)
 	if !pending_destroys.is_empty():
-		result.append(Command.new(CommandType.DESTROY_ENTITIES, PackedInt64Array(), pending_destroys.duplicate()))
+		result.append(Command.new(CommandType.DESTROY_ENTITIES, PackedInt64Array(), pending_destroys))
 	return result
 
 func _execute_create_entity(command: Command) -> void:
