@@ -19,6 +19,11 @@
 | ECSArchetype | Архетип сущностей |
 | ECSQuery, ECSQueryBuilder | Запросы |
 | ECSSystemBase, ECSSystemRunner | Системы |
+| ECSComponentRegistryConfig | Конфиг тегов и компонентов (`Dictionary` id→storage) |
+| ECSSystemInitStrategy, ECSWorldProfile | Профиль мира и стратегии систем |
+| ECSVisualHost, ECSVisualSceneBinding, ECSVisualHostContext | Доставка нод сцены в backends |
+| ECSVisualBackend, ECSVisualRegistry, ECSVisualRegistryDispatcher | Абстрактный visual-слой |
+| ECSVisualRegistryConfig, ECSVisualSyncSystem | Visual config и sync |
 | ECSEntityIdsPool, ECSEntityIdsUtils, ECSSparseSet | Пул, утилиты ID и sparse set |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |

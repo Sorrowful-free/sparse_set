@@ -1,4 +1,4 @@
-extends RefCounted
+extends GutTest
 class_name SystemRunnerTest
 
 const POSITION_ID: int = 1
@@ -21,29 +21,29 @@ class ChunkCountSystem extends ECSSystemChunkBase:
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 		total_processed += chunk.get_entity_count()
 
-func test_runner_calls_update(runner: ECSTestRunner) -> void:
+func test_runner_calls_update() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	var sys: TestSystem = TestSystem.new(ecs)
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	run.add_system(sys)
-	runner.assert_eq(sys.update_count, 0)
+	assert_eq(sys.update_count, 0)
 	run.run(0.016)
-	runner.assert_eq(sys.update_count, 1)
+	assert_eq(sys.update_count, 1)
 	run.run(0.016)
-	runner.assert_eq(sys.update_count, 2)
+	assert_eq(sys.update_count, 2)
 
-func test_command_buffer_executed_after_run(runner: ECSTestRunner) -> void:
+func test_command_buffer_executed_after_run() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	var sys: RunSystem = RunSystem.new(ecs)
 	run.add_system(sys)
-	runner.assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0)
+	assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0)
 	run.run(0.0)
-	runner.assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 1)
+	assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 1)
 
-func test_chunk_system_processes_all_entities(runner: ECSTestRunner) -> void:
+func test_chunk_system_processes_all_entities() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
@@ -52,10 +52,10 @@ func test_chunk_system_processes_all_entities(runner: ECSTestRunner) -> void:
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	run.add_system(sys)
 	run.run(0.0)
-	runner.assert_eq(sys.total_processed, ids.size())
+	assert_eq(sys.total_processed, ids.size())
 
 ## При use_worker_pool накопление в process_chunk не потокобезопасно; проверяем только что раннер отрабатывает.
-func test_chunk_system_worker_pool_runs(runner: ECSTestRunner) -> void:
+func test_chunk_system_worker_pool_runs() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
@@ -65,7 +65,7 @@ func test_chunk_system_worker_pool_runs(runner: ECSTestRunner) -> void:
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	run.add_system(sys)
 	run.run(0.0)
-	runner.assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs).get_entity_ids().size(), ids.size())
+	assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs).get_entity_ids().size(), ids.size())
 
 class DestroyViaBufferSystem extends ECSSystemBase:
 	var target_id: int = 0
@@ -76,7 +76,7 @@ class DestroyViaBufferSystem extends ECSSystemBase:
 		get_command_buffer().destroy_entity(target_id)
 		done = true
 
-func test_runner_flushes_deferred_archetype_gc(runner: ECSTestRunner) -> void:
+func test_runner_flushes_deferred_archetype_gc() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
@@ -84,7 +84,7 @@ func test_runner_flushes_deferred_archetype_gc(runner: ECSTestRunner) -> void:
 	sys.target_id = eid
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	run.add_system(sys)
-	runner.assert_eq(ecs.count_live_archetypes(), 1)
+	assert_eq(ecs.count_live_archetypes(), 1)
 	run.run(0.0)
-	runner.assert_eq(ecs.count_live_archetypes(), 0)
-	runner.assert_eq(ecs.count_registered_archetypes(), 0)
+	assert_eq(ecs.count_live_archetypes(), 0)
+	assert_eq(ecs.count_registered_archetypes(), 0)

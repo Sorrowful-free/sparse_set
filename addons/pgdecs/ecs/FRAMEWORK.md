@@ -16,9 +16,11 @@ Data-oriented ECS для Godot 4.x (GDScript). Документ описывае
 10. [Command buffer](#command-buffer)
 11. [Change detection](#change-detection)
 12. [Мир (ECSWorld)](#мир-ecsworld)
-13. [Threading и reentrancy](#threading-и-reentrancy)
-14. [Структура каталогов](#структура-каталогов)
-15. [См. также](#см-также)
+13. [Configuration (profile, registry, strategies)](#configuration-profile-registry-strategies)
+14. [Visual layer (abstract)](#visual-layer-abstract)
+15. [Threading и reentrancy](#threading-и-reentrancy)
+16. [Структура каталогов](#структура-каталогов)
+17. [См. также](#см-также)
 
 ---
 
@@ -29,39 +31,31 @@ PGDECS хранит компоненты в **Structure of Arrays (SoA)** по �
 Типичный цикл кадра:
 
 ```
-_setup_components() → _setup_systems() → каждый кадр: systems.update() → command_buffer.execute()
+profile.apply_to_world() → каждый кадр: systems.update() → command_buffer.execute()
 ```
 
-Точка входа в игре — наследник [`ECSWorld`](ecs_world.gd) или прямое использование [`ECSManager`](ecs_manager.gd) + [`ECSSystemRunner`](systems/ecs_system_runner.gd).
+Точка входа в игре — нода [`ECSWorld`](ecs_world.gd) с [`ECSWorldProfile`](config/ecs_world_profile.gd) или прямое использование [`ECSManager`](ecs_manager.gd) + [`ECSSystemRunner`](systems/ecs_system_runner.gd).
 
 ---
 
 ## Быстрый старт
 
 ```gdscript
-extends ECSWorld
+var world := ECSDemoWorld.new()
+world.bootstrap(1000)
+add_child(world)
 
-const POSITION_ID: int = 1
-
-func _setup_components() -> void:
-    get_ecs_manager().register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-    get_ecs_manager().precache_archetype([POSITION_ID])
-
-func _setup_systems() -> void:
-    get_system_runner().add_system(MovementSystem.new(get_ecs_manager()))
-
-class MovementSystem extends ECSSystemChunkBase:
-    func _build_query() -> ECSQuery:
-        return ECSQueryBuilder.new().with_component(POSITION_ID).build(get_ecs_manager())
-
-    func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
-        var pos := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
-        var slots := chunk.get_dense_slots()
-        var buf := pos.get_values_buffer()
-        var count := chunk.get_entity_count()
-        for i in range(count):
-            var slot := slots[i]
-            pos.set_value_at_slot(slot, buf[slot] + Vector2(delta, 0))
+# Свой профиль:
+var profile := ECSWorldProfile.new()
+profile.component_registry_config = ExampleComponentRegistry.create_demo()
+profile.system_strategies = [DemoMovementInitStrategy.new()]
+world.apply_profile(profile)
+# spawn — в коде игры, не в профиле:
+var arch := world.get_ecs_manager().prepare_archetype([
+    ExampleComponentRegistry.Component.POSITION,
+    ExampleComponentRegistry.Component.VELOCITY,
+])
+world.get_ecs_manager().create_entities_packed(100, arch)
 ```
 
 Демо без сцены: [`examples/demo_world.gd`](examples/demo_world.gd).
@@ -361,17 +355,63 @@ buf.execute()  # вызывается раннером автоматическ�
 ## Мир (ECSWorld)
 
 ```gdscript
-extends ECSWorld
-
-func _setup_components() -> void: ...
-func _setup_systems() -> void: ...
-
-func _ready() -> void:
-    super._ready()
-    get_ecs_manager().create_entities(1000, [POSITION_ID])
+# Нода на сцене
+@export var profile: ECSWorldProfile
+# Дочерний ECSVisualHost со scene_binding — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, вызывает `run(delta)` в `_process`.
+`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready`, вызывает `run(delta)` в `_process`. Для тестов без дерева сцены: `apply_profile(profile)`.
+
+---
+
+## Configuration (profile, registry, strategies)
+
+| Класс | Роль |
+|-------|------|
+| [`ECSComponentRegistryConfig`](config/ecs_component_registry_config.gd) | теги + `Dictionary` id→storage → `apply_to(ecs)` |
+| [`ECSSystemInitStrategy`](config/ecs_system_init_strategy.gd) | `@export` + `create_system(ecs, world)` |
+| [`ECSWorldProfile`](config/ecs_world_profile.gd) | registry configs, strategies, visual config |
+
+Порядок `apply_to_world`: component registry → visual registry → strategies.
+
+Spawn и precache архетипов — в коде игры (`prepare_archetype` / `create_entities_packed`), не в профиле.
+
+---
+
+## Visual layer (abstract)
+
+| Класс | Роль |
+|-------|------|
+| [`ECSVisualHost`](presentation/ecs_visual_host.gd) | якорь visual-сцены под world |
+| [`ECSVisualSceneBinding`](presentation/ecs_visual_scene_binding.gd) | StringName слот → NodePath |
+| [`ECSVisualHostContext`](presentation/ecs_visual_host_context.gd) | разрешённые ноды для `create_registry` |
+| [`ECSVisualBackend`](presentation/ecs_visual_backend.gd) | один `visual_type` (игра реализует) |
+| [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd) | фасад: acquire / release_entity / sync_all |
+| [`ECSVisualRegistryDispatcher`](presentation/ecs_visual_registry_dispatcher.gd) | маршрутизатор + entity mirror |
+| [`ECSVisualRegistryConfig`](presentation/ecs_visual_registry_config.gd) | `create_registry(world, context)` |
+| [`ECSVisualSyncSystem`](presentation/ecs_visual_sync_system.gd) | thin `sync_all` каждый кадр |
+
+Сцена:
+
+```
+ECSWorld
+└── ECSVisualHost          # scene_binding: { &"units": NodePath("UnitsMultiMesh"), ... }
+    └── UnitsMultiMesh
+```
+
+`ECSWorldProfile.apply_to_world` вызывает `ECSVisualHostContext.from_world(world)` — ищет дочерний [ECSVisualHost] или использует сам world как root.
+
+Игра в `create_registry`:
+
+```gdscript
+func create_registry(_world: ECSWorld, context: ECSVisualHostContext) -> ECSVisualRegistry:
+    var registry := ECSVisualRegistryDispatcher.new()
+    var mesh := context.require_node(&"units") as MultiMeshInstance3D
+    registry.register_backend(VisualType.UNITS, UnitsBackend.new(mesh))
+    return registry
+```
+
+Примитивные компоненты в игре: `VISUAL_TYPE`, `VISUAL_SUBTYPE`, `VISUAL_HANDLE` (`TYPE_PACKED_INT32_ARRAY`). Subtype — свой enum на каждый visual type. LOD swap: `release_entity` → смена `VISUAL_TYPE` → `acquire`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ---
 
@@ -389,21 +429,17 @@ func _ready() -> void:
 
 ```
 addons/pgdecs/ecs/
-├── ecs_manager.gd          # мир, сущности, архетипы
-├── ecs_world.gd            # Node-обёртка
+├── ecs_manager.gd
+├── ecs_world.gd
+├── config/                 # ECSComponentRegistryConfig, ECSWorldProfile, InitStrategy
+├── presentation/           # VisualHost, SceneBinding, Backend, Registry, Dispatcher
 ├── ecs_command_buffer.gd
-├── ecs_archetype.gd
-├── ecs_archetype_chunk.gd
-├── entities/               # handles, pool, sparse set
+├── entities/
 ├── components/
-│   ├── base/               # ECSComponentBaseArray, Chunk
-│   └── generated/          # codegen типы
-├── queries/                # ECSQuery, Builder, QueryChunk
-├── systems/                # SystemBase, ChunkBase, Runner
-├── bit_mask/
-├── editor/                 # codegen
+├── queries/
+├── systems/
 ├── examples/
-└── tests/                  # unit + performance
+└── tests/
 ```
 
 Именование классов: [NAMING.md](NAMING.md).

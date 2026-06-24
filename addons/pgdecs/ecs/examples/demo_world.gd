@@ -4,18 +4,13 @@ class_name ECSDemoWorld
 const POSITION_ID: int = 1
 const VELOCITY_ID: int = 2
 
+func build_profile() -> ECSWorldProfile:
+	var world_profile := ECSWorldProfile.new()
+	world_profile.component_registry_config = ExampleComponentRegistry.create_demo()
+	return world_profile
+
 func bootstrap(entity_count: int = 1000) -> void:
-	_ecs_manager = ECSManager.new()
-	_system_runner = ECSSystemRunner.new()
-	_setup_components()
-	_setup_systems()
-	var mover_ids: PackedInt64Array = _ecs_manager.prepare_archetype([POSITION_ID, VELOCITY_ID])
-	_ecs_manager.create_entities_packed(entity_count, mover_ids)
-
-func _setup_components() -> void:
-	_ecs_manager.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs_manager.register_component(VELOCITY_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	_ecs_manager.precache_archetype([POSITION_ID, VELOCITY_ID])
-
-func _setup_systems() -> void:
-	pass
+	apply_profile(build_profile())
+	var ecs: ECSManager = get_ecs_manager()
+	var mover_arch: PackedInt64Array = ecs.prepare_archetype([POSITION_ID, VELOCITY_ID])
+	ecs.create_entities_packed(entity_count, mover_arch)

@@ -67,3 +67,25 @@ func destroy_visual(ecs: ECSManager, registry: ECSNodeRegistry, entity: int) -> 
 ## Статус
 
 Планируется поддержка **только через реестры и примитивные компоненты-индексы**. Ядро ECS не будет расширено под object types.
+
+## Visual registry (abstract)
+
+Presentation-слой в `presentation/`: [`ECSVisualBackend`](presentation/ecs_visual_backend.gd), [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd), [`ECSVisualRegistryDispatcher`](presentation/ecs_visual_registry_dispatcher.gd).
+
+Примитивные компоненты (регистрируются в игре через `ECSComponentRegistryConfig`):
+
+| Component | Storage | Смысл |
+|-----------|---------|--------|
+| `VISUAL_TYPE` | `TYPE_PACKED_INT32_ARRAY` | ключ backend (какой MultiMesh / пул) |
+| `VISUAL_SUBTYPE` | `TYPE_PACKED_INT32_ARRAY` | вариант внутри type (свой enum на type) |
+| `VISUAL_HANDLE` | `TYPE_PACKED_INT32_ARRAY` | opaque instance (`-1` = нет) |
+
+Lifecycle:
+
+1. **Spawn:** `registry.acquire(visual_type, entity_id, ecs)` → записать handle + type/subtype на entity.
+2. **Sync:** `ECSVisualSyncSystem` или `backend.sync(ecs, delta)`.
+3. **Destroy:** `registry.release_entity(entity_id)` **до** `destroy_entity`.
+
+**LOD:** смена Skeletal → VAT → MultiMesh = смена `VISUAL_TYPE` (другой backend), не subtype. Опционально `APPEARANCE_VARIANT` + `LOD_LEVEL` — компоненты игры. Hysteresis на порогах — в игровой LOD-системе.
+
+Конкретные backend'ы (MultiMesh, node pool, Skeletal) — **реализация в игре**, не в pgdecs.

@@ -1,0 +1,9 @@
+{
+  "dirs": ["res://addons/pgdecs/ecs/tests/unit"],
+  "include_subdirs": false,
+  "prefix": "",
+  "suffix": "_test.gd",
+  "should_exit": true,
+  "log_level": 1,
+  "hide_orphans": false
+}
