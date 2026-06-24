@@ -7,11 +7,12 @@ var _entity_ids_pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
 var _components: Dictionary[int, ECSComponentBaseArray] = {}
 var _archetype_registry: Array[ECSArchetype] = []
 var _archetype_id_to_key: Dictionary[int, PackedInt64Array] = {}
+## PackedInt64Array → int (GDScript не типизирует PackedInt64Array как ключ Dictionary).
 var _archetype_key_to_id: Dictionary = {}
 var _entities_to_archetypes: PackedInt64Array = PackedInt64Array()
 var _archetypes_version: int = 0
 
-## Кэш для create_entity/create_entities: ключ PackedInt64Array (normalized ids) -> ECSArchetypeInfo.
+## Кэш для create_entity/create_entities: PackedInt64Array → ECSArchetypeInfo.
 var _archetype_cache: Dictionary = {}
 
 ## Кэш переходов архетипа: old_archetype_id -> component_id -> new_archetype_id.
@@ -22,11 +23,10 @@ var _remove_transition_cache: Dictionary[int, Dictionary] = {}
 var _work_component_ids: PackedInt64Array = PackedInt64Array()
 var _work_bitmask: ECSBitMask = ECSBitMask.new(1)
 
-## Scratch для destroy_entities: группировка по archetype_id без Dictionary.
+## Scratch для destroy_entities: single-archetype — packed; multi — buckets по archetype_id.
 var _destroy_entity_scratch: PackedInt64Array = PackedInt64Array()
-var _destroy_archetype_id_scratch: PackedInt64Array = PackedInt64Array()
-var _destroy_sort_indices: Array[int] = []
-var _destroy_batch_scratch: PackedInt64Array = PackedInt64Array()
+var _destroy_buckets: Dictionary[int, PackedInt64Array] = {}
+var _destroy_touched_ids: Array[int] = []
 
 var _debug_scratch_guard: bool = OS.is_debug_build()
 var _scratch_depth: int = 0
@@ -35,7 +35,7 @@ var _scratch_depth: int = 0
 var auto_gc_archetypes: bool = true
 var _pending_archetype_gc: bool = false
 ## archetype_id с live_count == 0 после structural-мутации (точечный eviction вместо полного скана).
-var _gc_empty_archetype_candidates: Dictionary = {}
+var _gc_empty_archetype_candidates: Dictionary[int, bool] = {}
 ## Было удаление записи chunk_index из map архетипа — возможны осиротевшие component chunks.
 var _gc_component_chunks_dirty: bool = false
 
@@ -88,9 +88,9 @@ func flush_archetype_gc() -> void:
 		return
 	var archetypes_evicted: bool = false
 	if !_gc_empty_archetype_candidates.is_empty():
-		for archetype_id in _gc_empty_archetype_candidates.keys():
+		for archetype_id: int in _gc_empty_archetype_candidates:
 			var before_version: int = _archetypes_version
-			_evict_archetype_if_empty(int(archetype_id))
+			_evict_archetype_if_empty(archetype_id)
 			if _archetypes_version != before_version:
 				archetypes_evicted = true
 		_gc_empty_archetype_candidates.clear()
@@ -141,15 +141,15 @@ func _evict_archetype(archetype_id: int) -> void:
 
 func _purge_transition_cache_references(archetype_id: int) -> void:
 	for source_id: int in _add_transition_cache.keys():
-		var inner: Dictionary = _add_transition_cache[source_id]
-		for component_id in inner.keys():
+		var inner: Dictionary[int, int] = _add_transition_cache[source_id]
+		for component_id: int in inner.keys():
 			if inner[component_id] == archetype_id:
 				inner.erase(component_id)
 		if inner.is_empty():
 			_add_transition_cache.erase(source_id)
 	for source_id: int in _remove_transition_cache.keys():
-		var inner: Dictionary = _remove_transition_cache[source_id]
-		for component_id in inner.keys():
+		var inner: Dictionary[int, int] = _remove_transition_cache[source_id]
+		for component_id: int in inner.keys():
 			if inner[component_id] == archetype_id:
 				inner.erase(component_id)
 		if inner.is_empty():
@@ -201,7 +201,7 @@ func _build_work_component_ids_after_remove(old_archetype: ECSArchetype, compone
 
 func _resolve_add_transition(old_archetype_id: int, component_id: int) -> int:
 	if _add_transition_cache.has(old_archetype_id):
-		var inner: Dictionary = _add_transition_cache[old_archetype_id]
+		var inner: Dictionary[int, int] = _add_transition_cache[old_archetype_id]
 		if inner.has(component_id):
 			return inner[component_id]
 	var old_archetype: ECSArchetype = _get_archetype(old_archetype_id)
@@ -211,15 +211,15 @@ func _resolve_add_transition(old_archetype_id: int, component_id: int) -> int:
 	_prepare_work_bitmask()
 	var new_archetype_id: int = _register_archetype(_work_bitmask, _work_component_ids.duplicate())
 	if !_add_transition_cache.has(old_archetype_id):
-		_add_transition_cache[old_archetype_id] = {}
-	var add_inner: Dictionary = _add_transition_cache[old_archetype_id]
+		var fresh: Dictionary[int, int] = {}
+		_add_transition_cache[old_archetype_id] = fresh
+	var add_inner: Dictionary[int, int] = _add_transition_cache[old_archetype_id]
 	add_inner[component_id] = new_archetype_id
-	_add_transition_cache[old_archetype_id] = add_inner
 	return new_archetype_id
 
 func _resolve_remove_transition(old_archetype_id: int, component_id: int) -> int:
 	if _remove_transition_cache.has(old_archetype_id):
-		var inner: Dictionary = _remove_transition_cache[old_archetype_id]
+		var inner: Dictionary[int, int] = _remove_transition_cache[old_archetype_id]
 		if inner.has(component_id):
 			return inner[component_id]
 	var old_archetype: ECSArchetype = _get_archetype(old_archetype_id)
@@ -231,10 +231,10 @@ func _resolve_remove_transition(old_archetype_id: int, component_id: int) -> int
 	_prepare_work_bitmask()
 	var new_archetype_id: int = _register_archetype(_work_bitmask, _work_component_ids.duplicate())
 	if !_remove_transition_cache.has(old_archetype_id):
-		_remove_transition_cache[old_archetype_id] = {}
-	var remove_inner: Dictionary = _remove_transition_cache[old_archetype_id]
+		var fresh: Dictionary[int, int] = {}
+		_remove_transition_cache[old_archetype_id] = fresh
+	var remove_inner: Dictionary[int, int] = _remove_transition_cache[old_archetype_id]
 	remove_inner[component_id] = new_archetype_id
-	_remove_transition_cache[old_archetype_id] = remove_inner
 	return new_archetype_id
 
 func _get_or_create_archetype_info_packed(component_ids: PackedInt64Array) -> ECSArchetypeInfo:
@@ -390,13 +390,11 @@ func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
 		return
 	_scratch_enter("destroy_entities_packed")
-	var estimated: int = entity_ids.size()
-	_destroy_entity_scratch.resize(estimated)
-	_destroy_archetype_id_scratch.resize(estimated)
-	var write_index: int = 0
-	var first_archetype_id: int = 0
-	var single_archetype: bool = true
-	var has_any: bool = false
+	_destroy_touched_ids.clear()
+	var scratch_count: int = 0
+	var first_archetype_id: int = -1
+	var buckets_mode: bool = false
+	_destroy_entity_scratch.resize(entity_ids.size())
 	for entity_id in entity_ids:
 		if !is_alive(entity_id):
 			continue
@@ -406,45 +404,54 @@ func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
 		var archetype_id: int = _entities_to_archetypes[entity_index]
 		if archetype_id < 0:
 			continue
-		if has_any:
-			if archetype_id != first_archetype_id:
-				single_archetype = false
+		if !buckets_mode:
+			if first_archetype_id < 0:
+				first_archetype_id = archetype_id
+				_destroy_entity_scratch[scratch_count] = entity_id
+				scratch_count += 1
+			elif archetype_id == first_archetype_id:
+				_destroy_entity_scratch[scratch_count] = entity_id
+				scratch_count += 1
+			else:
+				buckets_mode = true
+				_destroy_promote_scratch_to_bucket(first_archetype_id, scratch_count)
+				scratch_count = 0
+				_destroy_bucket_append(archetype_id, entity_id)
 		else:
-			first_archetype_id = archetype_id
-			has_any = true
-		_destroy_entity_scratch[write_index] = entity_id
-		_destroy_archetype_id_scratch[write_index] = archetype_id
-		write_index += 1
-	var valid_count: int = write_index
-	if valid_count == 0:
+			_destroy_bucket_append(archetype_id, entity_id)
+	if scratch_count == 0 && _destroy_touched_ids.is_empty():
 		_scratch_leave()
 		return
-	if valid_count < estimated:
-		_destroy_entity_scratch.resize(valid_count)
-		_destroy_archetype_id_scratch.resize(valid_count)
-	if single_archetype:
+	if !buckets_mode:
+		_destroy_entity_scratch.resize(scratch_count)
 		_destroy_archetype_batch(first_archetype_id, _destroy_entity_scratch)
 		_scratch_leave()
 		return
-	_destroy_sort_indices.resize(valid_count)
-	for i in range(valid_count):
-		_destroy_sort_indices[i] = i
-	_destroy_sort_indices.sort_custom(func(a: int, b: int) -> bool:
-		return _destroy_archetype_id_scratch[a] < _destroy_archetype_id_scratch[b]
-	)
-	var cursor: int = 0
-	while cursor < valid_count:
-		var archetype_id: int = _destroy_archetype_id_scratch[_destroy_sort_indices[cursor]]
-		var range_start: int = cursor
-		cursor += 1
-		while cursor < valid_count && _destroy_archetype_id_scratch[_destroy_sort_indices[cursor]] == archetype_id:
-			cursor += 1
-		var range_size: int = cursor - range_start
-		_destroy_batch_scratch.resize(range_size)
-		for i in range(range_size):
-			_destroy_batch_scratch[i] = _destroy_entity_scratch[_destroy_sort_indices[range_start + i]]
-		_destroy_archetype_batch(archetype_id, _destroy_batch_scratch)
+	for archetype_id in _destroy_touched_ids:
+		var batch: PackedInt64Array = _destroy_buckets[archetype_id]
+		_destroy_archetype_batch(archetype_id, batch)
+		batch.clear()
+	_destroy_touched_ids.clear()
 	_scratch_leave()
+
+func _destroy_bucket_append(archetype_id: int, entity_id: int) -> void:
+	var bucket: PackedInt64Array = _destroy_buckets.get(archetype_id)
+	if bucket == null:
+		bucket = PackedInt64Array()
+		_destroy_buckets[archetype_id] = bucket
+		_destroy_touched_ids.append(archetype_id)
+	bucket.append(entity_id)
+
+func _destroy_promote_scratch_to_bucket(archetype_id: int, count: int) -> void:
+	if count == 0:
+		return
+	var bucket: PackedInt64Array = _destroy_buckets.get(archetype_id)
+	if bucket == null:
+		bucket = PackedInt64Array()
+		_destroy_buckets[archetype_id] = bucket
+		_destroy_touched_ids.append(archetype_id)
+	for i in count:
+		bucket.append(_destroy_entity_scratch[i])
 
 ## Внешний API: Array[int], PackedInt64Array создаётся внутри.
 func destroy_entities(entity_ids: Array[int]) -> void:
@@ -536,13 +543,13 @@ func reset() -> void:
 	_archetypes_version += 1
 
 func gc_empty_archetypes() -> void:
-	var to_evict: Array[int] = []
+	var to_evict: PackedInt32Array = PackedInt32Array()
 	for archetype_id in range(_archetype_registry.size()):
 		var archetype: ECSArchetype = _archetype_registry[archetype_id]
 		if archetype != null && archetype.get_live_count() == 0:
 			to_evict.append(archetype_id)
-	for archetype_id: int in to_evict:
-		_evict_archetype(archetype_id)
+	for i in range(to_evict.size()):
+		_evict_archetype(to_evict[i])
 
 func has_component(entity_id: int, component_id: int) -> bool:
 	if !is_alive(entity_id):

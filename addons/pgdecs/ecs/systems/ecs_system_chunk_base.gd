@@ -127,7 +127,7 @@ func _consume_chunk_dirty(chunk: ECSQueryChunk) -> bool:
 func _prune_stale_chunk_seen() -> void:
 	if _chunk_seen.is_empty():
 		return
-	var active: Dictionary = {}
+	var active: Dictionary[int, bool] = {}
 	_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 		active[chunk.get_archetype_chunk().get_instance_id()] = true
 	)

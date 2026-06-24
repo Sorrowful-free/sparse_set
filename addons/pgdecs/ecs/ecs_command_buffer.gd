@@ -130,14 +130,14 @@ func _component_op_key(entity_id: int, component_id: int) -> String:
 func _coalesce_commands() -> Array[Command]:
 	if _commands.is_empty():
 		return []
-	var cancelled_temps: Dictionary = _find_cancelled_temp_entities()
+	var cancelled_temps: Dictionary[int, bool] = _find_cancelled_temp_entities()
 	var filtered: Array[Command] = _filter_commands(cancelled_temps)
 	filtered = _coalesce_component_ops(filtered)
 	return _merge_destroy_entity_commands(filtered)
 
-func _find_cancelled_temp_entities() -> Dictionary:
-	var seen_create: Dictionary = {}
-	var cancelled: Dictionary = {}
+func _find_cancelled_temp_entities() -> Dictionary[int, bool]:
+	var seen_create: Dictionary[int, bool] = {}
+	var cancelled: Dictionary[int, bool] = {}
 	for command: Command in _commands:
 		match command.type:
 			CommandType.CREATE_ENTITY:
@@ -157,16 +157,16 @@ func _find_cancelled_temp_entities() -> Dictionary:
 						cancelled[entity_id] = true
 	return cancelled
 
-func _is_entity_inactive(entity_id: int, destroyed: Dictionary, cancelled_temps: Dictionary) -> bool:
+func _is_entity_inactive(entity_id: int, destroyed: Dictionary[int, bool], cancelled_temps: Dictionary[int, bool]) -> bool:
 	if destroyed.has(entity_id):
 		return true
 	if entity_id < 0 && cancelled_temps.has(entity_id):
 		return true
 	return false
 
-func _filter_commands(cancelled_temps: Dictionary) -> Array[Command]:
+func _filter_commands(cancelled_temps: Dictionary[int, bool]) -> Array[Command]:
 	var result: Array[Command] = []
-	var destroyed: Dictionary = {}
+	var destroyed: Dictionary[int, bool] = {}
 	for command: Command in _commands:
 		match command.type:
 			CommandType.CREATE_ENTITY:
@@ -217,8 +217,8 @@ func _filter_commands(cancelled_temps: Dictionary) -> Array[Command]:
 
 func _coalesce_component_ops(commands: Array[Command]) -> Array[Command]:
 	var result: Array[Command] = []
-	var pending: Dictionary = {}
-	var removed: Dictionary = {}
+	var pending: Dictionary = {}  ## String -> Command
+	var removed: Dictionary = {}  ## Command -> bool (set отменённых)
 	for command: Command in commands:
 		if command.type != CommandType.ADD_COMPONENT && command.type != CommandType.REMOVE_COMPONENT:
 			result.append(command)
