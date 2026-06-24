@@ -42,5 +42,6 @@ func test_stale_slot_not_counted_as_member(runner: ECSTestRunner) -> void:
 	ecs.destroy_entity(entity_id)
 	var slot: int = ECSEntityIdsUtils.slot_from_handle(entity_id)
 	var chunk: ECSComponentInt32ArrayChunk = pos.get_chunk_by_index(0) as ECSComponentInt32ArrayChunk
-	runner.assert_eq(chunk.get_value_at_slot(slot), 0)
+	if chunk != null:
+		runner.assert_eq(chunk.get_value_at_slot(slot), 0)
 	runner.assert_false(ecs.has_component(entity_id, POSITION_ID))

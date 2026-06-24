@@ -26,6 +26,20 @@
 
 ---
 
+## 0.3. Ключи архетипов, sparse-чанки, GC (safety refactor)
+
+**Ключ архетипа:** нормализованный `PackedInt64Array` component ids (`ECSArchetypeKey`), не `ECSBitMask.bit_hash()` — исключает коллизии FNV.
+
+**Реестр:** monotonic `archetype_id` → `ECSArchetype`; сущность хранит `archetype_id` в `_entities_to_archetypes`.
+
+**Sparse chunk map:** `Dictionary[int, Chunk]` по глобальному `chunk_index`; без заполнения дыр в `Array`.
+
+**GC:** `_live_count` на архетипе; при опустошении — eviction из реестра и кэшей переходов; пустые chunk-map записи удаляются; `ECSManager.reset()` очищает мир, компоненты остаются.
+
+**Query API:** `for_each_chunk` — пул; `get_chunks()` / `collect_chunks` — snapshot.
+
+---
+
 # План фазы 1: базовые классы и утилиты
 
 Фаза опирается на решения фазы 0: размер чанка 256 (`EntityIdsUtils.CHUNK_SIZE`), контракт компонентов add_entity / remove_entity / has_entity.

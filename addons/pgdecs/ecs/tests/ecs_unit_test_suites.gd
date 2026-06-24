@@ -1,6 +1,8 @@
 extends RefCounted
 class_name ECSUnitTestSuites
 
+const _ArchetypeGcTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_archetype_gc_test.gd")
+const _ArchetypeKeyTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_archetype_key_test.gd")
 const _EntityIdsUtilsTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_entity_ids_utils_test.gd")
 const _EntityIdsPoolTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_entity_ids_pool_test.gd")
 const _ArchetypeTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_archetype_test.gd")
@@ -24,6 +26,8 @@ const _WorldDemoTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_world_dem
 
 static func run_all(runner: ECSTestRunner) -> void:
 	var suites: Array[RefCounted] = [
+		_ArchetypeGcTest.new(),
+		_ArchetypeKeyTest.new(),
 		_EntityIdsUtilsTest.new(),
 		_EntityIdsPoolTest.new(),
 		_ArchetypeTest.new(),
@@ -46,7 +50,7 @@ static func run_all(runner: ECSTestRunner) -> void:
 		_WorldDemoTest.new()
 	]
 	var names: PackedStringArray = PackedStringArray([
-		"EntityIdsUtils", "EntityIdsPool", "Archetype", "ArchetypeChunk", "BitMask", "SparseSet",
+		"ArchetypeGc", "ArchetypeKey", "EntityIdsUtils", "EntityIdsPool", "Archetype", "ArchetypeChunk", "BitMask", "SparseSet",
 		"ComponentFactory", "ComponentArray", "ECSManager", "ManagerArchetypeTransition", "Query", "QueryChunk",
 		"WorldState", "CommandBuffer", "SystemRunner", "SystemChunkBase", "Regression",
 		"Membership", "DenseIteration", "WorldDemo"

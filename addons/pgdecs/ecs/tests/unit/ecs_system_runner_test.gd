@@ -66,3 +66,25 @@ func test_chunk_system_worker_pool_runs(runner: ECSTestRunner) -> void:
 	run.add_system(sys)
 	run.run(0.0)
 	runner.assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs).get_entity_ids().size(), ids.size())
+
+class DestroyViaBufferSystem extends ECSSystemBase:
+	var target_id: int = 0
+	var done: bool = false
+	func update(_delta: float) -> void:
+		if done:
+			return
+		get_command_buffer().destroy_entity(target_id)
+		done = true
+
+func test_runner_flushes_deferred_archetype_gc(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
+	var sys: DestroyViaBufferSystem = DestroyViaBufferSystem.new(ecs)
+	sys.target_id = eid
+	var run: ECSSystemRunner = ECSSystemRunner.new()
+	run.add_system(sys)
+	runner.assert_eq(ecs.count_live_archetypes(), 1)
+	run.run(0.0)
+	runner.assert_eq(ecs.count_live_archetypes(), 0)
+	runner.assert_eq(ecs.count_registered_archetypes(), 0)

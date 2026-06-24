@@ -91,5 +91,14 @@ func bit_copy_from(bits: PackedInt64Array) -> void:
 	_bits = bits.duplicate()
 	_hash_dirty = true
 
+func bit_equals(other: ECSBitMask) -> bool:
+	var max_words: int = maxi(_bits.size(), other._bits.size())
+	for i in range(max_words):
+		var a: int = _bits[i] if i < _bits.size() else 0
+		var b: int = other._bits[i] if i < other._bits.size() else 0
+		if a != b:
+			return false
+	return true
+
 static func static_bit_match(big: ECSBitMask, small: ECSBitMask) -> bool:
 	return big.bit_match(small)

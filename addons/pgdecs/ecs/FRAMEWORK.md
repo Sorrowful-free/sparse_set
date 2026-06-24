@@ -16,8 +16,9 @@ Data-oriented ECS для Godot 4.x (GDScript). Документ описывае
 10. [Command buffer](#command-buffer)
 11. [Change detection](#change-detection)
 12. [Мир (ECSWorld)](#мир-ecsworld)
-13. [Структура каталогов](#структура-каталогов)
-14. [См. также](#см-также)
+13. [Threading и reentrancy](#threading-и-reentrancy)
+14. [Структура каталогов](#структура-каталогов)
+15. [См. также](#см-также)
 
 ---
 
@@ -140,7 +141,11 @@ ECSEntityIdsUtils.chunk_index_from_handle(handle)
 
 ## Архетипы и чанки
 
-**Архетип** — уникальный набор component id (битовая маска). Сущности одного архетипа лежат в одном или нескольких **archetype chunk** (по 256 handle на chunk index).
+**Архетип** — уникальный набор component id. Ключ реестра — нормализованный `PackedInt64Array` (не `bit_hash()`). Пустые архетипы и пустые chunk-map записи освобождаются автоматически при destroy / remove_component.
+
+Чанки хранятся в **sparse map** по глобальному `chunk_index` (`entity_index >> 8`): сущность с высоким index не создаёт пустые промежуточные чанки.
+
+`get_entity_archetype()` возвращает ссылку на живой архетип; **не кэшируйте** `ECSArchetype` между кадрами — после eviction ссылка устаревает.
 
 `ECSArchetypeChunk` (членство):
 
@@ -217,6 +222,11 @@ precache_archetype / precache_archetype_packed
 prepare_archetype([...]) -> PackedInt64Array
 get_entity_archetype(entity)
 get_archetypes()
+count_live_archetypes()
+reset()                    # уничтожить все сущности, очистить архетипы; компоненты остаются зарегистрированными
+auto_gc_archetypes         # true: GC в конце ECSSystemRunner.run(); false — только вручную
+flush_archetype_gc()       # сбросить отложенный GC (пустые архетипы + component chunks)
+gc_empty_archetypes()      # только eviction пустых архетипов из registry
 is_alive(entity)
 ```
 
@@ -238,9 +248,9 @@ var query := ECSQueryBuilder.new()
 
 | Метод | Назначение |
 |-------|------------|
-| `for_each_chunk(callback)` | **предпочтительно** — без аллокации Array у вызывающего |
-| `collect_chunks(out)` | сбор в свой буфер (WorkerThreadPool) |
-| `get_chunks()` | legacy; внутренний кэш query |
+| `for_each_chunk(callback)` | **предпочтительно** — zero-alloc hot path; объекты из внутреннего пула, **не сохранять** между вызовами |
+| `collect_chunks(out)` | независимые snapshot-объекты `ECSQueryChunk` |
+| `get_chunks()` | snapshot; безопасно сохранять между вызовами query |
 | `get_entity_ids()` | плоский список handle; дорого на больших мирах |
 | `match(entity_id)` | точечная проверка |
 
@@ -290,7 +300,7 @@ class MySystem extends ECSSystemChunkBase:
 
 ```gdscript
 runner.add_system(system)
-runner.run(delta)  # update всех систем → execute всех command buffer
+runner.run(delta)  # update всех систем → execute всех command buffer → flush_archetype_gc (если auto_gc_archetypes)
 ```
 
 ---
@@ -338,6 +348,16 @@ func _ready() -> void:
 ```
 
 `ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, вызывает `run(delta)` в `_process`.
+
+---
+
+## Threading и reentrancy
+
+- Один `ECSManager` — **один поток мутаций** (обычно main thread после `ECSSystemRunner.run`).
+- **Не вызывайте** `create_entity`, `destroy_entity`, `add_component`, `remove_component` изнутри `for_each_chunk` / `process_chunk` напрямую — используйте `ECSCommandBuffer`.
+- `ECSManager` и `ECSComponentBaseArray` используют **общие scratch-буферы** (`_work_bitmask`, `_destroy_*`, `_batch_*`); вложенные мутации без command buffer в debug могут вызвать `push_error`.
+- `for_each_chunk` переиспользует `ECSQueryChunk` из пула; `get_chunks()` возвращает отдельные snapshot-объекты.
+- `WorkerThreadPool` в `ECSSystemChunkBase` — только чтение/запись значений компонентов, без структурных изменений мира.
 
 ---
 

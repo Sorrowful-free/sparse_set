@@ -9,7 +9,6 @@ var _without_component_ids: PackedInt64Array
 var _ecs_manager: ECSManager
 var _cached_archetypes: Array[ECSArchetype] = []
 var _cached_archetypes_version: int = -1
-var _cached_chunks: Array[ECSQueryChunk] = []
 var _chunk_pool: Array[ECSQueryChunk] = []
 var _chunk_pool_used: int = 0
 
@@ -57,13 +56,13 @@ func get_entity_ids() -> PackedInt64Array:
 	return result
 
 ## Итерация по чанкам без возврата Array вызывающему коду (alloc-free hot path).
+## Объекты ECSQueryChunk переиспользуются из внутреннего пула — не сохранять между вызовами.
 func for_each_chunk(callback: Callable) -> void:
 	_ensure_archetype_cache()
 	_chunk_pool_used = 0
 	for archetype in _cached_archetypes:
-		var archetype_chunks: Array[ECSArchetypeChunk] = archetype.get_chunks()
-		for chunk_index in range(archetype_chunks.size()):
-			var archetype_chunk: ECSArchetypeChunk = archetype_chunks[chunk_index]
+		for chunk_index: int in archetype.get_chunk_indices():
+			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
 			if archetype_chunk.get_entity_count() == 0:
 				continue
 			callback.call(_acquire_query_chunk(archetype_chunk, chunk_index))
@@ -98,12 +97,22 @@ func _acquire_query_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) 
 	_chunk_pool_used += 1
 	return query_chunk
 
-func collect_chunks(out_chunks: Array[ECSQueryChunk]) -> void:
-	out_chunks.clear()
-	for_each_chunk(func(chunk: ECSQueryChunk) -> void:
-		out_chunks.append(chunk)
-	)
+func _create_snapshot_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) -> ECSQueryChunk:
+	return ECSQueryChunk.new(archetype_chunk, _ecs_manager, chunk_index)
 
+## Заполняет out_chunks независимыми snapshot-объектами (не из пула for_each_chunk).
+func collect_chunks(out_chunks: Array[ECSQueryChunk], _reuse_snapshot: bool = false) -> void:
+	out_chunks.clear()
+	_ensure_archetype_cache()
+	for archetype in _cached_archetypes:
+		for chunk_index: int in archetype.get_chunk_indices():
+			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
+			if archetype_chunk.get_entity_count() == 0:
+				continue
+			out_chunks.append(_create_snapshot_chunk(archetype_chunk, chunk_index))
+
+## Возвращает независимый снимок чанков; безопасно сохранять между вызовами query.
 func get_chunks() -> Array[ECSQueryChunk]:
-	collect_chunks(_cached_chunks)
-	return _cached_chunks
+	var result: Array[ECSQueryChunk] = []
+	collect_chunks(result)
+	return result

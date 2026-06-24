@@ -12,6 +12,8 @@
 ```
 
 Тесты:
+- `unit/ecs_archetype_key_test.gd` — канонические ключи архетипов, bit_equals
+- `unit/ecs_archetype_gc_test.gd` — eviction архетипов, reset, churn
 - `unit/ecs_entity_ids_utils_test.gd` — индексы чанков и слотов
 - `unit/ecs_entity_ids_pool_test.gd` — пул ID (генерации, реюз, защита от double-free)
 - `unit/ecs_archetype_test.gd` — архетип (add/has/remove, несколько чанков)

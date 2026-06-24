@@ -29,3 +29,15 @@ ecs.destroy_entities_packed(survivor_ids)
 ## Историческая заметка
 
 Ранее существовали varargs `create_entity(a, b, c)` — заменены на явный `Array[int]` + внутренний `PackedInt64Array` для предсказуемости типов и hot path.
+
+## Safety refactor (архетипы, query, reset)
+
+| Изменение | Детали |
+|---|---|
+| Ключи архетипов | Реестр по `PackedInt64Array` component ids, не по `bit_hash()` |
+| `ECSManager.reset()` | Уничтожает все сущности и архетипы; `register_component` сохраняется |
+| `auto_gc_archetypes` | По умолчанию `true`: GC один раз в конце `ECSSystemRunner.run()` |
+| `flush_archetype_gc()` | Ручной сброс отложенного GC (бенчмарки без раннера) |
+| `get_chunks()` | Возвращает **snapshot** `ECSQueryChunk` (безопасно кэшировать) |
+| `for_each_chunk()` | Внутренний пул — **не** сохранять объекты между вызовами |
+| `get_entity_archetype()` | Не кэшировать `ECSArchetype` между кадрами после destroy/GC |

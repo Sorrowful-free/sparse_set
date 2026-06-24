@@ -78,6 +78,17 @@ func test_bit_hash_recomputed_after_mutation(runner: ECSTestRunner) -> void:
 	expected.bit_set(10, true)
 	runner.assert_eq(mask.bit_hash(), expected.bit_hash())
 
+func test_bit_equals_detects_different_masks(runner: ECSTestRunner) -> void:
+	var mask_a: ECSBitMask = ECSBitMask.new(4)
+	mask_a.bit_set(1, true)
+	var mask_b: ECSBitMask = ECSBitMask.new(4)
+	mask_b.bit_set(2, true)
+	runner.assert_false(mask_a.bit_equals(mask_b))
+	mask_b.bit_set(1, true)
+	runner.assert_false(mask_a.bit_equals(mask_b))
+	mask_a.bit_set(2, true)
+	runner.assert_true(mask_a.bit_equals(mask_b))
+
 func test_bit_hash_recomputed_after_copy(runner: ECSTestRunner) -> void:
 	var mask: ECSBitMask = ECSBitMask.new(64)
 	mask.bit_set(1, true)

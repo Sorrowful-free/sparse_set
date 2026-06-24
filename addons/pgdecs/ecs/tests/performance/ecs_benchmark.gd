@@ -6,10 +6,22 @@ const HEALTH_ID: int = 2
 
 var _ecs: ECSManager
 var _iterations: int = 10000
+var _gc_runner: ECSSystemRunner = null
+
+class _NoOpFrameSystem extends ECSSystemBase:
+	pass
 
 func _init(ecs: ECSManager, iterations: int = 10000) -> void:
 	_ecs = ecs
 	_iterations = iterations
+
+## Конец кадра как в игре: ECSSystemRunner.run() → flush_archetype_gc_if_pending().
+func _flush_deferred_gc_via_runner() -> void:
+	if _gc_runner == null:
+		var noop: _NoOpFrameSystem = _NoOpFrameSystem.new(_ecs)
+		_gc_runner = ECSSystemRunner.new()
+		_gc_runner.add_system(noop)
+	_gc_runner.run(0.0)
 
 func _time_block(name: String, block: Callable) -> float:
 	var start: int = Time.get_ticks_usec()
@@ -32,6 +44,7 @@ func benchmark_destroy_entity() -> float:
 	return _time_block("destroy_entity x %d" % _iterations, func():
 		for eid in ids:
 			_ecs.destroy_entity(eid)
+		_flush_deferred_gc_via_runner()
 	)
 
 func benchmark_create_entities_batch() -> float:
@@ -54,6 +67,7 @@ func benchmark_destroy_entities_batch() -> float:
 			all_ids.append(eid)
 	return _time_block("destroy_entities batch (total %d)" % all_ids.size(), func():
 		_ecs.destroy_entities_packed(all_ids)
+		_flush_deferred_gc_via_runner()
 	)
 
 func benchmark_query_get_entity_ids() -> float:
@@ -215,6 +229,7 @@ func benchmark_add_remove_component() -> float:
 		for i in range(runs):
 			_ecs.add_component(eid, HEALTH_ID)
 			_ecs.remove_component(eid, HEALTH_ID)
+		_flush_deferred_gc_via_runner()
 	)
 
 func benchmark_command_buffer_execute() -> float:
@@ -251,6 +266,7 @@ func benchmark_command_buffer_coalescing_frame() -> float:
 		"command_buffer coalescing frame (%d cycles, %d raw cmds)" % [cycles, raw_cmds],
 		func():
 			buf.execute()
+			_flush_deferred_gc_via_runner()
 	)
 
 class _ChangeDetectChunkSystem extends ECSSystemChunkBase:

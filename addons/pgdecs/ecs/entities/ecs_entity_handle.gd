@@ -15,4 +15,4 @@ static func generation_of(handle: int) -> int:
 	return (handle >> 32) & GENERATION_MASK
 
 static func is_valid_handle(handle: int) -> bool:
-	return handle != 0
+	return handle != 0 && generation_of(handle) > 0
