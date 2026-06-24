@@ -435,21 +435,18 @@ func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
 	_scratch_leave()
 
 func _destroy_bucket_append(archetype_id: int, entity_id: int) -> void:
-	var bucket: PackedInt64Array = _destroy_buckets.get(archetype_id)
-	if bucket == null:
-		bucket = PackedInt64Array()
-		_destroy_buckets[archetype_id] = bucket
+	if !_destroy_buckets.has(archetype_id):
+		_destroy_buckets[archetype_id] = PackedInt64Array()
 		_destroy_touched_ids.append(archetype_id)
-	bucket.append(entity_id)
+	_destroy_buckets[archetype_id].append(entity_id)
 
 func _destroy_promote_scratch_to_bucket(archetype_id: int, count: int) -> void:
 	if count == 0:
 		return
-	var bucket: PackedInt64Array = _destroy_buckets.get(archetype_id)
-	if bucket == null:
-		bucket = PackedInt64Array()
-		_destroy_buckets[archetype_id] = bucket
+	if !_destroy_buckets.has(archetype_id):
+		_destroy_buckets[archetype_id] = PackedInt64Array()
 		_destroy_touched_ids.append(archetype_id)
+	var bucket: PackedInt64Array = _destroy_buckets[archetype_id]
 	for i in count:
 		bucket.append(_destroy_entity_scratch[i])
 

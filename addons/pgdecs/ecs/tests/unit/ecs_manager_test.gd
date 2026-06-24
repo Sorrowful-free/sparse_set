@@ -92,6 +92,26 @@ func test_destroy_entities_array_api(runner: ECSTestRunner) -> void:
 	for eid in ids:
 		runner.assert_false(ecs.is_alive(eid))
 
+func test_destroy_entities_multi_archetype(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var pos_only: PackedInt64Array = ecs.create_entities_packed(3, PackedInt64Array([POSITION_ID]))
+	var both: PackedInt64Array = ecs.create_entities_packed(2, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	runner.assert_ne(ecs.get_entity_archetype(pos_only[0]), ecs.get_entity_archetype(both[0]))
+	var mixed: PackedInt64Array = PackedInt64Array([
+		pos_only[0], both[0], pos_only[1], both[1], pos_only[2],
+	])
+	ecs.destroy_entities_packed(mixed)
+	for eid in pos_only:
+		runner.assert_false(ecs.is_alive(eid))
+	for eid in both:
+		runner.assert_false(ecs.is_alive(eid))
+	runner.assert_eq(
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(),
+		0
+	)
+
 func test_same_archetype_reused(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
