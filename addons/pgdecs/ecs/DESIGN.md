@@ -285,8 +285,10 @@
 - Добавлено поле `var _command_buffer: ECSCommandBuffer`, в `_init()` создаётся `ECSCommandBuffer.new(ecs_manager)`.
 
 **4.2. ECSCommandBuffer** (`ecs/ecs_command_buffer.gd`):
-- Работает со strict packed API менеджера: `create_entity_packed()` и `create_entities_packed()`.
+- Двухслойный API: `create_entity` / `create_entities` / `destroy_entities` (`Array[int]`) и `*_packed` для hot path.
+- Execute вызывает `ECSManager.create_entity_packed()` / `create_entities_packed()` / `destroy_entities_packed()`.
 - Временные ID (`< 0`) типизировано маппятся в реальные `entity_id` через `Dictionary[int, int]`.
+- Coalescing: create+destroy temp, add+remove, merge `destroy_entity` → `destroy_entities`.
 
 ---
 
@@ -345,10 +347,17 @@ for i in range(count):
     var value = comp_chunk.get_value_at_slot(slot)
 ```
 
-## Публичный API (breaking, strict packed)
+## Публичный API
+
+**Внешний слой** (`Array[int]`): `create_entity`, `create_entities`, `destroy_entities`, `precache_archetype`, `prepare_archetype`.
+
+**Hot path** (`PackedInt64Array`): `create_entity_packed`, `create_entities_packed`, `destroy_entities_packed`, `precache_archetype_packed`.
+
+**ECSQueryBuilder:** `with_component` / `without_component` и пакетные `with_components` / `without_components` (`Array[int]`).
 
 - `ECSManager.create_entity_packed(component_ids: PackedInt64Array) -> int`
 - `ECSManager.create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array`
+- `ECSManager.destroy_entities_packed(entity_ids: PackedInt64Array) -> void`
 - `ECSManager.precache_archetype_packed(component_ids: PackedInt64Array) -> void`
 
 Входные `component_ids` нормализуются внутри менеджера (`sort + unique`).  

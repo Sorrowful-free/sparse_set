@@ -42,6 +42,8 @@ func update(delta: float) -> void:
 		else:
 			_query.collect_chunks(_worker_chunks)
 		if _worker_chunks.is_empty():
+			if change_detection:
+				_prune_stale_chunk_seen()
 			return
 		var group_id: int = WorkerThreadPool.add_group_task(_run_chunk_for_index.bind(_worker_chunks, delta), _worker_chunks.size())
 		WorkerThreadPool.wait_for_group_task_completion(group_id)
@@ -55,6 +57,8 @@ func update(delta: float) -> void:
 			_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 				process_chunk(chunk, delta)
 			)
+	if change_detection:
+		_prune_stale_chunk_seen()
 
 ## Обрабатывает один чанк. Переопределяйте в наследниках.
 ## Рекомендуемый hot path:
@@ -67,7 +71,7 @@ func update(delta: float) -> void:
 ##     var value := comp.get_value_at_slot(slot)
 ## [/codeblock]
 ## При [member change_detection] == true пропускаются неизменённые чанки (last-seen по версиям).
-## Записи для исчезнувших чанков остаются в [member _chunk_seen] (некритичная утечка памяти).
+## После каждого update записи для чанков, исчезнувших из query, удаляются из [member _chunk_seen].
 ## При [member use_worker_pool] == true не вызывайте [method get_command_buffer] — только чтение.
 func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
 	pass
@@ -105,3 +109,17 @@ func _consume_chunk_dirty(chunk: ECSQueryChunk) -> bool:
 			return false
 	_chunk_seen[key] = _version_scratch.duplicate()
 	return true
+
+func _prune_stale_chunk_seen() -> void:
+	if _chunk_seen.is_empty():
+		return
+	var active: Dictionary = {}
+	_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		active[chunk.get_archetype_chunk().get_instance_id()] = true
+	)
+	var stale: Array[int] = []
+	for key: int in _chunk_seen:
+		if !active.has(key):
+			stale.append(key)
+	for key: int in stale:
+		_chunk_seen.erase(key)

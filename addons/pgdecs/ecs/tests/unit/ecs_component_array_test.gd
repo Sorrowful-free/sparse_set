@@ -21,7 +21,7 @@ func test_batch_add_remove(runner: ECSTestRunner) -> void:
 	var ids: PackedInt64Array = ecs.create_entities_packed(4, PackedInt64Array([POSITION_ID, health_id]))
 	for entity_id in ids:
 		runner.assert_true(ecs.has_component(entity_id, health_id))
-	ecs.destroy_entities(ids)
+	ecs.destroy_entities_packed(ids)
 	for entity_id in ids:
 		runner.assert_false(ecs.is_alive(entity_id))
 

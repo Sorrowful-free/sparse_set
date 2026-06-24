@@ -97,3 +97,15 @@ func test_change_detection_worker_pool_parity(runner: ECSTestRunner) -> void:
 	var after_first: int = system.processed_chunks
 	system.update(0.016)
 	runner.assert_eq(system.processed_chunks, after_first)
+
+func test_change_detection_prunes_stale_chunk_seen(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities_packed(300, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.change_detection = true
+	system.update(0.016)
+	runner.assert_gt(system._chunk_seen.size(), 0)
+	ecs.destroy_entities_packed(ids)
+	system.update(0.016)
+	runner.assert_eq(system._chunk_seen.size(), 0)

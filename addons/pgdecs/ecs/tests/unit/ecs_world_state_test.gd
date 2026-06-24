@@ -128,6 +128,6 @@ func test_batch_destroy_queries_stay_valid(runner: ECSTestRunner) -> void:
 	runner.assert_eq(q_both.get_entity_ids().size(), 5)
 	runner.assert_eq(q_pos.get_entity_ids().size(), 6)
 
-	ecs.destroy_entities(ids_both)
+	ecs.destroy_entities_packed(ids_both)
 	_assert_query_ids(runner, q_both, [])
 	_assert_query_ids(runner, q_pos, [e_pos_only])

@@ -40,6 +40,7 @@ class MyMovementSystem extends ECSSystemChunkBase:
 
 - `create_entity([POSITION_ID, HEALTH_ID])`
 - `create_entities(count, [POSITION_ID])`
+- `destroy_entities([id1, id2])`
 - `precache_archetype([POSITION_ID, HEALTH_ID])`
 - `prepare_archetype([...])` → нормализованный `PackedInt64Array` для hot-path
 
@@ -47,7 +48,26 @@ class MyMovementSystem extends ECSSystemChunkBase:
 
 ```gdscript
 var PLAYER := ecs.prepare_archetype([POSITION_ID, HEALTH_ID])
-ecs.create_entity_packed(PLAYER)  # без аллокации Array каждый кадр
+ecs.create_entities_packed(100, player_arch)
+ecs.destroy_entities_packed(survivor_ids)
+```
+
+**ECSQueryBuilder** — одиночные и пакетные фильтры:
+
+```gdscript
+ECSQueryBuilder.new()
+    .with_components([POSITION_ID, HEALTH_ID])
+    .without_components([TAG_ID])
+    .build(ecs)
+```
+
+**ECSCommandBuffer** — тот же двухслойный API, что у менеджера:
+
+```gdscript
+buf.create_entity([POSITION_ID])
+buf.create_entity_packed(player_arch)
+buf.destroy_entities([id_a, id_b])
+buf.destroy_entities_packed(batch_ids)
 ```
 
 ## Документация
@@ -55,7 +75,7 @@ ecs.create_entity_packed(PLAYER)  # без аллокации Array каждый
 - [DESIGN.md](ecs/DESIGN.md) — архитектура, чанки, membership
 - [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, ограничения GDScript
 - [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — Node/String через реестры
-- [MIGRATION.md](ecs/MIGRATION.md) — миграция на strict packed API
+- [MIGRATION.md](ecs/MIGRATION.md) — внешний API (`Array[int]`) и hot path (`*_packed`)
 - [agent_handoff/](ecs/agent_handoff/README.md) — шаблоны для Composer (батчи, gates, self-check)
 - [tests/README.md](ecs/tests/README.md) — юнит- и perf-тесты
 

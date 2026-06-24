@@ -53,7 +53,7 @@ func benchmark_destroy_entities_batch() -> float:
 		for eid in ids:
 			all_ids.append(eid)
 	return _time_block("destroy_entities batch (total %d)" % all_ids.size(), func():
-		_ecs.destroy_entities(all_ids)
+		_ecs.destroy_entities_packed(all_ids)
 	)
 
 func benchmark_query_get_entity_ids() -> float:
@@ -403,6 +403,24 @@ func run_all() -> void:
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(true)
 	print("  system change_detection hot-chunks ON: %.3f s" % t)
 
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(false)
+	print("  system change_detection hot-chunks OFF: %.3f s" % t)
+
+func run_change_detection_hot() -> void:
+	print("--- ECS Performance (iterations=%d) ---" % _iterations)
+	var ecs_fresh: ECSManager = ECSManager.new()
+	var t: float = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection()
+	print("  system change_detection steady: %.3f s" % t)
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_sparse_scattered(true)
+	print("  system change_detection scattered ON: %.3f s" % t)
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_sparse_scattered(false)
+	print("  system change_detection scattered OFF: %.3f s" % t)
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(true)
+	print("  system change_detection hot-chunks ON: %.3f s" % t)
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(false)
 	print("  system change_detection hot-chunks OFF: %.3f s" % t)

@@ -288,3 +288,20 @@ Unit: **585/585**.
 | **hot-chunks (2 чанка/кадр)** | **0.108 s** | 1.842 s | **~17×** — локальная активность, остальной мир статичен |
 
 В игре изменения **неравномерны**: движется кластер сущностей, фон не трогается. `change_detection` имеет смысл, когда большинство чанков большую часть кадров чистые. Steady-бенчмарк измеряет только оверхед; hot-chunks — ожидаемый выигрыш.
+
+---
+
+## Change detection hot/scattered — multirun (5 прогонов)
+
+Сырые логи: `multirun_dirty_hot/run_1.log` … `run_5.log`.  
+Скрипт: `run_change_detection_hot_perf_headless.gd` (только change-detection, iterations=25000).
+
+| Benchmark | min | **med** | max |
+|---|---:|---:|---:|
+| system change_detection steady | 0.051 | **0.052** | 0.053 |
+| system change_detection scattered ON | 1.951 | **1.960** | 2.013 |
+| system change_detection scattered OFF | 1.987 | **2.004** | 2.064 |
+| **system change_detection hot-chunks ON** | 0.119 | **0.123** | 0.130 |
+| **system change_detection hot-chunks OFF** | 1.853 | **1.937** | 1.979 |
+
+**Вывод:** hot-chunks med **0.123 s** vs **1.937 s** OFF → **~15.8×** (стабильно на 5 прогонах). Scattered ≈ паритет (ON/OFF в пределах шума).

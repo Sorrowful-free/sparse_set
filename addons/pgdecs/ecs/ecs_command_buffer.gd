@@ -338,4 +338,4 @@ func _execute_destroy_entities(command: Command) -> void:
 
 	# Удаляем все сущности одним вызовом (оптимизировано)
 	if !real_entity_ids.is_empty():
-		_ecs_manager.destroy_entities(real_entity_ids)
+		_ecs_manager.destroy_entities_packed(real_entity_ids)

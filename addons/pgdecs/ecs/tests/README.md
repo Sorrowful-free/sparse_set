@@ -69,6 +69,14 @@ Headless прогоняет три шкалы: **5000 / 15000 / 25000** итер
 - `system change_detection steady` (skip-clean без записей)
 - `system change_detection scattered/hot-chunks ON/OFF` (размазанные vs локальные изменения)
 
+Только change-detection (25000, без полного perf-suite):
+
+```powershell
+& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_change_detection_hot_perf_headless.gd
+```
+
+Логи multirun: `tests/reports/multirun_dirty_hot/run_1.log` … `run_5.log`.
+
 После правки шаблона component chunk перегенерируйте типы: `run_codegen_headless.gd`.
 
 ### Multirun

@@ -261,7 +261,7 @@ func destroy_entity(entity_id: int) -> void:
 	_entity_ids_pool.free_entity_id(entity_id)
 	_entities_to_archetypes[entity_index] = -1
 
-func destroy_entities(entity_ids: PackedInt64Array) -> void:
+func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
 		return
 	var estimated: int = entity_ids.size()
@@ -316,6 +316,10 @@ func destroy_entities(entity_ids: PackedInt64Array) -> void:
 		for i in range(range_size):
 			_destroy_batch_scratch[i] = _destroy_entity_scratch[_destroy_sort_indices[range_start + i]]
 		_destroy_archetype_batch(archetype_hash, _destroy_batch_scratch)
+
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func destroy_entities(entity_ids: Array[int]) -> void:
+	destroy_entities_packed(_packed_from_array(entity_ids))
 
 func _destroy_archetype_batch(archetype_hash: int, batch: PackedInt64Array) -> void:
 	if batch.is_empty():
