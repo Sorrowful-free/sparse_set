@@ -77,6 +77,29 @@ func test_get_chunks_iterate_by_chunk(runner: ECSTestRunner) -> void:
 		total += count
 	runner.assert_eq(total, created.size())
 
+func test_for_each_chunk_matches_get_chunks(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
+	var from_foreach: PackedInt64Array = PackedInt64Array()
+	query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		var count: int = chunk.get_entity_count()
+		for i in range(count):
+			from_foreach.append(dense[i])
+	)
+	var from_chunks: PackedInt64Array = PackedInt64Array()
+	for chunk in query.get_chunks():
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		var count: int = chunk.get_entity_count()
+		for i in range(count):
+			from_chunks.append(dense[i])
+	runner.assert_eq(from_foreach.size(), from_chunks.size())
+	for entity_id in from_foreach:
+		runner.assert_true(from_chunks.find(entity_id) >= 0)
+
 func test_query_builder_deduplicates_and_sorts_component_ids(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)

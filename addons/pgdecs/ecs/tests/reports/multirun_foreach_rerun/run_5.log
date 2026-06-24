@@ -1,0 +1,42 @@
+Godot Engine v4.7.stable.steam.5b4e0cb0f - https://godotengine.org
+
+--- ECS Performance (iterations=5000) ---
+  create_entity: 0.045 s
+  destroy_entity: 0.027 s
+  create_entities batch: 0.017 s
+  destroy_entities batch: 0.025 s
+  query.get_entity_ids: 0.014 s
+  query.for_each_chunk iterate: 0.002 s
+  query iterate entities+components: 0.514 s
+  query iterate entities+components WorkerThreadPool: 0.006 s
+  query chunks WorkerThreadPool: 0.007 s
+  add/remove_component: 0.117 s
+  command_buffer execute: 0.012 s
+
+--- ECS Performance (iterations=15000) ---
+  create_entity: 0.132 s
+  destroy_entity: 0.080 s
+  create_entities batch: 0.050 s
+  destroy_entities batch: 0.073 s
+  query.get_entity_ids: 0.041 s
+  query.for_each_chunk iterate: 0.006 s
+  query iterate entities+components: 1.528 s
+  query iterate entities+components WorkerThreadPool: 0.010 s
+  query chunks WorkerThreadPool: 0.010 s
+  add/remove_component: 0.106 s
+  command_buffer execute: 0.012 s
+
+--- ECS Performance (iterations=25000) ---
+  create_entity: 0.221 s
+  destroy_entity: 0.133 s
+  create_entities batch: 0.084 s
+  destroy_entities batch: 0.121 s
+  query.get_entity_ids: 0.068 s
+  query.for_each_chunk iterate: 0.010 s
+  query iterate entities+components: 2.549 s
+  query iterate entities+components WorkerThreadPool: 0.015 s
+  query chunks WorkerThreadPool: 0.015 s
+  add/remove_component: 0.104 s
+  command_buffer execute: 0.012 s
+
+--- Done ---

@@ -45,12 +45,25 @@ func match(entity_id: int) -> bool:
 
 func get_entity_ids() -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
-	for chunk in get_chunks():
+	for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 		var dense: PackedInt64Array = chunk.get_dense_entities()
 		var count: int = chunk.get_entity_count()
 		for i in range(count):
 			result.append(dense[i])
+	)
 	return result
+
+## Итерация по чанкам без возврата Array вызывающему коду (alloc-free hot path).
+func for_each_chunk(callback: Callable) -> void:
+	_ensure_archetype_cache()
+	_chunk_pool_used = 0
+	for archetype in _cached_archetypes:
+		var archetype_chunks: Array[ECSArchetypeChunk] = archetype.get_chunks()
+		for chunk_index in range(archetype_chunks.size()):
+			var archetype_chunk: ECSArchetypeChunk = archetype_chunks[chunk_index]
+			if archetype_chunk.get_entity_count() == 0:
+				continue
+			callback.call(_acquire_query_chunk(archetype_chunk, chunk_index))
 
 func _ensure_archetype_cache() -> void:
 	var version: int = _ecs_manager.get_archetypes_version()
@@ -83,14 +96,8 @@ func _acquire_query_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) 
 	return query_chunk
 
 func get_chunks() -> Array[ECSQueryChunk]:
-	_ensure_archetype_cache()
 	_cached_chunks.clear()
-	_chunk_pool_used = 0
-	for archetype in _cached_archetypes:
-		var archetype_chunks: Array[ECSArchetypeChunk] = archetype.get_chunks()
-		for chunk_index in range(archetype_chunks.size()):
-			var archetype_chunk: ECSArchetypeChunk = archetype_chunks[chunk_index]
-			if archetype_chunk.get_entity_count() == 0:
-				continue
-			_cached_chunks.append(_acquire_query_chunk(archetype_chunk, chunk_index))
+	for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		_cached_chunks.append(chunk)
+	)
 	return _cached_chunks

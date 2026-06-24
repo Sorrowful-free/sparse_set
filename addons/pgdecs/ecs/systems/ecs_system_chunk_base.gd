@@ -26,15 +26,16 @@ func get_query() -> ECSQuery:
 func update(delta: float) -> void:
 	if _query == null:
 		return
-	var chunks: Array[ECSQueryChunk] = _query.get_chunks()
-	if chunks.is_empty():
-		return
 	if use_worker_pool:
+		var chunks: Array[ECSQueryChunk] = _query.get_chunks()
+		if chunks.is_empty():
+			return
 		var group_id: int = WorkerThreadPool.add_group_task(_run_chunk_for_index.bind(chunks, delta), chunks.size())
 		WorkerThreadPool.wait_for_group_task_completion(group_id)
 	else:
-		for chunk in chunks:
+		_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 			process_chunk(chunk, delta)
+		)
 
 ## Обрабатывает один чанк. Переопределяйте в наследниках.
 ## Рекомендуемый hot path:
