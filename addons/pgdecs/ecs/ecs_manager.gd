@@ -34,6 +34,10 @@ var _scratch_depth: int = 0
 ## Если true — GC пустых архетипов откладывается до flush_archetype_gc() (раннер вызывает в конце run).
 var auto_gc_archetypes: bool = true
 var _pending_archetype_gc: bool = false
+## archetype_id с live_count == 0 после structural-мутации (точечный eviction вместо полного скана).
+var _gc_empty_archetype_candidates: Dictionary = {}
+## Было удаление записи chunk_index из map архетипа — возможны осиротевшие component chunks.
+var _gc_component_chunks_dirty: bool = false
 
 func _init() -> void:
 	pass
@@ -67,16 +71,36 @@ func _evict_archetype_if_empty(archetype_id: int) -> void:
 		return
 	_evict_archetype(archetype_id)
 
-func _schedule_archetype_gc() -> void:
+func _note_archetype_gc_work(archetype_id: int, archetype_chunk_removed: bool) -> void:
 	if !auto_gc_archetypes:
 		return
 	_pending_archetype_gc = true
+	if archetype_id >= 0:
+		var archetype: ECSArchetype = _get_archetype(archetype_id)
+		if archetype != null && archetype.get_live_count() == 0:
+			_gc_empty_archetype_candidates[archetype_id] = true
+	if archetype_chunk_removed:
+		_gc_component_chunks_dirty = true
 
-## Сбрасывает отложенный GC: пустые архетипы и осиротевшие component chunks.
+## Сбрасывает отложенный GC: пустые архетипы и осиротевшие component chunks (только при необходимости).
 func flush_archetype_gc() -> void:
-	gc_empty_archetypes()
-	_evict_orphaned_component_chunks()
+	if !_pending_archetype_gc:
+		return
+	var archetypes_evicted: bool = false
+	if !_gc_empty_archetype_candidates.is_empty():
+		for archetype_id in _gc_empty_archetype_candidates.keys():
+			var before_version: int = _archetypes_version
+			_evict_archetype_if_empty(int(archetype_id))
+			if _archetypes_version != before_version:
+				archetypes_evicted = true
+		_gc_empty_archetype_candidates.clear()
+	elif count_registered_archetypes() > count_live_archetypes():
+		gc_empty_archetypes()
+		archetypes_evicted = true
+	if _gc_component_chunks_dirty || archetypes_evicted:
+		_evict_orphaned_component_chunks()
 	_pending_archetype_gc = false
+	_gc_component_chunks_dirty = false
 
 func flush_archetype_gc_if_pending() -> void:
 	if _pending_archetype_gc:
@@ -346,8 +370,9 @@ func destroy_entity(entity_id: int) -> void:
 		return
 	var archetype_id: int = _entities_to_archetypes[entity_index]
 	var archetype: ECSArchetype = _get_archetype(archetype_id)
+	var archetype_chunk_removed: bool = false
 	if archetype != null:
-		archetype.remove_entity(entity_id)
+		archetype_chunk_removed = archetype.remove_entity(entity_id) >= 0
 	var component_ids_to_clear: PackedInt64Array
 	if archetype != null:
 		component_ids_to_clear = archetype._component_ids
@@ -359,7 +384,7 @@ func destroy_entity(entity_id: int) -> void:
 			component.remove_entity(entity_id)
 	_entity_ids_pool.free_entity_id(entity_id)
 	_entities_to_archetypes[entity_index] = -1
-	_schedule_archetype_gc()
+	_note_archetype_gc_work(archetype_id, archetype_chunk_removed)
 
 func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
@@ -437,7 +462,7 @@ func _destroy_archetype_batch(archetype_id: int, batch: PackedInt64Array) -> voi
 			_entity_ids_pool.free_entity_id(entity_id)
 			_entities_to_archetypes[_entity_index(entity_id)] = -1
 		return
-	archetype.remove_entities_batch(batch)
+	var archetype_chunk_removed: bool = archetype.remove_entities_batch(batch)
 	for component_id in archetype._component_ids:
 		var component: ECSComponentBaseArray = _components.get(component_id, null)
 		if component != null:
@@ -445,7 +470,7 @@ func _destroy_archetype_batch(archetype_id: int, batch: PackedInt64Array) -> voi
 	for entity_id in batch:
 		_entity_ids_pool.free_entity_id(entity_id)
 		_entities_to_archetypes[_entity_index(entity_id)] = -1
-	_schedule_archetype_gc()
+	_note_archetype_gc_work(archetype_id, archetype_chunk_removed)
 
 func get_entity_archetype(entity_id: int) -> ECSArchetype:
 	if !is_alive(entity_id):
@@ -506,6 +531,8 @@ func reset() -> void:
 	_entities_to_archetypes = PackedInt64Array()
 	_entity_ids_pool = ECSEntityIdsPool.new()
 	_pending_archetype_gc = false
+	_gc_empty_archetype_candidates.clear()
+	_gc_component_chunks_dirty = false
 	_archetypes_version += 1
 
 func gc_empty_archetypes() -> void:
@@ -542,12 +569,12 @@ func add_component(entity_id: int, component_id: int) -> void:
 	var old_archetype_id: int = _entities_to_archetypes[entity_index]
 	var new_archetype_id: int = _resolve_add_transition(old_archetype_id, component_id)
 	var new_archetype: ECSArchetype = _get_archetype(new_archetype_id)
-	old_archetype.remove_entity(entity_id)
+	var archetype_chunk_removed: bool = old_archetype.remove_entity(entity_id) >= 0
 	new_archetype.add_entity(entity_id)
 	_entities_to_archetypes[entity_index] = new_archetype_id
 	var component: ECSComponentBaseArray = _components[component_id]
 	component.add_entity(entity_id)
-	_schedule_archetype_gc()
+	_note_archetype_gc_work(old_archetype_id, archetype_chunk_removed)
 
 func remove_component(entity_id: int, component_id: int) -> void:
 	if !is_alive(entity_id):
@@ -564,9 +591,9 @@ func remove_component(entity_id: int, component_id: int) -> void:
 		destroy_entity(entity_id)
 		return
 	var new_archetype: ECSArchetype = _get_archetype(new_archetype_id)
-	old_archetype.remove_entity(entity_id)
+	var archetype_chunk_removed: bool = old_archetype.remove_entity(entity_id) >= 0
 	new_archetype.add_entity(entity_id)
 	_entities_to_archetypes[entity_index] = new_archetype_id
 	var component: ECSComponentBaseArray = _components[component_id]
 	component.remove_entity(entity_id)
-	_schedule_archetype_gc()
+	_note_archetype_gc_work(old_archetype_id, archetype_chunk_removed)

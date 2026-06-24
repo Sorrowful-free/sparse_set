@@ -80,6 +80,29 @@ func test_empty_archetype_chunk_removed_from_map(runner: ECSTestRunner) -> void:
 	var entity: int = ECSEntityHandle.make(5000, 1)
 	arch.add_entity(entity)
 	runner.assert_eq(arch.get_chunk_indices().size(), 1)
-	arch.remove_entity(entity)
+	runner.assert_eq(arch.remove_entity(entity), ECSEntityIdsUtils.get_chunk_index(5000))
 	runner.assert_eq(arch.get_chunk_indices().size(), 0)
 	runner.assert_eq(arch.get_live_count(), 0)
+
+func test_flush_skips_without_structural_dirty(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = _make_ecs()
+	ecs.create_entities_packed(10, PackedInt64Array([POSITION_ID]))
+	var version_before: int = ecs.get_archetypes_version()
+	var registered_before: int = ecs.count_registered_archetypes()
+	ecs.flush_archetype_gc_if_pending()
+	runner.assert_eq(ecs.get_archetypes_version(), version_before)
+	runner.assert_eq(ecs.count_registered_archetypes(), registered_before)
+
+func test_partial_destroy_flushes_orphan_component_chunk(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_INT32_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities_packed(257, PackedInt64Array([POSITION_ID]))
+	var lone_high_chunk_entity: int = ids[256]
+	var pos: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
+	var high_chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(lone_high_chunk_entity)
+	runner.assert_gt(pos.size_chunks(), 1)
+	ecs.destroy_entity(lone_high_chunk_entity)
+	runner.assert_eq(ecs.count_live_archetypes(), 1)
+	runner.assert_gt(ecs.count_registered_archetypes(), 0)
+	ecs.flush_archetype_gc()
+	runner.assert_null(pos.get_chunk_by_index(high_chunk_index))

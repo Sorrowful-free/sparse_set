@@ -72,3 +72,27 @@ func test_value_version_bumps_on_clear(runner: ECSTestRunner) -> void:
 	var before: int = chunk.get_value_version()
 	chunk.clear()
 	runner.assert_gt(chunk.get_value_version(), before)
+
+func test_sparse_chunk_map_high_index(runner: ECSTestRunner) -> void:
+	var comp: ECSComponentInt32Array = ECSComponentInt32Array.new()
+	var entity_id: int = ECSEntityHandle.make(5000, 1)
+	comp.add_entity(entity_id)
+	runner.assert_eq(comp.size_chunks(), 1)
+	var expected_chunk_index: int = ECSEntityIdsUtils.get_chunk_index(5000)
+	runner.assert_eq(comp.get_chunk_indices().size(), 1)
+	runner.assert_eq(comp.get_chunk_indices()[0], expected_chunk_index)
+	runner.assert_not_null(comp.get_chunk_by_index(expected_chunk_index))
+	comp.evict_chunk_by_index(expected_chunk_index)
+	runner.assert_eq(comp.size_chunks(), 0)
+	runner.assert_eq(comp.get_chunk_indices().size(), 0)
+
+func test_sparse_evict_swaps_dense(runner: ECSTestRunner) -> void:
+	var comp: ECSComponentInt32Array = ECSComponentInt32Array.new()
+	comp.add_entity(ECSEntityHandle.make(0, 1))
+	comp.add_entity(ECSEntityHandle.make(512, 1))
+	runner.assert_eq(comp.size_chunks(), 2)
+	comp.evict_chunk_by_index(0)
+	runner.assert_eq(comp.size_chunks(), 1)
+	runner.assert_eq(comp.get_chunk_indices().size(), 1)
+	runner.assert_eq(comp.get_chunk_indices()[0], ECSEntityIdsUtils.get_chunk_index(512))
+	runner.assert_null(comp.get_chunk_by_index(0))

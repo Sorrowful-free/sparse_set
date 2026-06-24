@@ -38,20 +38,25 @@ func add_entity(entity: int) -> void:
 	chunk.add_entity(entity)
 	_live_count += 1
 
-func remove_entity(entity: int) -> void:
+func remove_entity(entity: int) -> int:
 	var entity_index: int = ECSEntityHandle.index_of(entity)
 	var chunk_index: int = ECSEntityIdsUtils.get_chunk_index(entity_index)
 	var chunk: ECSArchetypeChunk = get_archetype_chunk_by_index(chunk_index)
 	if chunk == null || !chunk.has_entity(entity):
-		return
+		return -1
 	chunk.remove_entity(entity)
 	_live_count -= 1
 	if chunk.get_entity_count() == 0:
 		_remove_chunk_index(chunk_index)
+		return chunk_index
+	return -1
 
-func remove_entities_batch(entity_ids: PackedInt64Array) -> void:
+func remove_entities_batch(entity_ids: PackedInt64Array) -> bool:
+	var any_chunk_removed: bool = false
 	for entity_id: int in entity_ids:
-		remove_entity(entity_id)
+		if remove_entity(entity_id) >= 0:
+			any_chunk_removed = true
+	return any_chunk_removed
 
 func has_entity(entity: int) -> bool:
 	var entity_index: int = ECSEntityHandle.index_of(entity)

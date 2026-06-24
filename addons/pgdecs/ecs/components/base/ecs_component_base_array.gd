@@ -1,6 +1,9 @@
 @abstract class_name ECSComponentBaseArray extends RefCounted
 
-var _chunks_by_index: Dictionary[int, ECSComponentBaseArrayChunk] = {}
+## Sparse map chunk_index → chunk: sparse[chunk_index] = dense_index + 1 (0 = нет).
+var _chunk_sparse: PackedInt32Array = PackedInt32Array()
+var _dense_chunk_indices: PackedInt32Array = PackedInt32Array()
+var _dense_chunks: Array[ECSComponentBaseArrayChunk] = []
 
 ## Переиспользуемые scratch-буферы для batch fast-path (без Dictionary).
 var _batch_counts: PackedInt32Array = PackedInt32Array()
@@ -42,31 +45,39 @@ func remove_entities_batch(entity_ids: PackedInt64Array) -> void:
 	_remove_entities_batch_fast(entity_ids)
 
 func size_chunks() -> int:
-	return _chunks_by_index.size()
+	return _dense_chunks.size()
 
 func get_chunk_indices() -> Array[int]:
-	var indices: Array[int] = []
-	for chunk_index: int in _chunks_by_index.keys():
-		indices.append(chunk_index)
-	indices.sort()
-	return indices
+	var result: Array[int] = []
+	result.resize(_dense_chunk_indices.size())
+	for i in range(_dense_chunk_indices.size()):
+		result[i] = _dense_chunk_indices[i]
+	return result
 
 func get_chunks() -> Array[ECSComponentBaseArrayChunk]:
 	var result: Array[ECSComponentBaseArrayChunk] = []
-	for chunk_index: int in get_chunk_indices():
-		result.append(_chunks_by_index[chunk_index])
+	result.resize(_dense_chunks.size())
+	for i in range(_dense_chunks.size()):
+		result[i] = _dense_chunks[i]
 	return result
 
 func get_chunk_by_index(chunk_index: int) -> ECSComponentBaseArrayChunk:
-	return _chunks_by_index.get(chunk_index, null)
+	if chunk_index < 0 || chunk_index >= _chunk_sparse.size():
+		return null
+	var stored: int = _chunk_sparse[chunk_index]
+	if stored == 0:
+		return null
+	return _dense_chunks[stored - 1]
 
 func evict_chunk_by_index(chunk_index: int) -> void:
-	_chunks_by_index.erase(chunk_index)
+	_evict_chunk_index(chunk_index)
 
 func clear() -> void:
-	for chunk: ECSComponentBaseArrayChunk in _chunks_by_index.values():
+	for chunk: ECSComponentBaseArrayChunk in _dense_chunks:
 		chunk.clear()
-	_chunks_by_index.clear()
+	_chunk_sparse = PackedInt32Array()
+	_dense_chunk_indices = PackedInt32Array()
+	_dense_chunks.clear()
 
 func get_or_create_chunk(entity_id: int) -> ECSComponentBaseArrayChunk:
 	var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_id)
@@ -77,6 +88,27 @@ func get_chunk(entity_id: int) -> ECSComponentBaseArrayChunk:
 	return get_chunk_by_index(chunk_index)
 
 @abstract func create_chunk() -> ECSComponentBaseArrayChunk
+
+func _ensure_chunk_sparse_capacity(chunk_index: int) -> void:
+	if chunk_index >= _chunk_sparse.size():
+		_chunk_sparse.resize(chunk_index + 1)
+
+func _evict_chunk_index(chunk_index: int) -> void:
+	if chunk_index < 0 || chunk_index >= _chunk_sparse.size():
+		return
+	var stored: int = _chunk_sparse[chunk_index]
+	if stored == 0:
+		return
+	var dense_index: int = stored - 1
+	var last_index: int = _dense_chunks.size() - 1
+	if dense_index != last_index:
+		var swapped_chunk_index: int = _dense_chunk_indices[last_index]
+		_dense_chunks[dense_index] = _dense_chunks[last_index]
+		_dense_chunk_indices[dense_index] = swapped_chunk_index
+		_chunk_sparse[swapped_chunk_index] = dense_index + 1
+	_dense_chunks.resize(last_index)
+	_dense_chunk_indices.resize(last_index)
+	_chunk_sparse[chunk_index] = 0
 
 func _batch_scratch_enter(context: String) -> void:
 	if _debug_scratch_guard:
@@ -130,9 +162,15 @@ func _group_entity_ids_by_chunk(entity_ids: PackedInt64Array) -> int:
 	return bucket_count
 
 func _get_or_create_chunk_by_index(chunk_index: int) -> ECSComponentBaseArrayChunk:
-	if !_chunks_by_index.has(chunk_index):
-		_chunks_by_index[chunk_index] = create_chunk()
-	return _chunks_by_index[chunk_index]
+	var existing: ECSComponentBaseArrayChunk = get_chunk_by_index(chunk_index)
+	if existing != null:
+		return existing
+	_ensure_chunk_sparse_capacity(chunk_index)
+	var chunk: ECSComponentBaseArrayChunk = create_chunk()
+	_dense_chunks.append(chunk)
+	_dense_chunk_indices.append(chunk_index)
+	_chunk_sparse[chunk_index] = _dense_chunks.size()
+	return chunk
 
 func _try_get_single_chunk_index(entity_ids: PackedInt64Array) -> int:
 	if entity_ids.is_empty():
@@ -171,7 +209,7 @@ func _remove_entities_batch_fast(entity_ids: PackedInt64Array) -> void:
 	_batch_scratch_enter("remove_entities_batch_fast")
 	var single_chunk_index: int = _try_get_single_chunk_index(entity_ids)
 	if single_chunk_index >= 0:
-		var chunk: ECSComponentBaseArrayChunk = _chunks_by_index.get(single_chunk_index, null)
+		var chunk: ECSComponentBaseArrayChunk = get_chunk_by_index(single_chunk_index)
 		if chunk != null:
 			_batch_slot_scratch.resize(entity_ids.size())
 			for j in range(entity_ids.size()):
@@ -184,7 +222,7 @@ func _remove_entities_batch_fast(entity_ids: PackedInt64Array) -> void:
 		var group_size: int = _batch_counts[chunk_index]
 		if group_size == 0:
 			continue
-		var chunk: ECSComponentBaseArrayChunk = _chunks_by_index.get(chunk_index, null)
+		var chunk: ECSComponentBaseArrayChunk = get_chunk_by_index(chunk_index)
 		if chunk == null:
 			continue
 		var start: int = _batch_offsets[chunk_index]
