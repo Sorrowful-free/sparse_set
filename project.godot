@@ -18,6 +18,10 @@ config/name="pgdecs"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+ECS="*res://addons/gecs/ecs/ecs.gd"
+
 [rendering]
 
 renderer/rendering_method="mobile"

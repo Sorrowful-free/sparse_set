@@ -45,6 +45,8 @@ CI: `.github/workflows/ecs-tests.yml` (best-effort на Windows runner с лок
 
 ## Тесты производительности
 
+Сравнение с GECS: [`../../gecs/tests/README.md`](../../gecs/tests/README.md).
+
 Запуск из редактора: открыть `ecs/tests/run_performance_tests.gd` и нажать **Run** (EditorScript).
 
 Запуск из консоли (headless):

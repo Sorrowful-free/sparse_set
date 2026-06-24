@@ -1,0 +1,60 @@
+Godot Engine v4.7.stable.steam.5b4e0cb0f - https://godotengine.org
+
+--- ECS Performance (iterations=5000) ---
+  create_entity: 0.049 s
+  destroy_entity: 0.028 s
+  create_entities batch: 0.017 s
+  destroy_entities batch: 0.026 s
+  query.get_entity_ids: 0.015 s
+  query.for_each_chunk iterate: 0.002 s
+  query iterate entities+components: 0.546 s
+  query iterate entities+components WorkerThreadPool: 0.005 s
+  query.for_each_chunk WorkerThreadPool: 0.005 s
+  add/remove_component: 0.111 s
+  command_buffer execute: 0.012 s
+  command_buffer coalescing frame: 0.006 s
+  system change_detection steady: 0.011 s
+  system change_detection scattered ON: 0.406 s
+  system change_detection scattered OFF: 0.389 s
+  system change_detection hot-chunks ON: 0.065 s
+  system change_detection hot-chunks OFF: 0.418 s
+
+--- ECS Performance (iterations=15000) ---
+  create_entity: 0.164 s
+  destroy_entity: 0.093 s
+  create_entities batch: 0.059 s
+  destroy_entities batch: 0.085 s
+  query.get_entity_ids: 0.049 s
+  query.for_each_chunk iterate: 0.007 s
+  query iterate entities+components: 1.873 s
+  query iterate entities+components WorkerThreadPool: 0.014 s
+  query.for_each_chunk WorkerThreadPool: 0.011 s
+  add/remove_component: 0.138 s
+  command_buffer execute: 0.014 s
+  command_buffer coalescing frame: 0.016 s
+  system change_detection steady: 0.038 s
+  system change_detection scattered ON: 1.440 s
+  system change_detection scattered OFF: 1.391 s
+  system change_detection hot-chunks ON: 0.117 s
+  system change_detection hot-chunks OFF: 1.378 s
+
+--- ECS Performance (iterations=25000) ---
+  create_entity: 0.312 s
+  destroy_entity: 0.173 s
+  create_entities batch: 0.100 s
+  destroy_entities batch: 0.154 s
+  query.get_entity_ids: 0.081 s
+  query.for_each_chunk iterate: 0.013 s
+  query iterate entities+components: 3.329 s
+  query iterate entities+components WorkerThreadPool: 0.017 s
+  query.for_each_chunk WorkerThreadPool: 0.016 s
+  add/remove_component: 0.136 s
+  command_buffer execute: 0.016 s
+  command_buffer coalescing frame: 0.031 s
+  system change_detection steady: 0.078 s
+  system change_detection scattered ON: 2.366 s
+  system change_detection scattered OFF: 2.360 s
+  system change_detection hot-chunks ON: 0.156 s
+  system change_detection hot-chunks OFF: 2.198 s
+
+--- Done ---

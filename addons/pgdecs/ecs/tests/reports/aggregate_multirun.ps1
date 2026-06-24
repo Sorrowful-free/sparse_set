@@ -25,6 +25,9 @@ param(
 
 	[string] $CompareDirectory = "",
 
+	[ValidateSet("ECS", "GECS")]
+	[string] $Framework = "ECS",
+
 	[switch] $Markdown
 )
 
@@ -79,7 +82,8 @@ function Normalize-BenchmarkName {
 function Read-MultirunLogs {
 	param(
 		[string] $Dir,
-		[int] $TargetIterations
+		[int] $TargetIterations,
+		[string] $Framework = "ECS"
 	)
 
 	$resolved = Resolve-Path -LiteralPath $Dir
@@ -88,7 +92,11 @@ function Read-MultirunLogs {
 		throw "No run_*.log files in $resolved"
 	}
 
-	$header = "--- ECS Performance (iterations=$TargetIterations) ---"
+	$header = if ($Framework -eq "GECS") {
+		"--- GECS Performance (iterations=$TargetIterations) ---"
+	} else {
+		"--- ECS Performance (iterations=$TargetIterations) ---"
+	}
 	$byBenchmark = @{}
 
 	foreach ($log in $logs) {
@@ -205,10 +213,10 @@ function Write-Table {
 	}
 }
 
-$summary = Read-MultirunLogs -Dir $Directory -TargetIterations $Iterations
+$summary = Read-MultirunLogs -Dir $Directory -TargetIterations $Iterations -Framework $Framework
 $compareSummary = $null
 if ($CompareDirectory -ne "") {
-	$compareSummary = Read-MultirunLogs -Dir $CompareDirectory -TargetIterations $Iterations
+	$compareSummary = Read-MultirunLogs -Dir $CompareDirectory -TargetIterations $Iterations -Framework $Framework
 	Write-Host "Compare baseline: $($compareSummary.Directory)"
 }
 Write-Table -Summary $summary -CompareSummary $compareSummary
