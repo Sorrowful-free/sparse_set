@@ -2,6 +2,15 @@
 
 Data-oriented ECS для Godot 4.x (GDScript).
 
+## Правило итерации в системах
+
+| Ситуация | API |
+|----------|-----|
+| Система **только меняет значения** компонентов и **не создаёт** новых сущностей в этом проходе | **Fast-path:** `get_dense_slots()` + `get_values_buffer()` |
+| Система **создаёт/удаляет** сущности, **меняет набор компонентов** или нужен **handle** | **Slot API:** `slot_from_handle(dense[i])` или `get_component(entity_id)` |
+
+Подробно: [ecs/FRAMEWORK.md](ecs/FRAMEWORK.md#ключевое-правило-fast-path-vs-slot-api).
+
 ## Быстрый старт
 
 ```gdscript
@@ -26,12 +35,11 @@ class MyMovementSystem extends ECSSystemChunkBase:
 
     func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
         var pos_chunk = chunk.get_component_chunk(1) as ECSComponentVector2ArrayChunk
-        var count: int = chunk.get_entity_count()
-        var dense: PackedInt64Array = chunk.get_dense_entities()
-        for i in range(count):
-            var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
-            var p: Vector2 = pos_chunk.get_value_at_slot(slot)
-            pos_chunk.set_value_at_slot(slot, p + Vector2(delta, 0))
+        var slots: PackedInt32Array = chunk.get_dense_slots()
+        var buf: PackedVector2Array = pos_chunk.get_values_buffer()
+        for i in range(chunk.get_entity_count()):
+            var slot: int = slots[i]
+            pos_chunk.set_value_at_slot(slot, buf[slot] + Vector2(delta, 0))
 ```
 
 ## API
@@ -72,10 +80,12 @@ buf.destroy_entities_packed(batch_ids)
 
 ## Документация
 
-- [DESIGN.md](ecs/DESIGN.md) — архитектура, чанки, membership
-- [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, ограничения GDScript
+- **[FRAMEWORK.md](ecs/FRAMEWORK.md)** — полное руководство по фреймворку (API, системы, query, правило fast-path)
+- [DESIGN.md](ecs/DESIGN.md) — архитектурные решения, чанки, membership
+- [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
 - [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — Node/String через реестры
 - [MIGRATION.md](ecs/MIGRATION.md) — внешний API (`Array[int]`) и hot path (`*_packed`)
+- [NAMING.md](ecs/NAMING.md) — префиксы и имена классов
 - [agent_handoff/](ecs/agent_handoff/README.md) — шаблоны для Composer (батчи, gates, self-check)
 - [tests/README.md](ecs/tests/README.md) — юнит- и perf-тесты
 

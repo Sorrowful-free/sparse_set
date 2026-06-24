@@ -1,0 +1,378 @@
+# PGDECS — руководство по фреймворку
+
+Data-oriented ECS для Godot 4.x (GDScript). Документ описывает публичный API, внутреннюю модель и правила производительности.
+
+## Содержание
+
+1. [Обзор](#обзор)
+2. [Быстрый старт](#быстрый-старт)
+3. [Ключевое правило: fast-path vs slot API](#ключевое-правило-fast-path-vs-slot-api)
+4. [Сущности и handles](#сущности-и-handles)
+5. [Архетипы и чанки](#архетипы-и-чанки)
+6. [Компоненты](#компоненты)
+7. [ECSManager](#ecsmanager)
+8. [Запросы (Query)](#запросы-query)
+9. [Системы](#системы)
+10. [Command buffer](#command-buffer)
+11. [Change detection](#change-detection)
+12. [Мир (ECSWorld)](#мир-ecsworld)
+13. [Структура каталогов](#структура-каталогов)
+14. [См. также](#см-также)
+
+---
+
+## Обзор
+
+PGDECS хранит компоненты в **Structure of Arrays (SoA)** по чанкам фиксированного размера (256 сущностей). Членство сущностей в архетипе — единственный источник правды; компонентные буферы хранят только значения по **slot**.
+
+Типичный цикл кадра:
+
+```
+_setup_components() → _setup_systems() → каждый кадр: systems.update() → command_buffer.execute()
+```
+
+Точка входа в игре — наследник [`ECSWorld`](ecs_world.gd) или прямое использование [`ECSManager`](ecs_manager.gd) + [`ECSSystemRunner`](systems/ecs_system_runner.gd).
+
+---
+
+## Быстрый старт
+
+```gdscript
+extends ECSWorld
+
+const POSITION_ID: int = 1
+
+func _setup_components() -> void:
+    get_ecs_manager().register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+    get_ecs_manager().precache_archetype([POSITION_ID])
+
+func _setup_systems() -> void:
+    get_system_runner().add_system(MovementSystem.new(get_ecs_manager()))
+
+class MovementSystem extends ECSSystemChunkBase:
+    func _build_query() -> ECSQuery:
+        return ECSQueryBuilder.new().with_component(POSITION_ID).build(get_ecs_manager())
+
+    func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
+        var pos := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
+        var slots := chunk.get_dense_slots()
+        var buf := pos.get_values_buffer()
+        var count := chunk.get_entity_count()
+        for i in range(count):
+            var slot := slots[i]
+            pos.set_value_at_slot(slot, buf[slot] + Vector2(delta, 0))
+```
+
+Демо без сцены: [`examples/demo_world.gd`](examples/demo_world.gd).
+
+---
+
+## Ключевое правило: fast-path vs slot API
+
+**Правило фреймворка для систем:**
+
+| Условие в `process_chunk` | Какой API использовать |
+|---|---|
+| Система **только читает/меняет значения** компонентов и **не создаёт** новых сущностей (ни spawn, ни destroy, ни add/remove компонентов в этом проходе) | **Fast-path** |
+| Система **создаёт или удаляет** сущности, **меняет набор компонентов**, или нужен **handle** сущности (command buffer, внешний lookup) | **Slot API** через handle |
+
+### Fast-path (только мутация значений, стабильное членство)
+
+```gdscript
+var slots: PackedInt32Array = chunk.get_dense_slots()
+var count: int = chunk.get_entity_count()
+var pos_buf: PackedVector2Array = pos_chunk.get_values_buffer()
+var health_buf: PackedInt32Array = health_chunk.get_values_buffer()
+
+for i in range(count):
+    var slot: int = slots[i]
+    var p: Vector2 = pos_buf[slot]
+    var h: int = health_buf[slot]
+    # запись — через set_value_at_slot (инкрементирует версию для change_detection)
+    pos_chunk.set_value_at_slot(slot, p + Vector2(1, 0))
+```
+
+- `get_dense_slots()` — плотный `dense_index → slot` в компонентном буфере (синхронизируется при add/remove в archetype chunk).
+- `get_values_buffer()` — прямой доступ к `Packed*Array` чанка (без вызова `get_value_at_slot` на каждый элемент).
+- Один `slots[i]` общий для всех компонентов query в этом archetype chunk; у каждого `component_id` свой `get_values_buffer()`.
+
+### Slot API (структурные изменения или нужен handle)
+
+```gdscript
+var dense: PackedInt64Array = chunk.get_dense_entities()
+for i in range(chunk.get_entity_count()):
+    var handle: int = dense[i]
+    var slot: int = ECSEntityIdsUtils.slot_from_handle(handle)
+    pos_chunk.set_value_at_slot(slot, ...)
+    get_command_buffer().destroy_entity(handle)  # пример: нужен handle
+```
+
+Используйте slot через handle, когда:
+
+- откладываете create/destroy/add/remove через [`ECSCommandBuffer`](ecs_command_buffer.gd);
+- читаете компонент по произвольному `entity_id` вне chunk-loop (`get_component(entity_id)`);
+- архетип или членство чанка могут измениться в том же логическом проходе.
+
+### Чего не делать
+
+- **Не смешивать** fast-path чтение с прямой записью в `get_values_buffer()[slot]` без `set_value_at_slot`, если включён `change_detection` — версия значений не обновится.
+- **Не создавать сущности** внутри `process_chunk` напрямую — только через command buffer в конце кадра; такие системы относятся к slot/handle API.
+- **Не вызывать** `get_entity_ids()` каждый кадр, если достаточно chunk-итерации.
+
+Подробности и бенчмарки: [PERFORMANCE.md](PERFORMANCE.md).
+
+---
+
+## Сущности и handles
+
+- Сущность — generational **handle** (`int`): index (low 32) + generation (high 32).
+- `ECSEntityIdsPool` выдаёт и переиспользует id; устаревший handle не проходит `is_alive()`.
+- Адресация в чанке: `chunk_index = index >> 8`, `slot = index & 0xFF` (`ECSEntityIdsUtils.CHUNK_SIZE == 256`).
+
+```gdscript
+ecs.is_alive(handle)
+ecs.has_component(handle, POSITION_ID)
+ECSEntityIdsUtils.slot_from_handle(handle)
+ECSEntityIdsUtils.chunk_index_from_handle(handle)
+```
+
+---
+
+## Архетипы и чанки
+
+**Архетип** — уникальный набор component id (битовая маска). Сущности одного архетипа лежат в одном или нескольких **archetype chunk** (по 256 handle на chunk index).
+
+`ECSArchetypeChunk` (членство):
+
+| Поле | Назначение |
+|------|------------|
+| `_slots[256]` | handle в слоте или tombstone |
+| `_dense[0..count)` | плотный список живых handle |
+| `_dense_slots[0..count)` | slot для каждого dense_index (fast-path) |
+| `_slot_to_dense[256]` | slot → dense_index |
+| `_count` | число живых сущностей O(1) |
+
+Удаление — swap-remove в `_dense` за O(1). Итерация query — только по `[0, get_entity_count())`, не scan 256 слотов.
+
+---
+
+## Компоненты
+
+### Регистрация
+
+```gdscript
+ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+```
+
+Поддерживаемые типы (codegen): Byte, Int32, Int64, Float32, Float64, Vector2, Vector3, Vector4, Color. См. [`editor/ecs_code_gen.gd`](editor/ecs_code_gen.gd).
+
+### Два уровня API
+
+| Уровень | Класс | Когда |
+|---------|-------|-------|
+| Мир / сущность | `ECSComponentVector2Array` | `set_component(entity_id, value)` из gameplay вне hot loop |
+| Чанк / slot | `ECSComponentVector2ArrayChunk` | системы: `get_value_at_slot`, `set_value_at_slot`, `get_values_buffer()` |
+
+```gdscript
+var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+pos.set_component(entity_id, Vector2(10, 20))
+
+var chunk: ECSComponentVector2ArrayChunk = query_chunk.get_component_chunk(POSITION_ID)
+chunk.get_value_at_slot(slot)
+```
+
+### Объектные типы (Node, String)
+
+Не входят в ядро. Паттерн registry + примитивный индекс: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+
+---
+
+## ECSManager
+
+### Два слоя API
+
+| Слой | Примеры | Назначение |
+|------|---------|------------|
+| Внешний (`Array[int]`) | `create_entity([...])`, `destroy_entities([...])` | setup, разовые вызовы |
+| Hot path (`PackedInt64Array`) | `create_entities_packed`, `destroy_entities_packed` | циклы, батчи |
+| Предефайн | `prepare_archetype([...])` | один раз в setup, дальше `*_packed` |
+
+### Основные методы
+
+```gdscript
+# Жизненный цикл
+create_entity / create_entity_packed
+create_entities / create_entities_packed
+destroy_entity / destroy_entities_packed
+
+# Компоненты
+register_component(id, Variant.Type)
+has_component(entity, component_id)
+add_component(entity, component_id)
+remove_component(entity, component_id)
+get_component_array(component_id) -> ECSComponentBaseArray
+
+# Архетипы
+precache_archetype / precache_archetype_packed
+prepare_archetype([...]) -> PackedInt64Array
+get_entity_archetype(entity)
+get_archetypes()
+is_alive(entity)
+```
+
+Миграция и история API: [MIGRATION.md](MIGRATION.md).
+
+---
+
+## Запросы (Query)
+
+```gdscript
+var query := ECSQueryBuilder.new()
+    .with_component(POSITION_ID)
+    .with_component(HEALTH_ID)
+    .without_component(DEAD_TAG_ID)
+    .build(ecs)
+```
+
+### Итерация
+
+| Метод | Назначение |
+|-------|------------|
+| `for_each_chunk(callback)` | **предпочтительно** — без аллокации Array у вызывающего |
+| `collect_chunks(out)` | сбор в свой буфер (WorkerThreadPool) |
+| `get_chunks()` | legacy; внутренний кэш query |
+| `get_entity_ids()` | плоский список handle; дорого на больших мирах |
+| `match(entity_id)` | точечная проверка |
+
+### ECSQueryChunk
+
+```gdscript
+chunk.get_entity_count()
+chunk.get_dense_entities()      # handle по dense_index
+chunk.get_dense_slots()         # slot по dense_index (fast-path)
+chunk.get_entity_id_at(i)       # handle по dense_index
+chunk.get_component_chunk(id)   # SoA-чанк компонента
+chunk.get_structural_version()
+chunk.get_component_version(component_id)
+```
+
+---
+
+## Системы
+
+### ECSSystemBase
+
+Базовый класс: `update(delta)`, встроенный `ECSCommandBuffer`, доступ к `ECSManager`.
+
+### ECSSystemChunkBase
+
+Рекомендуемая база для hot loop:
+
+1. Переопределить `_build_query()` → `ECSQuery`.
+2. Переопределить `process_chunk(chunk, delta)`.
+3. Опционально: `change_detection = true`, `use_worker_pool = true` (только чтение в WTP).
+
+```gdscript
+class MySystem extends ECSSystemChunkBase:
+    func _init(ecs: ECSManager) -> void:
+        super(ecs)
+        change_detection = true
+
+    func _build_query() -> ECSQuery:
+        return ECSQueryBuilder.new().with_component(POSITION_ID).build(get_ecs_manager())
+
+    func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
+        # см. правило fast-path vs slot API выше
+        pass
+```
+
+### ECSSystemRunner
+
+```gdscript
+runner.add_system(system)
+runner.run(delta)  # update всех систем → execute всех command buffer
+```
+
+---
+
+## Command buffer
+
+Отложенные структурные изменения до конца кадра. Coalescing: cancel create+destroy, add+remove, merge destroys.
+
+```gdscript
+var buf := get_command_buffer()
+buf.create_entity([POSITION_ID, HEALTH_ID])
+buf.destroy_entities([id_a, id_b])
+buf.add_component(entity, HEALTH_ID)
+buf.execute()  # вызывается раннером автоматически
+```
+
+Тот же двухслойный API: `Array[int]` и `*_packed`. В `process_chunk` при `use_worker_pool == true` command buffer **не вызывать**.
+
+---
+
+## Change detection
+
+Опционально в `ECSSystemChunkBase`: пропуск `process_chunk` для чанков без структурных и value-изменений с прошлого кадра.
+
+| Версия | Где | Когда растёт |
+|--------|-----|--------------|
+| Структурная | `ECSArchetypeChunk` | add/remove entity |
+| Значений | `ECSComponent*ArrayChunk` | `set_value_at_slot`, batch add/remove |
+
+Включение: `change_detection = true`. Выгодно, когда большинство чанков статичны (типичный игровой паттерн). См. [PERFORMANCE.md](PERFORMANCE.md).
+
+---
+
+## Мир (ECSWorld)
+
+```gdscript
+extends ECSWorld
+
+func _setup_components() -> void: ...
+func _setup_systems() -> void: ...
+
+func _ready() -> void:
+    super._ready()
+    get_ecs_manager().create_entities(1000, [POSITION_ID])
+```
+
+`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, вызывает `run(delta)` в `_process`.
+
+---
+
+## Структура каталогов
+
+```
+addons/pgdecs/ecs/
+├── ecs_manager.gd          # мир, сущности, архетипы
+├── ecs_world.gd            # Node-обёртка
+├── ecs_command_buffer.gd
+├── ecs_archetype.gd
+├── ecs_archetype_chunk.gd
+├── entities/               # handles, pool, sparse set
+├── components/
+│   ├── base/               # ECSComponentBaseArray, Chunk
+│   └── generated/          # codegen типы
+├── queries/                # ECSQuery, Builder, QueryChunk
+├── systems/                # SystemBase, ChunkBase, Runner
+├── bit_mask/
+├── editor/                 # codegen
+├── examples/
+└── tests/                  # unit + performance
+```
+
+Именование классов: [NAMING.md](NAMING.md).
+
+---
+
+## См. также
+
+| Документ | Содержание |
+|----------|------------|
+| [DESIGN.md](DESIGN.md) | архитектурные решения, история фаз |
+| [PERFORMANCE.md](PERFORMANCE.md) | оптимизации, бенчмарки, change detection |
+| [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md) | Node/String через registry |
+| [MIGRATION.md](MIGRATION.md) | внешний vs packed API |
+| [tests/README.md](tests/README.md) | запуск тестов и perf multirun |
+| [agent_handoff/](agent_handoff/README.md) | шаблоны для Composer / CI gates |

@@ -1,6 +1,10 @@
 class_name ECSQueryChunk extends RefCounted
 
 ## Один чанк результата запроса: вид на ECSArchetypeChunk архетипа.
+##
+## Итерация в системах:
+## - Только мутация значений → [method get_dense_slots] + [method ECSComponentBaseArrayChunk.get_values_buffer].
+## - Структурные изменения или нужен handle → [method get_dense_entities] + slot_from_handle.
 
 var _archetype_chunk: ECSArchetypeChunk
 var _ecs_manager: ECSManager

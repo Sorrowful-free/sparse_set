@@ -2,6 +2,8 @@
 
 PGDECS оптимизирует **layout данных и итерацию** в GDScript. Это не замена C++/Rust ECS: интерпретатор, GC и отсутствие SIMD задают потолок.
 
+Полное руководство и **правило fast-path vs slot API**: [FRAMEWORK.md](FRAMEWORK.md).
+
 ## Ограничения GDScript
 
 - **RefCounted** — аллокации при `new()` (QueryChunk, временные объекты). Горячий путь систем должен работать с packed-массивами и slot API.
@@ -18,6 +20,7 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Членство | Только archetype — нет дубля `_entity_ids` на каждый компонент (−256×int64 на чанк×тип) |
 | Remove в чанке | `slot -> dense_index` sidecar: swap-remove за O(1) без линейного поиска |
 | Доступ к данным | index→slot O(1) сохранён |
+| Fast-path iterate | `get_dense_slots()` + `get_values_buffer()` — ~12× быстрее legacy slot API |
 | Архетипы | Кэш по hash маски, `precache_archetype_packed()` |
 | Query | Кэш подходящих архетипов; `for_each_chunk()` без `Array` у вызывающего |
 | Query (legacy) | `get_chunks()` — возвращает внутренний кэш; для WTP — `collect_chunks()` в свой буфер |
@@ -31,8 +34,45 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 
 ## Рекомендации hot path
 
+### Правило fast-path vs slot API (обязательное для систем)
+
+| Условие в `process_chunk` | API |
+|---|---|
+| Только чтение/запись **значений** компонентов; **нет** create/destroy/add/remove в этом проходе | **Fast-path** |
+| Create/destroy сущностей, add/remove компонентов, нужен **entity handle** | **Slot API** через handle |
+
+**Fast-path** (~12× быстрее legacy на iterate entities+components при iterations=25000):
+
+```gdscript
+var slots := chunk.get_dense_slots()
+var count := chunk.get_entity_count()
+var pos_buf := pos_chunk.get_values_buffer()
+var health_buf := health_chunk.get_values_buffer()
+for i in range(count):
+    var slot := slots[i]
+    var p := pos_buf[slot]
+    pos_chunk.set_value_at_slot(slot, p + Vector2(1, 0))  # set_value_at_slot — для change_detection
+```
+
+**Slot API** (структурные операции, command buffer, `get_component(entity_id)`):
+
+```gdscript
+var dense := chunk.get_dense_entities()
+for i in range(chunk.get_entity_count()):
+    var handle := dense[i]
+    var slot := ECSEntityIdsUtils.slot_from_handle(handle)
+    pos_chunk.set_value_at_slot(slot, ...)
+    get_command_buffer().destroy_entity(handle)
+```
+
+Запись напрямую в `get_values_buffer()[slot]` без `set_value_at_slot` обходит инкремент `_value_version` — не используйте при `change_detection = true`.
+
+Median perf (5 runs, iterations=25000): legacy **3.38 s**, FAST **0.29 s** — см. `tests/reports/multirun_dense_fast_verify/`.
+
+### Общие рекомендации
+
 1. **Chunk iteration** — `query.for_each_chunk(callback)` на main thread; для WTP — `query.collect_chunks(scratch)` + `WorkerThreadPool` (см. `ECSSystemChunkBase`).
-2. **Dense iteration** — `chunk.get_dense_entities()` + `chunk.get_entity_count()`.
+2. **Dense iteration** — `chunk.get_entity_count()` + fast-path или `get_dense_entities()` + slot API.
 3. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
 4. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
 5. **Батчи** — `create_entities_packed()`, `destroy_entities()`, command buffer с coalescing.
@@ -80,15 +120,31 @@ class MySystem extends ECSSystemChunkBase:
         change_detection = true
 ```
 
-## Пример итерации (система)
+## Пример итерации (система, fast-path)
+
+Система только меняет значения — без create/destroy в `process_chunk`:
 
 ```gdscript
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
     var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
-    var count: int = chunk.get_entity_count()
-    var dense: PackedInt64Array = chunk.get_dense_entities()
-    for i in range(count):
-        var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
+    var slots := chunk.get_dense_slots()
+    var buf := pos_chunk.get_values_buffer()
+    for i in range(chunk.get_entity_count()):
+        var slot := slots[i]
+        pos_chunk.set_value_at_slot(slot, buf[slot] + Vector2(1, 0))
+```
+
+## Пример итерации (slot API)
+
+Нужен handle (command buffer, destroy, add_component):
+
+```gdscript
+func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
+    var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
+    var dense := chunk.get_dense_entities()
+    for i in range(chunk.get_entity_count()):
+        var handle := dense[i]
+        var slot := ECSEntityIdsUtils.slot_from_handle(handle)
         pos_chunk.set_value_at_slot(slot, pos_chunk.get_value_at_slot(slot) + Vector2(1, 0))
 ```
 
@@ -121,7 +177,8 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `destroy_entities batch` | один батч destroy на N сущностей |
 | `query.get_entity_ids` | сбор id при большом мире |
 | `query.for_each_chunk iterate` | hot path chunk-callback без `Array` у вызывающего |
-| `query iterate entities+components` | entity-level loop + get/set компонентов |
+| `query iterate entities+components` | entity-level loop + get/set компонентов (slot API) |
+| `query iterate entities+components FAST` | fast-path: `get_dense_slots()` + `get_values_buffer()` |
 | `query iterate e+c WorkerThreadPool` | то же через WTP |
 | `query.for_each_chunk WorkerThreadPool` | chunk iteration через WTP (`collect_chunks` + group task) |
 | `add/remove_component` | N пар add+remove (archetype transition) |

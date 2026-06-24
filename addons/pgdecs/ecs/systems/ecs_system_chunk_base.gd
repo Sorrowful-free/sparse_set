@@ -61,15 +61,29 @@ func update(delta: float) -> void:
 		_prune_stale_chunk_seen()
 
 ## Обрабатывает один чанк. Переопределяйте в наследниках.
-## Рекомендуемый hot path:
+##
+## Правило итерации:
+## - Только чтение/запись значений, без create/destroy/add/remove в этом проходе →
+##   [b]fast-path[/b]: [code]get_dense_slots()[/code] + [code]get_values_buffer()[/code].
+## - Create/destroy, смена набора компонентов или нужен handle →
+##   [b]slot API[/b]: [code]slot_from_handle(dense[i])[/code] или [code]get_component(entity_id)[/code].
+##
+## Fast-path (движение, физика, AI без spawn в том же проходе):
 ## [codeblock]
-## var count := chunk.get_entity_count()
-## var dense := chunk.get_dense_entities()
-## var comp := chunk.get_component_chunk(MY_ID) as ECSComponentFloat32ArrayChunk
-## for i in range(count):
-##     var slot := ECSEntityIdsUtils.slot_from_handle(dense[i])
-##     var value := comp.get_value_at_slot(slot)
+## var slots := chunk.get_dense_slots()
+## var buf := comp.get_values_buffer()
+## for i in range(chunk.get_entity_count()):
+##     var slot := slots[i]
+##     comp.set_value_at_slot(slot, buf[slot] + delta)
 ## [/codeblock]
+##
+## Slot API (нужен handle для command buffer):
+## [codeblock]
+## var dense := chunk.get_dense_entities()
+## for i in range(chunk.get_entity_count()):
+##     var slot := ECSEntityIdsUtils.slot_from_handle(dense[i])
+## [/codeblock]
+##
 ## При [member change_detection] == true пропускаются неизменённые чанки (last-seen по версиям).
 ## После каждого update записи для чанков, исчезнувших из query, удаляются из [member _chunk_seen].
 ## При [member use_worker_pool] == true не вызывайте [method get_command_buffer] — только чтение.

@@ -314,6 +314,7 @@
 |------|------------|
 | `_slots[256]` | handle в слоте или `-1` (tombstone) |
 | `_dense[0..count)` | плотный список живых handle |
+| `_dense_slots[0..count)` | slot в компонентном буфере для fast-path |
 | `_slot_to_dense[256]` | индекс handle в `_dense` для каждого слота (`-1` если пусто) |
 | `_count` | число живых сущностей в чанке (O(1)) |
 
@@ -337,15 +338,32 @@
 - `ECSEntityIdsPool` выдаёт и переиспользует id с инкрементом generation.
 - Устаревший handle не проходит `is_alive` / `has_component`.
 
-## Hot path в системах
+## Итерация в системах: fast-path vs slot API
+
+**Правило фреймворка:** если система в `process_chunk` **только меняет значения** компонентов и **не создаёт** новых сущностей (spawn/destroy/add/remove) — используйте **fast-path**. Иначе — **slot API** через handle.
+
+| Fast-path (только значения) | Slot API (структура или handle) |
+|---|---|
+| `chunk.get_dense_slots()` | `chunk.get_dense_entities()` + `ECSEntityIdsUtils.slot_from_handle(handle)` |
+| `comp_chunk.get_values_buffer()[slot]` для чтения | `get_component(entity_id)` вне chunk-loop |
+| `set_value_at_slot(slot, ...)` для записи | command buffer с handle |
 
 ```gdscript
-var dense: PackedInt64Array = chunk.get_dense_entities()
-var count: int = chunk.get_entity_count()
-for i in range(count):
-    var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
-    var value = comp_chunk.get_value_at_slot(slot)
+# Fast-path
+var slots := chunk.get_dense_slots()
+var buf := pos_chunk.get_values_buffer()
+for i in range(chunk.get_entity_count()):
+    var slot := slots[i]
+    pos_chunk.set_value_at_slot(slot, buf[slot] + Vector2(1, 0))
+
+# Slot API
+var dense := chunk.get_dense_entities()
+for i in range(chunk.get_entity_count()):
+    var slot := ECSEntityIdsUtils.slot_from_handle(dense[i])
+    pos_chunk.set_value_at_slot(slot, pos_chunk.get_value_at_slot(slot) + Vector2(1, 0))
 ```
+
+Полное руководство: [FRAMEWORK.md](FRAMEWORK.md).
 
 ## Публичный API
 
