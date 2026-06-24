@@ -22,6 +22,7 @@ const _RegressionTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_regressi
 const _ArchetypeChunkTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_archetype_chunk_test.gd")
 const _MembershipTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_membership_test.gd")
 const _DenseIterationTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_dense_iteration_test.gd")
+const _TagTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_tag_test.gd")
 const _WorldDemoTest = preload("res://addons/pgdecs/ecs/tests/unit/ecs_world_demo_test.gd")
 
 static func run_all(runner: ECSTestRunner) -> void:
@@ -47,13 +48,14 @@ static func run_all(runner: ECSTestRunner) -> void:
 		_RegressionTest.new(),
 		_MembershipTest.new(),
 		_DenseIterationTest.new(),
+		_TagTest.new(),
 		_WorldDemoTest.new()
 	]
 	var names: PackedStringArray = PackedStringArray([
 		"ArchetypeGc", "ArchetypeKey", "EntityIdsUtils", "EntityIdsPool", "Archetype", "ArchetypeChunk", "BitMask", "SparseSet",
 		"ComponentFactory", "ComponentArray", "ECSManager", "ManagerArchetypeTransition", "Query", "QueryChunk",
 		"WorldState", "CommandBuffer", "SystemRunner", "SystemChunkBase", "Regression",
-		"Membership", "DenseIteration", "WorldDemo"
+		"Membership", "DenseIteration", "Tag", "WorldDemo"
 	])
 	print("--- ECS Unit Tests ---")
 	for i in range(suites.size()):

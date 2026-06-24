@@ -190,6 +190,28 @@ chunk.get_value_at_slot(slot)
 
 Не входят в ядро. Паттерн registry + примитивный индекс: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
+### Tags (marker-компоненты)
+
+Tag — component id **без SoA-хранилища**: членство только в bitmask архетипа. Для фильтрации в query и `has_component`, когда не нужно значение.
+
+```gdscript
+ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+ecs.register_tag(ENEMY_TAG_ID)
+
+var e: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, ENEMY_TAG_ID]))
+ecs.add_component(e, ENEMY_TAG_ID)       # без value
+ecs.has_component(e, ENEMY_TAG_ID)       # true
+ecs.is_tag(ENEMY_TAG_ID)                 # true
+ecs.get_component_array(ENEMY_TAG_ID)    # null
+
+ECSQueryBuilder.new()
+    .with_component(POSITION_ID)
+    .without_component(ENEMY_TAG_ID)
+    .build(ecs)
+```
+
+Один id — либо data component (`register_component`), либо tag (`register_tag`). В hot-path систем не вызывайте `get_component_chunk` для tag id — вернётся `null`. Query с `with_component(TAG)` подходит только для фильтрации сущностей, не для итерации значений.
+
 ---
 
 ## ECSManager
@@ -212,10 +234,12 @@ destroy_entity / destroy_entities_packed
 
 # Компоненты
 register_component(id, Variant.Type)
+register_tag(id)
+is_tag(component_id) -> bool
 has_component(entity, component_id)
 add_component(entity, component_id)
 remove_component(entity, component_id)
-get_component_array(component_id) -> ECSComponentBaseArray
+get_component_array(component_id) -> ECSComponentBaseArray  # null для tag
 
 # Архетипы
 precache_archetype / precache_archetype_packed

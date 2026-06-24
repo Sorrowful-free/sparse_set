@@ -10,6 +10,8 @@ class _ArchetypeCacheEntry extends RefCounted:
 var _entity_ids_pool: ECSEntityIdsPool = ECSEntityIdsPool.new()
 
 var _components: Dictionary[int, ECSComponentBaseArray] = {}
+## Marker component ids: membership only in archetype bitmask, no SoA storage.
+var _tags: Dictionary[int, bool] = {}
 var _archetype_registry: Array[ECSArchetype] = []
 ## Компактный список без null-слотов (для query cache и GC).
 var _registered_archetypes: Array[ECSArchetype] = []
@@ -372,11 +374,29 @@ func register_component(component_id: int, component_type: Variant.Type) -> void
 	if _components.has(component_id):
 		push_error("ECSManager: component %d already registered" % component_id)
 		return
+	if _tags.has(component_id):
+		push_error("ECSManager: id %d already registered as tag" % component_id)
+		return
 	var component: ECSComponentBaseArray = ECSComponentFactory.create_component(component_type)
 	if component == null:
 		push_error("ECSManager: unknown component type for id %d" % component_id)
 		return
 	_components[component_id] = component
+
+func register_tag(tag_id: int) -> void:
+	if _tags.has(tag_id):
+		push_error("ECSManager: tag %d already registered" % tag_id)
+		return
+	if _components.has(tag_id):
+		push_error("ECSManager: id %d already registered as component" % tag_id)
+		return
+	_tags[tag_id] = true
+
+func is_tag(component_id: int) -> bool:
+	return _tags.has(component_id)
+
+func _is_registered_id(component_id: int) -> bool:
+	return _components.has(component_id) || _tags.has(component_id)
 
 ## Предрасчёт архетипа для набора компонентов (кэш + создание архетипа).
 func precache_archetype_packed(component_ids: PackedInt64Array) -> void:
@@ -406,7 +426,7 @@ func create_entity_packed(component_ids: PackedInt64Array) -> int:
 		push_error("ECSManager: empty component set in create_entity")
 		return 0
 	for component_id in normalized_ids:
-		if !_components.has(component_id):
+		if !_is_registered_id(component_id):
 			push_error("ECSManager: unregistered component %d in create_entity" % component_id)
 			return 0
 	var entity_id: int = _entity_ids_pool.get_next_entity_id()
@@ -417,6 +437,8 @@ func create_entity_packed(component_ids: PackedInt64Array) -> int:
 	_ensure_entity_mapping_capacity(entity_index)
 	_entities_to_archetypes[entity_index] = archetype_id
 	for component_id in archetype._component_ids:
+		if is_tag(component_id):
+			continue
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entity(entity_id)
 	return entity_id
@@ -433,7 +455,7 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 		push_error("ECSManager: empty component set in create_entities")
 		return PackedInt64Array()
 	for component_id in normalized_ids:
-		if !_components.has(component_id):
+		if !_is_registered_id(component_id):
 			push_error("ECSManager: unregistered component %d in create_entities" % component_id)
 			return PackedInt64Array()
 	var entity_ids: PackedInt64Array = PackedInt64Array()
@@ -448,6 +470,8 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 		_ensure_entity_mapping_capacity(entity_index)
 		_entities_to_archetypes[entity_index] = archetype_id
 	for component_id in archetype._component_ids:
+		if is_tag(component_id):
+			continue
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entities_batch(entity_ids)
 	return entity_ids
@@ -473,6 +497,8 @@ func destroy_entity(entity_id: int) -> void:
 	else:
 		component_ids_to_clear = PackedInt64Array(_components.keys())
 	for component_id in component_ids_to_clear:
+		if is_tag(component_id):
+			continue
 		var component: ECSComponentBaseArray = _components.get(component_id, null)
 		if component != null:
 			component.remove_entity(entity_id)
@@ -562,6 +588,8 @@ func _destroy_archetype_batch(archetype_id: int, batch: PackedInt64Array) -> voi
 		return
 	var archetype_chunk_removed: bool = archetype.remove_entities_batch(batch)
 	for component_id in archetype._component_ids:
+		if is_tag(component_id):
+			continue
 		var component: ECSComponentBaseArray = _components.get(component_id, null)
 		if component != null:
 			component.remove_entities_batch(batch)
@@ -655,7 +683,7 @@ func add_component(entity_id: int, component_id: int) -> void:
 		return
 	if has_component(entity_id, component_id):
 		return
-	if !_components.has(component_id):
+	if !_is_registered_id(component_id):
 		push_error("ECSManager: unregistered component %d in add_component" % component_id)
 		return
 	var old_archetype: ECSArchetype = get_entity_archetype(entity_id)
@@ -668,8 +696,9 @@ func add_component(entity_id: int, component_id: int) -> void:
 	var archetype_chunk_removed: bool = old_archetype.remove_entity(entity_id) >= 0
 	new_archetype.add_entity(entity_id)
 	_entities_to_archetypes[entity_index] = new_archetype_id
-	var component: ECSComponentBaseArray = _components[component_id]
-	component.add_entity(entity_id)
+	if !is_tag(component_id):
+		var component: ECSComponentBaseArray = _components[component_id]
+		component.add_entity(entity_id)
 	_note_archetype_gc_work(old_archetype_id, archetype_chunk_removed)
 
 func remove_component(entity_id: int, component_id: int) -> void:
@@ -690,6 +719,7 @@ func remove_component(entity_id: int, component_id: int) -> void:
 	var archetype_chunk_removed: bool = old_archetype.remove_entity(entity_id) >= 0
 	new_archetype.add_entity(entity_id)
 	_entities_to_archetypes[entity_index] = new_archetype_id
-	var component: ECSComponentBaseArray = _components[component_id]
-	component.remove_entity(entity_id)
+	if !is_tag(component_id):
+		var component: ECSComponentBaseArray = _components[component_id]
+		component.remove_entity(entity_id)
 	_note_archetype_gc_work(old_archetype_id, archetype_chunk_removed)
