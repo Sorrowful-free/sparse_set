@@ -31,6 +31,10 @@ func get_entity_count() -> int:
 func get_dense_entities() -> PackedInt64Array:
 	return _archetype_chunk.get_dense_entities()
 
+## Плотный буфер slot по dense_index. Читать только [0, get_entity_count()).
+func get_dense_slots() -> PackedInt32Array:
+	return _archetype_chunk.get_dense_slots()
+
 ## Handle по индексу в плотном списке [0..get_entity_count()).
 func get_entity_id_at(dense_index: int) -> int:
 	return _archetype_chunk.get_dense_entity_at(dense_index)

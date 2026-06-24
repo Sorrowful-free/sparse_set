@@ -112,6 +112,33 @@ func benchmark_query_iterate_entities_with_components() -> float:
 			)
 		)
 
+## То же, что iterate_entities_with_components, но через get_dense_slots() + get_values_buffer() (без per-element вызовов).
+func benchmark_query_iterate_entities_with_components_fast() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	var runs: int = 100
+	return _time_block("query iterate entities+components FAST x %d (world size %d)" % [runs, _iterations], func():
+		for j in range(runs):
+			var acc: float = 0.0
+			query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+				var pos_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(POSITION_ID)
+				var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(HEALTH_ID)
+				if pos_chunk == null || health_chunk == null:
+					return
+				var slots: PackedInt32Array = chunk.get_dense_slots()
+				var count: int = chunk.get_entity_count()
+				var pos_buf: PackedVector2Array = (pos_chunk as ECSComponentVector2ArrayChunk).get_values_buffer()
+				var health_buf: PackedInt32Array = (health_chunk as ECSComponentInt32ArrayChunk).get_values_buffer()
+				for i in range(count):
+					var slot: int = slots[i]
+					var pos: Vector2 = pos_buf[slot]
+					acc += pos.x + pos.y + float(health_buf[slot])
+			)
+		)
+
 ## То же, что iterate_entities_with_components, но чанки обрабатываются через WorkerThreadPool:
 ## каждый воркер обрабатывает один чанк (читает position и health по слотам), пишет сумму в results[index].
 static func _process_chunk_entities_with_components(chunks: Array[ECSQueryChunk], results: PackedFloat32Array, position_id: int, health_id: int, index: int) -> void:
@@ -366,6 +393,10 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components()
 	print("  query iterate entities+components: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components_fast()
+	print("  query iterate entities+components FAST: %.3f s" % t)
 
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components_worker_pool()

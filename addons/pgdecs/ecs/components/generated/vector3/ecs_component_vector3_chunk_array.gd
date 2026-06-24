@@ -39,6 +39,9 @@ func get_component(entity_id: int) -> Vector3:
 func get_value_at_slot(slot_index: int) -> Vector3:
 	return _components_values[slot_index]
 
+func get_values_buffer() -> PackedVector3Array:
+	return _components_values
+
 func set_value_at_slot(slot_index: int, component_value: Vector3) -> void:
 	_components_values[slot_index] = component_value
 	_value_version += 1

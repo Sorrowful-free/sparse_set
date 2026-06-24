@@ -1,0 +1,63 @@
+﻿Godot Engine v4.7.stable.steam.5b4e0cb0f - https://godotengine.org
+
+--- ECS Performance (iterations=5000) ---
+  create_entity: 0.050 s
+  destroy_entity: 0.029 s
+  create_entities batch: 0.018 s
+  destroy_entities batch: 0.027 s
+  query.get_entity_ids: 0.015 s
+  query.for_each_chunk iterate: 0.002 s
+  query iterate entities+components: 0.564 s
+  query iterate entities+components FAST: 0.044 s
+  query iterate entities+components WorkerThreadPool: 0.005 s
+  query.for_each_chunk WorkerThreadPool: 0.006 s
+  add/remove_component: 0.115 s
+  command_buffer execute: 0.014 s
+  command_buffer coalescing frame: 0.004 s
+  system change_detection steady: 0.011 s
+  system change_detection scattered ON: 0.404 s
+  system change_detection scattered OFF: 0.390 s
+  system change_detection hot-chunks ON: 0.070 s
+  system change_detection hot-chunks OFF: 0.506 s
+
+--- ECS Performance (iterations=15000) ---
+  create_entity: 0.188 s
+  destroy_entity: 0.104 s
+  create_entities batch: 0.065 s
+  destroy_entities batch: 0.096 s
+  query.get_entity_ids: 0.053 s
+  query.for_each_chunk iterate: 0.009 s
+  query iterate entities+components: 2.012 s
+  query iterate entities+components FAST: 0.158 s
+  query iterate entities+components WorkerThreadPool: 0.013 s
+  query.for_each_chunk WorkerThreadPool: 0.012 s
+  add/remove_component: 0.141 s
+  command_buffer execute: 0.015 s
+  command_buffer coalescing frame: 0.019 s
+  system change_detection steady: 0.040 s
+  system change_detection scattered ON: 1.524 s
+  system change_detection scattered OFF: 1.485 s
+  system change_detection hot-chunks ON: 0.116 s
+  system change_detection hot-chunks OFF: 1.428 s
+
+--- ECS Performance (iterations=25000) ---
+  create_entity: 0.306 s
+  destroy_entity: 0.172 s
+  create_entities batch: 0.110 s
+  destroy_entities batch: 0.156 s
+  query.get_entity_ids: 0.087 s
+  query.for_each_chunk iterate: 0.013 s
+  query iterate entities+components: 3.372 s
+  query iterate entities+components FAST: 0.273 s
+  query iterate entities+components WorkerThreadPool: 0.018 s
+  query.for_each_chunk WorkerThreadPool: 0.018 s
+  add/remove_component: 0.145 s
+  command_buffer execute: 0.016 s
+  command_buffer coalescing frame: 0.035 s
+  system change_detection steady: 0.067 s
+  system change_detection scattered ON: 2.527 s
+  system change_detection scattered OFF: 2.420 s
+  system change_detection hot-chunks ON: 0.155 s
+  system change_detection hot-chunks OFF: 2.329 s
+
+--- Done ---

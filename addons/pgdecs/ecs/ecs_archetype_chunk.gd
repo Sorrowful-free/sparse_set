@@ -5,6 +5,7 @@ class_name ECSArchetypeChunk extends RefCounted
 var _slots: PackedInt64Array
 var _dense: PackedInt64Array
 var _slot_to_dense: PackedInt32Array
+var _dense_slots: PackedInt32Array
 var _count: int = 0
 var _structural_version: int = 0
 
@@ -18,6 +19,9 @@ func _init() -> void:
 	_slot_to_dense = PackedInt32Array()
 	_slot_to_dense.resize(ECSEntityIdsUtils.CHUNK_SIZE)
 	_slot_to_dense.fill(-1)
+	_dense_slots = PackedInt32Array()
+	_dense_slots.resize(ECSEntityIdsUtils.CHUNK_SIZE)
+	_dense_slots.fill(-1)
 
 func add_entity(handle: int) -> void:
 	var entity_index: int = ECSEntityHandle.index_of(handle)
@@ -25,6 +29,7 @@ func add_entity(handle: int) -> void:
 	var existing_handle: int = _slots[slot]
 	if existing_handle == ECSEntityIdsUtils.NULL_ENTITY_ID:
 		_dense[_count] = handle
+		_dense_slots[_count] = slot
 		_slot_to_dense[slot] = _count
 		_count += 1
 	elif existing_handle == handle:
@@ -54,7 +59,9 @@ func remove_entity(handle: int) -> void:
 		_dense[dense_index] = swapped_handle
 		var swapped_slot: int = ECSEntityIdsUtils.slot_from_handle(swapped_handle)
 		_slot_to_dense[swapped_slot] = dense_index
+		_dense_slots[dense_index] = swapped_slot
 	_dense[last_idx] = ECSEntityIdsUtils.NULL_ENTITY_ID
+	_dense_slots[last_idx] = -1
 	_count -= 1
 
 func has_entity(handle: int) -> bool:
@@ -71,6 +78,10 @@ func get_structural_version() -> int:
 ## Плотный буфер handle. Читать только индексы [0, get_entity_count()).
 func get_dense_entities() -> PackedInt64Array:
 	return _dense
+
+## Плотный буфер slot по dense_index. Читать только [0, get_entity_count()).
+func get_dense_slots() -> PackedInt32Array:
+	return _dense_slots
 
 func get_dense_entity_at(dense_index: int) -> int:
 	if dense_index < 0 || dense_index >= _count:
@@ -89,5 +100,6 @@ func clear() -> void:
 	_slots.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
 	_dense.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
 	_slot_to_dense.fill(-1)
+	_dense_slots.fill(-1)
 	_count = 0
 	_structural_version += 1

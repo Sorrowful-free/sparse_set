@@ -83,3 +83,39 @@ func test_structural_version_bumps_on_clear(runner: ECSTestRunner) -> void:
 	var before: int = chunk.get_structural_version()
 	chunk.clear()
 	runner.assert_gt(chunk.get_structural_version(), before)
+
+func test_dense_slots_consistent_after_adds(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	var handles: PackedInt64Array = PackedInt64Array()
+	for i in range(10):
+		var handle: int = ECSEntityHandle.make(i, 1)
+		handles.append(handle)
+		chunk.add_entity(handle)
+	var dense: PackedInt64Array = chunk.get_dense_entities()
+	var dense_slots: PackedInt32Array = chunk.get_dense_slots()
+	runner.assert_eq(chunk.get_entity_count(), 10)
+	for i in range(chunk.get_entity_count()):
+		var expected_slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
+		runner.assert_eq(dense_slots[i], expected_slot)
+
+func test_dense_slots_updates_on_swap_remove(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	var h1: int = ECSEntityHandle.make(1, 1)
+	var h2: int = ECSEntityHandle.make(2, 1)
+	var h3: int = ECSEntityHandle.make(3, 1)
+	chunk.add_entity(h1)
+	chunk.add_entity(h2)
+	chunk.add_entity(h3)
+	var slot_h3: int = ECSEntityIdsUtils.slot_from_handle(h3)
+	chunk.remove_entity(h1)
+	runner.assert_eq(chunk.get_dense_slots()[0], slot_h3)
+	runner.assert_eq(chunk.get_dense_slots()[chunk.get_entity_count()], -1)
+	runner.assert_true(chunk.has_entity(h3))
+
+func test_dense_slots_cleared(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	chunk.add_entity(ECSEntityHandle.make(1, 1))
+	chunk.add_entity(ECSEntityHandle.make(2, 1))
+	chunk.clear()
+	for i in range(ECSEntityIdsUtils.CHUNK_SIZE):
+		runner.assert_eq(chunk.get_dense_slots()[i], -1)

@@ -39,6 +39,9 @@ func get_component(entity_id: int) -> Color:
 func get_value_at_slot(slot_index: int) -> Color:
 	return _components_values[slot_index]
 
+func get_values_buffer() -> PackedColorArray:
+	return _components_values
+
 func set_value_at_slot(slot_index: int, component_value: Color) -> void:
 	_components_values[slot_index] = component_value
 	_value_version += 1
