@@ -44,3 +44,31 @@ func test_slot_api(runner: ECSTestRunner) -> void:
 	var slot: int = ECSEntityIdsUtils.slot_from_handle(entity_id)
 	chunk.set_value_at_slot(slot, Vector2(5.0, 6.0))
 	runner.assert_eq(chunk.get_value_at_slot(slot), Vector2(5.0, 6.0))
+
+func test_value_version_bumps_on_set_value_at_slot(runner: ECSTestRunner) -> void:
+	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var before: int = chunk.get_value_version()
+	chunk.set_value_at_slot(0, Vector2(1.0, 2.0))
+	runner.assert_gt(chunk.get_value_version(), before)
+
+func test_value_version_bumps_on_add_component(runner: ECSTestRunner) -> void:
+	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var handle: int = ECSEntityHandle.make(1, 1)
+	var before: int = chunk.get_value_version()
+	chunk.add_component(handle, Vector2(1.0, 2.0))
+	runner.assert_gt(chunk.get_value_version(), before)
+
+func test_value_version_bumps_on_remove_component(runner: ECSTestRunner) -> void:
+	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var handle: int = ECSEntityHandle.make(1, 1)
+	chunk.add_component(handle, Vector2(1.0, 2.0))
+	var before: int = chunk.get_value_version()
+	chunk.remove_component(ECSEntityIdsUtils.slot_from_handle(handle))
+	runner.assert_gt(chunk.get_value_version(), before)
+
+func test_value_version_bumps_on_clear(runner: ECSTestRunner) -> void:
+	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	chunk.add_component(ECSEntityHandle.make(1, 1), Vector2(1.0, 2.0))
+	var before: int = chunk.get_value_version()
+	chunk.clear()
+	runner.assert_gt(chunk.get_value_version(), before)

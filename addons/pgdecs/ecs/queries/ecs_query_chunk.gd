@@ -44,3 +44,15 @@ func get_component_chunk(component_id: int) -> ECSComponentBaseArrayChunk:
 	if comp_array == null:
 		return null
 	return comp_array.get_chunk_by_index(_chunk_index)
+
+func get_structural_version() -> int:
+	return _archetype_chunk.get_structural_version()
+
+func get_component_version(component_id: int) -> int:
+	var comp_array: ECSComponentBaseArray = _ecs_manager.get_component_array(component_id)
+	if comp_array == null:
+		return 0
+	var chunk: ECSComponentBaseArrayChunk = comp_array.get_chunk_by_index(_chunk_index)
+	if chunk == null:
+		return 0
+	return chunk.get_value_version()

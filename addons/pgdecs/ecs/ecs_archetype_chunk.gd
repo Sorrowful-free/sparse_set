@@ -6,6 +6,7 @@ var _slots: PackedInt64Array
 var _dense: PackedInt64Array
 var _slot_to_dense: PackedInt32Array
 var _count: int = 0
+var _structural_version: int = 0
 
 func _init() -> void:
 	_slots = PackedInt64Array()
@@ -32,6 +33,7 @@ func add_entity(handle: int) -> void:
 		var dense_index: int = _slot_to_dense[slot]
 		if dense_index >= 0 && dense_index < _count:
 			_dense[dense_index] = handle
+	_structural_version += 1
 	_slots[slot] = handle
 
 func remove_entity(handle: int) -> void:
@@ -39,6 +41,7 @@ func remove_entity(handle: int) -> void:
 	var slot: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	if _slots[slot] != handle:
 		return
+	_structural_version += 1
 	var dense_index: int = _slot_to_dense[slot]
 	if dense_index < 0 || dense_index >= _count:
 		_slots[slot] = ECSEntityIdsUtils.NULL_ENTITY_ID
@@ -62,6 +65,9 @@ func has_entity(handle: int) -> bool:
 func get_entity_count() -> int:
 	return _count
 
+func get_structural_version() -> int:
+	return _structural_version
+
 ## Плотный буфер handle. Читать только индексы [0, get_entity_count()).
 func get_dense_entities() -> PackedInt64Array:
 	return _dense
@@ -84,3 +90,4 @@ func clear() -> void:
 	_dense.fill(ECSEntityIdsUtils.NULL_ENTITY_ID)
 	_slot_to_dense.fill(-1)
 	_count = 0
+	_structural_version += 1

@@ -66,6 +66,9 @@ Headless прогоняет три шкалы: **5000 / 15000 / 25000** итер
 - `add/remove_component`
 - `command_buffer execute` (1000× create)
 - `command_buffer coalescing frame` (шумный deferred-кадр)
+- `system change_detection steady` (skip-clean без записей в мир)
+
+После правки шаблона component chunk перегенерируйте типы: `run_codegen_headless.gd`.
 
 ### Multirun
 

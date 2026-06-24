@@ -201,3 +201,80 @@ Coalescing схлопывает 4000 no-op команд (temp lifecycle + add/re
 
 - [`PERFORMANCE.md`](../PERFORMANCE.md) — актуальный список бенчмарков, coalescing frame, `for_each_chunk`, multirun workflow.
 - [`aggregate_multirun.ps1`](aggregate_multirun.ps1) — median/min/max из `run_*.log`, опционально `-CompareDirectory` и `-Markdown`.
+
+---
+
+## Change detection (версии чанков)
+
+Сырые логи: `multirun_dirty/run_1.log` … `run_5.log` (сравнение с `multirun_wtp_foreach` — другая сессия, см. шум ниже).
+
+Реализация:
+- `ECSArchetypeChunk._structural_version` — add/remove/clear
+- `ECSComponentBaseArrayChunk._value_version` — set/add/remove/batch/clear (codegen)
+- `ECSQueryChunk.get_structural_version()` / `get_component_version(id)`
+- `ECSSystemChunkBase.change_detection` — skip-clean по last-seen
+
+Unit: **585/585**.
+
+### Perf (iterations=25000, median по 5 прогонов в одной сессии)
+
+| Benchmark | min | **med** | max |
+|---|---:|---:|---:|
+| **system change_detection steady** | 0.041 | **0.043** | 0.045 |
+| query iterate entities+components | 2.932 | **2.993** | 3.083 |
+| add/remove_component | 0.124 | **0.127** | 0.129 |
+| create_entities batch | 0.096 | **0.098** | 0.106 |
+| query.for_each_chunk iterate | 0.011 | **0.012** | 0.013 |
+
+### Сравнение multirun_dirty vs multirun_wtp_foreach (межсессионно)
+
+| Benchmark | wtp_foreach med | dirty med | Δ |
+|---|---:|---:|---:|
+| query iterate e+c | 2.551 | 2.993 | +17%* |
+| add/remove_component | 0.105 | 0.127 | +21%* |
+| create_entity | 0.218 | 0.276 | +27%* |
+| **system change_detection steady** | — | **0.043** | новый |
+
+\* Рост на read-only query и batch create указывает на **межсессионный шум**, не только на `_value_version += 1`. Ожидаемая стоимость инкремента на write-path — один `int += 1` на вызов; `change_detection steady` (~0.043 s за 100 update на чистом мире) — в основном проверка версий по чанкам.
+
+### Выводы change detection
+
+1. **Opt-in** — `change_detection=false` по умолчанию; существующие системы без изменений.
+2. **Steady-state** — 100× `update` с включённым skip-clean на неизменном мире ~**0.043 s** (25000 сущностей).
+3. Для честного сравнения write-path — повторный multirun_dirty сразу после wtp в одной сессии или смотреть только `add/remove_component` внутри одной серии.
+
+---
+
+## Change detection — повторный прогон (подготовленная машина)
+
+Сырые логи: `multirun_dirty_rerun/run_1.log` … `run_5.log` (5 прогонов подряд, память очищена).
+
+### Perf (iterations=25000, median по 5 прогонам)
+
+| Benchmark | min | **med** | max |
+|---|---:|---:|---:|
+| **system change_detection steady** | 0.037 | **0.038** | 0.038 |
+| query iterate entities+components | 2.541 | **2.568** | 2.582 |
+| add/remove_component | 0.105 | **0.107** | 0.108 |
+| create_entities batch | 0.084 | **0.085** | 0.086 |
+| create_entity | 0.218 | **0.223** | 0.224 |
+| destroy_entities batch | 0.123 | **0.124** | 0.126 |
+| query.for_each_chunk iterate | 0.010 | **0.011** | 0.012 |
+
+### dirty_rerun vs wtp_foreach (±2% — в шуме)
+
+| Benchmark | wtp_foreach med | dirty_rerun med | Δ med |
+|---|---:|---:|---:|
+| query iterate e+c | 2.551 | **2.568** | +0.7% |
+| add/remove_component | 0.105 | **0.107** | +1.9% |
+| create_entity | 0.218 | **0.223** | +2.3% |
+| create_entities batch | 0.084 | **0.085** | +1.2% |
+| destroy_entities batch | 0.124 | **0.124** | 0.0% |
+| query.for_each_chunk iterate | 0.011 | **0.011** | 0.0% |
+| **system change_detection steady** | — | **0.038** | новый |
+
+### dirty_rerun vs multirun_dirty (первая сессия — шум ~15–20%)
+
+Первая серия `multirun_dirty` была медленнее на **12–25%** по всем метрикам, включая read-only query. Повтор на подготовленной машине вернул значения к уровню `multirun_wtp_foreach` **±2%**.
+
+**Вывод:** регрессии от `_value_version += 1` **нет** — первая серия была межсессионным/нагрузочным шумом. Стоимость change detection на steady-state: **~0.038 s** (100 update, 25000 сущностей, все чанки чистые).

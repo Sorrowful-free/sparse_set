@@ -226,6 +226,31 @@ func benchmark_command_buffer_coalescing_frame() -> float:
 			buf.execute()
 	)
 
+class _ChangeDetectChunkSystem extends ECSSystemChunkBase:
+	const _POSITION_ID: int = 1
+	const _HEALTH_ID: int = 2
+	var touched: int = 0
+
+	func _build_query() -> ECSQuery:
+		return ECSQueryBuilder.new().with_component(_POSITION_ID).with_component(_HEALTH_ID).build(get_ecs_manager())
+
+	func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
+		touched += 1
+
+func benchmark_system_change_detection() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var system: _ChangeDetectChunkSystem = _ChangeDetectChunkSystem.new(_ecs)
+	system.change_detection = true
+	system.update(0.016)
+	var runs: int = 100
+	return _time_block("system change_detection steady (no writes) x %d (world %d)" % [runs, _iterations], func():
+		for j in range(runs):
+			system.update(0.016)
+	)
+
 func run_all() -> void:
 	print("--- ECS Performance (iterations=%d) ---" % _iterations)
 	var ecs_fresh: ECSManager = ECSManager.new()
@@ -275,3 +300,7 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_command_buffer_coalescing_frame()
 	print("  command_buffer coalescing frame: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection()
+	print("  system change_detection steady: %.3f s" % t)

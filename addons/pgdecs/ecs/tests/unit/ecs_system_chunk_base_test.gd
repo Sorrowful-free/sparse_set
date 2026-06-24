@@ -47,3 +47,53 @@ func test_process_chunk_worker_pool_matches_single_thread(runner: ECSTestRunner)
 		return
 	runner.assert_eq(parallel.processed_chunks, single.processed_chunks)
 	runner.assert_eq(parallel.processed_entities, single.processed_entities)
+
+func test_change_detection_skips_unchanged(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.change_detection = true
+	system.update(0.016)
+	var after_first: int = system.processed_chunks
+	system.update(0.016)
+	runner.assert_eq(system.processed_chunks, after_first)
+
+func test_change_detection_reprocesses_after_structural(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.change_detection = true
+	system.update(0.016)
+	var after_first: int = system.processed_chunks
+	ecs.create_entities_packed(1, PackedInt64Array([VALUE_ID]))
+	system.update(0.016)
+	runner.assert_gt(system.processed_chunks, after_first)
+
+func test_change_detection_reprocesses_after_value_write(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.change_detection = true
+	system.update(0.016)
+	var after_first: int = system.processed_chunks
+	var comp: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	comp.set_component(ids[0], 42.0)
+	system.update(0.016)
+	runner.assert_gt(system.processed_chunks, after_first)
+
+func test_change_detection_worker_pool_parity(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.create_entities_packed(8, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.change_detection = true
+	system.use_worker_pool = true
+	system.update(0.016)
+	if system.processed_chunks == 0:
+		return
+	var after_first: int = system.processed_chunks
+	system.update(0.016)
+	runner.assert_eq(system.processed_chunks, after_first)

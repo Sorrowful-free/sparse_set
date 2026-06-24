@@ -1,7 +1,12 @@
 @abstract class_name ECSComponentBaseArrayChunk extends RefCounted
 
+var _value_version: int = 0
+
 func _init() -> void:
 	pass
+
+func get_value_version() -> int:
+	return _value_version
 
 func get_slot_count() -> int:
 	return ECSEntityIdsUtils.CHUNK_SIZE

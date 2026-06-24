@@ -113,6 +113,41 @@ func test_collect_chunks_matches_get_chunks(runner: ECSTestRunner) -> void:
 	for i in range(collected.size()):
 		runner.assert_eq(collected[i].get_entity_count(), from_get[i].get_entity_count())
 
+func test_get_component_ids_returns_query_components(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.create_entities_packed(1, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
+	runner.assert_eq(query.get_component_ids(), PackedInt64Array([POSITION_ID, HEALTH_ID]))
+
+func test_query_chunk_exposes_versions(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities_packed(2, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
+	var snap: Dictionary = {"struct": -1, "value": -1}
+	query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		snap["struct"] = chunk.get_structural_version()
+		snap["value"] = chunk.get_component_version(POSITION_ID)
+	)
+	runner.assert_gt(snap["struct"], -1)
+	runner.assert_gt(snap["value"], -1)
+	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	pos.set_component(ids[0], Vector2(9.0, 9.0))
+	var snap2: Dictionary = {"value": -1}
+	query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		snap2["value"] = chunk.get_component_version(POSITION_ID)
+	)
+	runner.assert_gt(snap2["value"], snap["value"])
+	ecs.create_entities_packed(1, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var snap3: Dictionary = {"struct": -1}
+	query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		snap3["struct"] = chunk.get_structural_version()
+	)
+	runner.assert_gt(snap3["struct"], snap["struct"])
+
 func test_query_builder_deduplicates_and_sorts_component_ids(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)

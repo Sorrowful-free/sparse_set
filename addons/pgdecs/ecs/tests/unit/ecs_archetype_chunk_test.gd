@@ -50,3 +50,36 @@ func test_slot_to_dense_mapping_updates_on_swap_remove(runner: ECSTestRunner) ->
 	chunk.remove_entity(h3)
 	runner.assert_false(chunk.has_entity(h3))
 	runner.assert_eq(chunk.get_entity_count(), 1)
+
+func test_structural_version_bumps_on_add(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	var before: int = chunk.get_structural_version()
+	var handle: int = ECSEntityHandle.make(1, 1)
+	chunk.add_entity(handle)
+	runner.assert_gt(chunk.get_structural_version(), before)
+
+func test_structural_version_stable_on_duplicate_add(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	var handle: int = ECSEntityHandle.make(1, 1)
+	var before: int = chunk.get_structural_version()
+	chunk.add_entity(handle)
+	chunk.add_entity(handle)
+	runner.assert_eq(chunk.get_structural_version(), before + 1)
+
+func test_structural_version_bumps_on_remove(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	var handle: int = ECSEntityHandle.make(1, 1)
+	chunk.add_entity(handle)
+	var after_add: int = chunk.get_structural_version()
+	chunk.remove_entity(handle)
+	runner.assert_gt(chunk.get_structural_version(), after_add)
+	var after_remove: int = chunk.get_structural_version()
+	chunk.remove_entity(handle)
+	runner.assert_eq(chunk.get_structural_version(), after_remove)
+
+func test_structural_version_bumps_on_clear(runner: ECSTestRunner) -> void:
+	var chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
+	chunk.add_entity(ECSEntityHandle.make(1, 1))
+	var before: int = chunk.get_structural_version()
+	chunk.clear()
+	runner.assert_gt(chunk.get_structural_version(), before)

@@ -25,6 +25,7 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Destroy | Итерация только по `component_ids` архетипа, батч `remove_entities_batch` |
 | Component batch | Counting-sort группировка по chunk, single-chunk fast-path |
 | Command buffer | Coalescing перед `execute()`: cancel create+destroy, add+remove, merge destroys |
+| Change detection | Монотонные версии на archetype/component chunk; opt-in `change_detection` в системах |
 | BitMask | Bounds-guard, стабильный hash без временных `slice` в `bit_hash()` |
 | Transitions | Кэш `(old_archetype_hash, component_id)` для add/remove |
 
@@ -36,6 +37,31 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 4. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
 5. **Батчи** — `create_entities_packed()`, `destroy_entities()`, command buffer с coalescing.
 6. **Не вызывать** `get_entity_ids()` каждый кадр, если достаточно chunk-system с dense loop.
+7. **Change detection** — `system.change_detection = true` для skip-clean неизменённых чанков (steady-state системы).
+
+## Change detection (версии чанков)
+
+Две независимые монотонные версии:
+
+| Версия | Где | Инкремент |
+|--------|-----|-----------|
+| Структурная | `ECSArchetypeChunk` | `add_entity` / `remove_entity` / `clear` (реальные мутации) |
+| Значений | `ECSComponentBaseArrayChunk` | `set_value_at_slot`, add/remove/batch/clear |
+
+Проброс через `ECSQueryChunk.get_structural_version()` и `get_component_version(component_id)`.
+
+В `ECSSystemChunkBase` при `change_detection == true` система хранит last-seen `[struct_ver, val_ver(c0), ...]` per archetype-chunk (ключ — `instance_id`) и вызывает `process_chunk` только для изменившихся чанков. Работает на main thread и с `use_worker_pool`.
+
+**Стоимость:** один `_value_version += 1` на вызов мутирующего API компонента (не на элемент в батче). При `change_detection == false` оверхеда на итерацию нет.
+
+**Ограничение:** записи в `_chunk_seen` для исчезнувших чанков не удаляются (некритичная утечка; prune вне текущего скоупа).
+
+```gdscript
+class MySystem extends ECSSystemChunkBase:
+    func _init(ecs: ECSManager) -> void:
+        super(ecs)
+        change_detection = true
+```
 
 ## Пример итерации (система)
 
@@ -84,6 +110,7 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `add/remove_component` | N пар add+remove (archetype transition) |
 | `command_buffer execute` | 1000× `create_entity` + execute |
 | `command_buffer coalescing frame` | 5000 raw-команд с coalescing (см. ниже) |
+| `system change_detection steady` | 100× update с `change_detection` без записей в мир |
 
 ### Coalescing frame
 

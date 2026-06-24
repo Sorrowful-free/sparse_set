@@ -43,6 +43,9 @@ func match(entity_id: int) -> bool:
 			return false
 	return true
 
+func get_component_ids() -> PackedInt64Array:
+	return _component_ids
+
 func get_entity_ids() -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
 	for_each_chunk(func(chunk: ECSQueryChunk) -> void:
