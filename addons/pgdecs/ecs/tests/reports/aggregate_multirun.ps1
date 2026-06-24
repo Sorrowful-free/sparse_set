@@ -68,6 +68,7 @@ function Normalize-BenchmarkName {
 	param([string] $Name)
 	$aliases = @{
 		"query.get_chunks() iterate" = "query.for_each_chunk iterate"
+		"query chunks WorkerThreadPool" = "query.for_each_chunk WorkerThreadPool"
 	}
 	if ($aliases.ContainsKey($Name)) {
 		return $aliases[$Name]

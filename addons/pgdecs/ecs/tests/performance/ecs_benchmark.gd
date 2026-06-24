@@ -140,21 +140,22 @@ func benchmark_query_iterate_entities_with_components_worker_pool() -> float:
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
+	var worker_chunks: Array[ECSQueryChunk] = []
 	return _time_block("query iterate entities+components WorkerThreadPool x %d (world size %d)" % [runs, _iterations], func():
 		for _run in range(runs):
-			var chunks: Array[ECSQueryChunk] = query.get_chunks()
-			if chunks.is_empty():
+			query.collect_chunks(worker_chunks)
+			if worker_chunks.is_empty():
 				continue
 			var results: PackedFloat32Array = PackedFloat32Array()
-			results.resize(chunks.size())
-			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_entities_with_components.bind(chunks, results, POSITION_ID, HEALTH_ID), chunks.size())
+			results.resize(worker_chunks.size())
+			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_entities_with_components.bind(worker_chunks, results, POSITION_ID, HEALTH_ID), worker_chunks.size())
 			WorkerThreadPool.wait_for_group_task_completion(group_id)
 			var acc: float = 0.0
 			for k in range(results.size()):
 				acc += results[k]
 		)
 
-## Обработка чанков через WorkerThreadPool: в каждом прогоне get_chunks() + group task по индексам (сравнимо с get_entity_ids / iterate_chunks).
+## Обработка чанков через WorkerThreadPool: collect_chunks (for_each_chunk) + group task по индексам.
 func benchmark_query_worker_pool() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
@@ -162,14 +163,15 @@ func benchmark_query_worker_pool() -> float:
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 	var runs: int = 100
-	return _time_block("query get_chunks()+WorkerThreadPool x %d (world %d)" % [runs, _iterations], func():
+	var worker_chunks: Array[ECSQueryChunk] = []
+	return _time_block("query.for_each_chunk WorkerThreadPool x %d (world %d)" % [runs, _iterations], func():
 		for _run in range(runs):
-			var chunks: Array[ECSQueryChunk] = query.get_chunks()
-			if chunks.is_empty():
+			query.collect_chunks(worker_chunks)
+			if worker_chunks.is_empty():
 				continue
 			var results: PackedInt32Array = PackedInt32Array()
-			results.resize(chunks.size())
-			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_index.bind(chunks, results), chunks.size())
+			results.resize(worker_chunks.size())
+			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_index.bind(worker_chunks, results), worker_chunks.size())
 			WorkerThreadPool.wait_for_group_task_completion(group_id)
 		)
 
@@ -260,7 +262,7 @@ func run_all() -> void:
 
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_worker_pool()
-	print("  query chunks WorkerThreadPool: %.3f s" % t)
+	print("  query.for_each_chunk WorkerThreadPool: %.3f s" % t)
 
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_add_remove_component()

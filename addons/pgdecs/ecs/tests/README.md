@@ -62,6 +62,7 @@ Headless прогоняет три шкалы: **5000 / 15000 / 25000** итер
 - `query.get_entity_ids`
 - `query.for_each_chunk iterate` (hot path chunk callback)
 - `query iterate entities+components` (+ WorkerThreadPool варианты)
+- `query.for_each_chunk WorkerThreadPool` (`collect_chunks` + group task)
 - `add/remove_component`
 - `command_buffer execute` (1000× create)
 - `command_buffer coalescing frame` (шумный deferred-кадр)

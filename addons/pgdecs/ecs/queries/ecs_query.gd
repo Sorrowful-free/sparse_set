@@ -95,9 +95,12 @@ func _acquire_query_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) 
 	_chunk_pool_used += 1
 	return query_chunk
 
-func get_chunks() -> Array[ECSQueryChunk]:
-	_cached_chunks.clear()
+func collect_chunks(out_chunks: Array[ECSQueryChunk]) -> void:
+	out_chunks.clear()
 	for_each_chunk(func(chunk: ECSQueryChunk) -> void:
-		_cached_chunks.append(chunk)
+		out_chunks.append(chunk)
 	)
+
+func get_chunks() -> Array[ECSQueryChunk]:
+	collect_chunks(_cached_chunks)
 	return _cached_chunks

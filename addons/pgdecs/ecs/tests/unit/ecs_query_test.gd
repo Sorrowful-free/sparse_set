@@ -100,6 +100,19 @@ func test_for_each_chunk_matches_get_chunks(runner: ECSTestRunner) -> void:
 	for entity_id in from_foreach:
 		runner.assert_true(from_chunks.find(entity_id) >= 0)
 
+func test_collect_chunks_matches_get_chunks(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
+	var collected: Array[ECSQueryChunk] = []
+	query.collect_chunks(collected)
+	var from_get: Array[ECSQueryChunk] = query.get_chunks()
+	runner.assert_eq(collected.size(), from_get.size())
+	for i in range(collected.size()):
+		runner.assert_eq(collected[i].get_entity_count(), from_get[i].get_entity_count())
+
 func test_query_builder_deduplicates_and_sorts_component_ids(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)

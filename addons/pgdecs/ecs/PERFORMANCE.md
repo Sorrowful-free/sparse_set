@@ -20,7 +20,7 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Доступ к данным | index→slot O(1) сохранён |
 | Архетипы | Кэш по hash маски, `precache_archetype_packed()` |
 | Query | Кэш подходящих архетипов; `for_each_chunk()` без `Array` у вызывающего |
-| Query (legacy) | `get_chunks()` — пул `ECSQueryChunk`, предпочтительно `for_each_chunk()` |
+| Query (legacy) | `get_chunks()` — возвращает внутренний кэш; для WTP — `collect_chunks()` в свой буфер |
 | Handles | Generational id — безопасный реюз без stale access через `has_component` |
 | Destroy | Итерация только по `component_ids` архетипа, батч `remove_entities_batch` |
 | Component batch | Counting-sort группировка по chunk, single-chunk fast-path |
@@ -30,7 +30,7 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 
 ## Рекомендации hot path
 
-1. **Chunk iteration** — `query.for_each_chunk(callback)` вместо `get_chunks()` + цикл по `Array` (main thread).
+1. **Chunk iteration** — `query.for_each_chunk(callback)` на main thread; для WTP — `query.collect_chunks(scratch)` + `WorkerThreadPool` (см. `ECSSystemChunkBase`).
 2. **Dense iteration** — `chunk.get_dense_entities()` + `chunk.get_entity_count()`.
 3. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
 4. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
@@ -80,7 +80,7 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `query.for_each_chunk iterate` | hot path chunk-callback без `Array` у вызывающего |
 | `query iterate entities+components` | entity-level loop + get/set компонентов |
 | `query iterate e+c WorkerThreadPool` | то же через WTP |
-| `query chunks WorkerThreadPool` | chunk iteration через WTP |
+| `query.for_each_chunk WorkerThreadPool` | chunk iteration через WTP (`collect_chunks` + group task) |
 | `add/remove_component` | N пар add+remove (archetype transition) |
 | `command_buffer execute` | 1000× `create_entity` + execute |
 | `command_buffer coalescing frame` | 5000 raw-команд с coalescing (см. ниже) |
