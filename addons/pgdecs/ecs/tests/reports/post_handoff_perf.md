@@ -130,3 +130,34 @@ Unit после coalescing: **553/553**.
 \* `command_buffer` ~0.011–0.020 s — в шуме.
 
 **Вывод:** первая серия `multirun_post_coalesce` была медленнее на ~15–18% по всем метрикам, включая query (код не менялся). Повторный прогон вернул значения к уровню Batch A ±3%. Регрессии от coalescing **нет** — это межсессионный шум ОС.
+
+---
+
+## Coalescing benchmark (dedicated)
+
+Сырые логи: `multirun_coalesce_bench/run_1.log` … `run_5.log`
+
+Новый сценарий `command_buffer coalescing frame` в [`ecs_benchmark.gd`](../performance/ecs_benchmark.gd) (`iterations=25000`):
+
+- **Setup** (вне замера): 1000 сущностей с `POSITION` в мире.
+- **Буфер** (5000 raw-команд на цикл × 1000): для каждой итерации `create+destroy` temp, `add+remove` HEALTH на survivor, затем `destroy_entity` на всех survivors.
+- **После coalesce+execute**: мир пустой; фактически один batch `destroy_entities` на 1000 id.
+
+Unit: `test_coalesce_heavy_frame` в [`ecs_command_buffer_test.gd`](../unit/ecs_command_buffer_test.gd). Gates: **566/566**.
+
+| Benchmark (iterations=25000) | min | **med (5)** | max |
+|---|---:|---:|---:|
+| command_buffer execute (1000× create) | 0.011 | **0.012** | 0.012 |
+| **command_buffer coalescing frame (5000 raw → net destroy batch)** | 0.025 | **0.025** | 0.026 |
+
+### Смысл сравнения
+
+| Сценарий | Raw cmds | Что было бы без coalescing | Замер |
+|---|---:|---|---:|
+| `command_buffer execute` | 1000 | 1000 create | **0.012 s** |
+| `coalescing frame` | 5000 | ~2000 add/remove + 2000 create/destroy + 1000 destroy | **0.025 s** |
+| Прямой `add/remove_component` (25000 пар) | — | 25000 add + 25000 remove | **~0.105 s** |
+
+Coalescing схлопывает 4000 no-op команд (temp lifecycle + add/remove пары); остаётся только batch destroy ~1000 сущностей. **0.025 s** на 5000 «шумных» команд против **~0.105 s** только на эквивалентные 1000 add/remove без буфера — порядок выигрыша ожидаем для типичного «грязного» кадра deferred-команд.
+
+Старый `command_buffer execute` по-прежнему полезен как baseline чистого create-path; для оценки coalescing смотреть **`coalescing frame`**.

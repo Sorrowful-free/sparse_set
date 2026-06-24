@@ -199,6 +199,31 @@ func benchmark_command_buffer_execute() -> float:
 		buf.execute()
 	)
 
+func benchmark_command_buffer_coalescing_frame() -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var cycles: int = maxi(1, _iterations / 25)
+	var pos_only: PackedInt64Array = PackedInt64Array([POSITION_ID])
+	var survivors: PackedInt64Array = PackedInt64Array()
+	survivors.resize(cycles)
+	for i in range(cycles):
+		survivors[i] = _ecs.create_entity_packed(pos_only)
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(_ecs)
+	for i in range(cycles):
+		var temp_id: int = buf.create_entity(pos_only)
+		buf.destroy_entity(temp_id)
+		var eid: int = survivors[i]
+		buf.add_component(eid, HEALTH_ID)
+		buf.remove_component(eid, HEALTH_ID)
+	for i in range(cycles):
+		buf.destroy_entity(survivors[i])
+	var raw_cmds: int = cycles * 5
+	return _time_block(
+		"command_buffer coalescing frame (%d cycles, %d raw cmds)" % [cycles, raw_cmds],
+		func():
+			buf.execute()
+	)
+
 func run_all() -> void:
 	print("--- ECS Performance (iterations=%d) ---" % _iterations)
 	var ecs_fresh: ECSManager = ECSManager.new()
@@ -244,3 +269,7 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_command_buffer_execute()
 	print("  command_buffer execute: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_command_buffer_coalescing_frame()
+	print("  command_buffer coalescing frame: %.3f s" % t)

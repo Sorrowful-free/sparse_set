@@ -72,6 +72,32 @@ func test_coalesce_skip_ops_after_destroy(runner: ECSTestRunner) -> void:
 	buf.execute()
 	runner.assert_false(ecs.is_alive(real_id))
 
+func test_coalesce_heavy_frame(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	const HEALTH_ID: int = 2
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var cycles: int = 32
+	var pos_only: PackedInt64Array = PackedInt64Array([POSITION_ID])
+	var survivors: PackedInt64Array = PackedInt64Array()
+	survivors.resize(cycles)
+	for i in range(cycles):
+		survivors[i] = ecs.create_entity_packed(pos_only)
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	for i in range(cycles):
+		var temp_id: int = buf.create_entity(pos_only)
+		buf.destroy_entity(temp_id)
+		var eid: int = survivors[i]
+		buf.add_component(eid, HEALTH_ID)
+		buf.remove_component(eid, HEALTH_ID)
+	for i in range(cycles):
+		buf.destroy_entity(survivors[i])
+	buf.execute()
+	runner.assert_eq(
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(),
+		0
+	)
+
 func test_coalesce_merge_destroy_entities(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
