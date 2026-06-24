@@ -161,3 +161,43 @@ Unit: `test_coalesce_heavy_frame` в [`ecs_command_buffer_test.gd`](../unit/ecs_
 Coalescing схлопывает 4000 no-op команд (temp lifecycle + add/remove пары); остаётся только batch destroy ~1000 сущностей. **0.025 s** на 5000 «шумных» команд против **~0.105 s** только на эквивалентные 1000 add/remove без буфера — порядок выигрыша ожидаем для типичного «грязного» кадра deferred-команд.
 
 Старый `command_buffer execute` по-прежнему полезен как baseline чистого create-path; для оценки coalescing смотреть **`coalescing frame`**.
+
+---
+
+## `for_each_chunk` API
+
+Сырые логи:
+- До рефактора (бенчмарк `query.get_chunks() iterate`): `multirun_rerun/run_1.log` … `run_5.log`
+- После (`query.for_each_chunk iterate`): `multirun_foreach_rerun/run_1.log` … `run_5.log`
+- Первая серия после переименования (межсессионный шум): `multirun_foreach_chunk/run_1.log` … `run_5.log`
+
+Изменение: [`ecs_query.gd`](../queries/ecs_query.gd) — `for_each_chunk(callback)` как hot path; `get_chunks()` / `get_entity_ids()` делегируют ему. Main-thread системы в [`ecs_system_chunk_base.gd`](../systems/ecs_system_chunk_base.gd) на `for_each_chunk`.
+
+Агрегация (из `tests/reports/`):
+
+```powershell
+.\aggregate_multirun.ps1 -Directory multirun_rerun -Markdown
+.\aggregate_multirun.ps1 -Directory multirun_foreach_rerun -CompareDirectory multirun_rerun -Markdown
+```
+
+### Chunk iterate (iterations=25000, median по 5 прогонам)
+
+| API (бенчмарк) | min | **med** | max |
+|---|---:|---:|---:|
+| `query.get_chunks() iterate` (rerun) | 0.010 | **0.011** | 0.013 |
+| `query.for_each_chunk iterate` (foreach_rerun) | 0.010 | **0.010** | 0.011 |
+
+Остальные метрики в `multirun_foreach_rerun` на уровне `multirun_rerun` ±3% (шум), кроме `query iterate entities+components` (~2.55 s vs ~2.61 s med).
+
+### Выводы for_each_chunk
+
+1. **Регрессии нет** — median chunk-iterate ~0.010–0.011 s; переименование + callback-path не ухудшили hot path.
+2. **`multirun_foreach_chunk`** (первая серия) медленнее на ~10–15% по всем метрикам → межсессионный шум, как у coalescing; ориентироваться на `multirun_foreach_rerun`.
+3. Для систем использовать **`for_each_chunk`**, не собирать `Array` через `get_chunks()` на main thread.
+
+---
+
+## Batch D: docs / bench infra
+
+- [`PERFORMANCE.md`](../PERFORMANCE.md) — актуальный список бенчмарков, coalescing frame, `for_each_chunk`, multirun workflow.
+- [`aggregate_multirun.ps1`](aggregate_multirun.ps1) — median/min/max из `run_*.log`, опционально `-CompareDirectory` и `-Markdown`.

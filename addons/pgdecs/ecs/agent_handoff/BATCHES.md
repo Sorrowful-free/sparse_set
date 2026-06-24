@@ -58,6 +58,8 @@
 
 **Perf gate:** при изменении бенчмарков — да.
 
+**Multirun:** `tests/reports/aggregate_multirun.ps1` — median/min/max из `run_*.log`.
+
 ---
 
 ## Порядок merge

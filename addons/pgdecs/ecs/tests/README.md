@@ -53,16 +53,32 @@ CI: `.github/workflows/ecs-tests.yml` (best-effort на Windows runner с лок
 & "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_performance_tests_headless.gd
 ```
 
-Бенчмарки:
-- create_entity × N
-- destroy_entity × N
-- create_entities(batch) × несколько батчей
-- destroy_entities (один батч)
-- query.get_entity_ids() при большом мире
-- add_component + remove_component в цикле
-- command_buffer.execute() с накопленными create_entity
+Headless прогоняет три шкалы: **5000 / 15000 / 25000** итераций. Для отчётов используйте блок `iterations=25000`.
 
-Количество итераций по умолчанию: 10 000 (в `RunPerformanceTests` можно изменить).
+Бенчмарки (см. также [`PERFORMANCE.md`](../PERFORMANCE.md)):
+
+- `create_entity` / `destroy_entity` × N
+- `create_entities batch` / `destroy_entities batch`
+- `query.get_entity_ids`
+- `query.for_each_chunk iterate` (hot path chunk callback)
+- `query iterate entities+components` (+ WorkerThreadPool варианты)
+- `add/remove_component`
+- `command_buffer execute` (1000× create)
+- `command_buffer coalescing frame` (шумный deferred-кадр)
+
+### Multirun
+
+Сохраняйте ≥5 прогонов подряд в `tests/reports/multirun_<label>/run_N.log`, сравнивайте **median** в одной сессии.
+
+Агрегация (PowerShell):
+
+```powershell
+cd addons/pgdecs/ecs/tests/reports
+.\aggregate_multirun.ps1 -Directory multirun_foreach_rerun -Markdown
+.\aggregate_multirun.ps1 -Directory multirun_coalesce_bench -CompareDirectory multirun_rerun -Markdown
+```
+
+Сводка этапов: [`reports/post_handoff_perf.md`](reports/post_handoff_perf.md).
 
 ## Перегенерация компонентного кода
 
