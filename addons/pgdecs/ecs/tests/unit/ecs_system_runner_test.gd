@@ -7,7 +7,7 @@ const HEALTH_ID: int = 2
 class RunSystem extends ECSSystemBase:
 	const CID: int = 1
 	func update(_delta: float) -> void:
-		get_command_buffer().create_entity(PackedInt64Array([CID]))
+		get_command_buffer().create_entity([CID])
 
 class TestSystem extends ECSSystemBase:
 	var update_count: int = 0

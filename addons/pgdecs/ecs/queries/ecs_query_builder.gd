@@ -25,8 +25,18 @@ func with_component(component_id: int) -> ECSQueryBuilder:
 	_with_component_ids.append(component_id)
 	return self
 
+func with_components(component_ids: Array[int]) -> ECSQueryBuilder:
+	for component_id in component_ids:
+		_with_component_ids.append(component_id)
+	return self
+
 func without_component(component_id: int) -> ECSQueryBuilder:
 	_without_component_ids.append(component_id)
+	return self
+
+func without_components(component_ids: Array[int]) -> ECSQueryBuilder:
+	for component_id in component_ids:
+		_without_component_ids.append(component_id)
 	return self
 
 func _sorted_unique(component_ids: PackedInt64Array) -> PackedInt64Array:

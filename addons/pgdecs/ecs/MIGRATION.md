@@ -1,34 +1,29 @@
 # Migration Guide (Breaking API)
 
-Этот документ покрывает миграцию на strict packed API в `ECSManager`.
+Этот документ покрывает API создания сущностей в `ECSManager`.
 
-## Что изменилось
+## Текущая модель (два слоя)
 
-- Удалены varargs-методы:
-  - `create_entity(...)`
-  - `create_entities(count, ...)`
-  - `precache_archetype(...)`
-- Используются только typed packed-методы:
-  - `create_entity_packed(component_ids: PackedInt64Array)`
-  - `create_entities_packed(count: int, component_ids: PackedInt64Array)`
-  - `precache_archetype_packed(component_ids: PackedInt64Array)`
+| Слой | Методы | Когда |
+|---|---|---|
+| **Внешний** | `create_entity`, `create_entities`, `precache_archetype` (`Array[int]`) | Игровой код, setup, разовые вызовы |
+| **Hot path** | `create_entity_packed`, `create_entities_packed`, `precache_archetype_packed` | Циклы, батчи, command buffer execute |
+| **Предефайн** | `prepare_archetype([...])` → `PackedInt64Array` | Один раз в `_setup`, дальше `*_packed` |
 
 ## Быстрые замены
 
 ```gdscript
-# Было
-var e := ecs.create_entity(POSITION_ID, HEALTH_ID)
-var ids := ecs.create_entities(1000, POSITION_ID)
-ecs.precache_archetype(POSITION_ID, HEALTH_ID)
+# Удобный внешний API
+var e := ecs.create_entity([POSITION_ID, HEALTH_ID])
+var ids := ecs.create_entities(1000, [POSITION_ID])
+ecs.precache_archetype([POSITION_ID, HEALTH_ID])
 
-# Стало
-var e := ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
-var ids := ecs.create_entities_packed(1000, PackedInt64Array([POSITION_ID]))
-ecs.precache_archetype_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+# Hot path (без аллокации Array на каждый вызов)
+var player_arch := ecs.prepare_archetype([POSITION_ID, HEALTH_ID])
+ecs.create_entity_packed(player_arch)
+ecs.create_entities_packed(100, player_arch)
 ```
 
-## Почему так
+## Историческая заметка
 
-- Явный тип входа уменьшает двусмысленность API.
-- Упрощается hot path: нет varargs-конверсий в runtime.
-- Стабильнее интеграция с `ECSCommandBuffer` и тестовой инфраструктурой.
+Ранее существовали varargs `create_entity(a, b, c)` — заменены на явный `Array[int]` + внутренний `PackedInt64Array` для предсказуемости типов и hot path.

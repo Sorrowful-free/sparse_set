@@ -196,7 +196,7 @@ func benchmark_command_buffer_execute() -> float:
 	var cids: PackedInt64Array = PackedInt64Array([POSITION_ID])
 	var batch: int = 1000
 	for i in range(batch):
-		buf.create_entity(cids)
+		buf.create_entity_packed(cids)
 	return _time_block("command_buffer execute (%d create_entity)" % batch, func():
 		buf.execute()
 	)
@@ -212,7 +212,7 @@ func benchmark_command_buffer_coalescing_frame() -> float:
 		survivors[i] = _ecs.create_entity_packed(pos_only)
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(_ecs)
 	for i in range(cycles):
-		var temp_id: int = buf.create_entity(pos_only)
+		var temp_id: int = buf.create_entity_packed(pos_only)
 		buf.destroy_entity(temp_id)
 		var eid: int = survivors[i]
 		buf.add_component(eid, HEALTH_ID)

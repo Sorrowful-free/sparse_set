@@ -11,14 +11,14 @@ const POSITION_ID: int = 1
 
 func _setup_components() -> void:
     get_ecs_manager().register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-    get_ecs_manager().precache_archetype_packed(PackedInt64Array([POSITION_ID]))
+    get_ecs_manager().precache_archetype([POSITION_ID])
 
 func _setup_systems() -> void:
     get_system_runner().add_system(MyMovementSystem.new(get_ecs_manager()))
 
 func _ready() -> void:
     super._ready()
-    get_ecs_manager().create_entities_packed(1000, PackedInt64Array([POSITION_ID]))
+    get_ecs_manager().create_entities(1000, [POSITION_ID])
 
 class MyMovementSystem extends ECSSystemChunkBase:
     func _build_query() -> ECSQuery:
@@ -34,11 +34,21 @@ class MyMovementSystem extends ECSSystemChunkBase:
             pos_chunk.set_value_at_slot(slot, p + Vector2(delta, 0))
 ```
 
-## API (strict packed)
+## API
 
-- `create_entity_packed(PackedInt64Array([...]))`
-- `create_entities_packed(count, PackedInt64Array([...]))`
-- `precache_archetype_packed(PackedInt64Array([...]))`
+**Внешний (удобный):** типизированный `Array[int]`, `PackedInt64Array` создаётся внутри.
+
+- `create_entity([POSITION_ID, HEALTH_ID])`
+- `create_entities(count, [POSITION_ID])`
+- `precache_archetype([POSITION_ID, HEALTH_ID])`
+- `prepare_archetype([...])` → нормализованный `PackedInt64Array` для hot-path
+
+**Hot path:** переиспользуйте результат `prepare_archetype` с `*_packed`:
+
+```gdscript
+var PLAYER := ecs.prepare_archetype([POSITION_ID, HEALTH_ID])
+ecs.create_entity_packed(PLAYER)  # без аллокации Array каждый кадр
+```
 
 ## Документация
 

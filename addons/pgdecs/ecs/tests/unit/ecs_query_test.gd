@@ -167,3 +167,19 @@ func test_query_builder_deduplicates_and_sorts_component_ids(runner: ECSTestRunn
 	runner.assert_eq(query._without_component_ids, PackedInt64Array([TAG_ID]))
 	runner.assert_true(query.match(matched))
 	runner.assert_false(query.match(filtered))
+
+func test_query_builder_with_components_batch(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	var matched: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var filtered: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID, TAG_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new() \
+		.with_components([HEALTH_ID, POSITION_ID, POSITION_ID]) \
+		.without_components([TAG_ID, POSITION_ID, TAG_ID]) \
+		.build(ecs)
+	runner.assert_eq(query._component_ids, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	runner.assert_eq(query._without_component_ids, PackedInt64Array([TAG_ID]))
+	runner.assert_true(query.match(matched))
+	runner.assert_false(query.match(filtered))

@@ -29,7 +29,14 @@ var _next_temp_id: int = -1  # Счетчик для генерации уник
 func _init(ecs_manager: ECSManager) -> void:
 	_ecs_manager = ecs_manager
 
-func create_entity(component_ids: PackedInt64Array) -> int:
+func _packed_from_array(component_ids: Array[int]) -> PackedInt64Array:
+	return PackedInt64Array(component_ids)
+
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func create_entity(component_ids: Array[int]) -> int:
+	return create_entity_packed(_packed_from_array(component_ids))
+
+func create_entity_packed(component_ids: PackedInt64Array) -> int:
 	# Генерируем временный отрицательный ID для отслеживания
 	var temp_id: int = _next_temp_id
 	_next_temp_id -= 1
@@ -38,7 +45,11 @@ func create_entity(component_ids: PackedInt64Array) -> int:
 	_commands.append(command)
 	return temp_id
 
-func create_entities(count: int, component_ids: PackedInt64Array) -> PackedInt64Array:
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func create_entities(count: int, component_ids: Array[int]) -> PackedInt64Array:
+	return create_entities_packed(count, _packed_from_array(component_ids))
+
+func create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array:
 	# Генерируем временные отрицательные ID для отслеживания
 	var temp_ids: PackedInt64Array = PackedInt64Array()
 	var base_temp_id: int = _next_temp_id
@@ -69,7 +80,11 @@ func destroy_entity(entity_id: int) -> void:
 	var command: Command = Command.new(CommandType.DESTROY_ENTITY, PackedInt64Array(), entity_ids)
 	_commands.append(command)
 
-func destroy_entities(entity_ids: PackedInt64Array) -> void:
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func destroy_entities(entity_ids: Array[int]) -> void:
+	destroy_entities_packed(_packed_from_array(entity_ids))
+
+func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
 	if entity_ids.is_empty():
 		return
 	var command: Command = Command.new(CommandType.DESTROY_ENTITIES, PackedInt64Array(), entity_ids)

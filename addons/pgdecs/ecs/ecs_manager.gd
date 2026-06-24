@@ -63,6 +63,9 @@ func _normalize_component_ids(component_ids: PackedInt64Array) -> PackedInt64Arr
 			has_prev = true
 	return unique_ids
 
+func _packed_from_array(component_ids: Array[int]) -> PackedInt64Array:
+	return PackedInt64Array(component_ids)
+
 func _build_work_component_ids_after_add(old_archetype: ECSArchetype, component_id: int) -> void:
 	var temp_ids: PackedInt64Array = PackedInt64Array()
 	for c_id in old_archetype._component_ids:
@@ -163,6 +166,18 @@ func precache_archetype_packed(component_ids: PackedInt64Array) -> void:
 	var info: ECSArchetypeInfo = _get_or_create_archetype_info_packed(normalized_ids)
 	_register_archetype(info.bitmask.bit_hash(), info.bitmask, info.packed)
 
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func precache_archetype(component_ids: Array[int]) -> void:
+	precache_archetype_packed(_packed_from_array(component_ids))
+
+## Предрасчёт + нормализованный PackedInt64Array для hot-path (create_entity_packed).
+func prepare_archetype(component_ids: Array[int]) -> PackedInt64Array:
+	var packed: PackedInt64Array = _normalize_component_ids(_packed_from_array(component_ids))
+	if packed.is_empty():
+		return PackedInt64Array()
+	precache_archetype_packed(packed)
+	return packed
+
 func get_component_array(component_id: int) -> ECSComponentBaseArray:
 	return _components.get(component_id, null)
 
@@ -187,6 +202,10 @@ func create_entity_packed(component_ids: PackedInt64Array) -> int:
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entity(entity_id)
 	return entity_id
+
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func create_entity(component_ids: Array[int]) -> int:
+	return create_entity_packed(_packed_from_array(component_ids))
 
 func create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array:
 	if count <= 0:
@@ -215,6 +234,10 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 		var component: ECSComponentBaseArray = _components[component_id]
 		component.add_entities_batch(entity_ids)
 	return entity_ids
+
+## Внешний API: Array[int], PackedInt64Array создаётся внутри.
+func create_entities(count: int, component_ids: Array[int]) -> PackedInt64Array:
+	return create_entities_packed(count, _packed_from_array(component_ids))
 
 func destroy_entity(entity_id: int) -> void:
 	if !is_alive(entity_id):

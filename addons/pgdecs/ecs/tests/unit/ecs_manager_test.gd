@@ -46,6 +46,25 @@ func test_create_entities_batch(runner: ECSTestRunner) -> void:
 	for eid in ids:
 		runner.assert_true(ecs.has_component(eid, POSITION_ID))
 
+func test_create_entity_array_api(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var eid: int = ecs.create_entity([POSITION_ID, HEALTH_ID])
+	runner.assert_gt(eid, 0)
+	runner.assert_true(ecs.has_component(eid, POSITION_ID))
+	runner.assert_true(ecs.has_component(eid, HEALTH_ID))
+
+func test_prepare_archetype_hot_path(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var archetype_ids: PackedInt64Array = ecs.prepare_archetype([POSITION_ID])
+	runner.assert_eq(archetype_ids.size(), 1)
+	runner.assert_eq(archetype_ids[0], POSITION_ID)
+	var e1: int = ecs.create_entity_packed(archetype_ids)
+	var e2: int = ecs.create_entity_packed(archetype_ids)
+	runner.assert_true(ecs.get_entity_archetype(e1) == ecs.get_entity_archetype(e2))
+
 func test_destroy_entities_batch(runner: ECSTestRunner) -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
