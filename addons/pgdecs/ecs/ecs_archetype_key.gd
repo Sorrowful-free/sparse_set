@@ -4,8 +4,11 @@ class_name ECSArchetypeKey
 
 ## Канонический ключ архетипа: нормализованный PackedInt64Array (sort + unique component ids).
 
-static func make_from_packed_ids(normalized_ids: PackedInt64Array) -> PackedInt64Array:
+static func copy_key(normalized_ids: PackedInt64Array) -> PackedInt64Array:
 	return normalized_ids.duplicate()
+
+static func make_from_packed_ids(normalized_ids: PackedInt64Array) -> PackedInt64Array:
+	return copy_key(normalized_ids)
 
 static func make_from_bitmask(_bits: ECSBitMask, packed_ids: PackedInt64Array) -> PackedInt64Array:
 	return make_from_packed_ids(packed_ids)

@@ -1,5 +1,8 @@
 @abstract class_name ECSComponentBaseArrayChunk extends RefCounted
 
+## Абстрактный chunk: get/set_value_at_slot без типа значения в базе.
+## Типизированный API — в generated *Chunk (int, Vector2, …).
+
 var _value_version: int = 0
 
 func _init() -> void:

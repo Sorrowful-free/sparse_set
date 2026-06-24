@@ -10,6 +10,17 @@ var _dense_chunk_indices: PackedInt32Array = PackedInt32Array()
 var _dense_chunks: Array[ECSArchetypeChunk] = []
 var _live_count: int = 0
 
+var _batch_counts: PackedInt32Array = PackedInt32Array()
+var _batch_offsets: PackedInt32Array = PackedInt32Array()
+var _batch_write_pos: PackedInt32Array = PackedInt32Array()
+var _batch_entity_scratch: PackedInt64Array = PackedInt64Array()
+var _batch_group_scratch: PackedInt64Array = PackedInt64Array()
+var _batch_unique_chunk_indices: PackedInt32Array = PackedInt32Array()
+var _batch_chunk_remap: PackedInt32Array = PackedInt32Array()
+var _batch_group_sparse_mode: bool = false
+
+const _BATCH_SPARSE_BUCKET_MAX: int = 512
+
 func _init(bits: PackedInt64Array, component_ids: PackedInt64Array) -> void:
 	_bits = bits.duplicate()
 	_component_ids = component_ids.duplicate()
@@ -52,9 +63,36 @@ func remove_entity(entity: int) -> int:
 	return -1
 
 func remove_entities_batch(entity_ids: PackedInt64Array) -> bool:
+	if entity_ids.is_empty():
+		return false
 	var any_chunk_removed: bool = false
-	for entity_id: int in entity_ids:
-		if remove_entity(entity_id) >= 0:
+	var single_chunk_index: int = _try_get_single_chunk_index(entity_ids)
+	if single_chunk_index >= 0:
+		var chunk: ECSArchetypeChunk = get_archetype_chunk_by_index(single_chunk_index)
+		if chunk != null:
+			var removed: int = chunk.remove_entities_batch(entity_ids)
+			_live_count -= removed
+			if chunk.get_entity_count() == 0:
+				_remove_chunk_index(single_chunk_index)
+				any_chunk_removed = true
+		return any_chunk_removed
+	var bucket_count: int = _group_entity_ids_by_chunk(entity_ids)
+	for bucket_index in range(bucket_count):
+		var group_size: int = _batch_counts[bucket_index]
+		if group_size == 0:
+			continue
+		var chunk_index: int = _batch_group_chunk_index(bucket_index)
+		var chunk: ECSArchetypeChunk = get_archetype_chunk_by_index(chunk_index)
+		if chunk == null:
+			continue
+		var start: int = _batch_offsets[bucket_index]
+		_batch_group_scratch.resize(group_size)
+		for j in range(group_size):
+			_batch_group_scratch[j] = _batch_entity_scratch[start + j]
+		var removed: int = chunk.remove_entities_batch(_batch_group_scratch)
+		_live_count -= removed
+		if chunk.get_entity_count() == 0:
+			_remove_chunk_index(chunk_index)
 			any_chunk_removed = true
 	return any_chunk_removed
 
@@ -71,6 +109,10 @@ func get_chunk_indices() -> Array[int]:
 	for i in range(_dense_chunk_indices.size()):
 		result[i] = _dense_chunk_indices[i]
 	return result
+
+## PackedInt32Array передаётся по ссылке — не мутировать.
+func get_dense_chunk_indices() -> PackedInt32Array:
+	return _dense_chunk_indices
 
 ## Hot path: обход chunk_index без аллокации Array[int].
 func for_each_chunk_index(callback: Callable) -> void:
@@ -138,3 +180,121 @@ func clear() -> void:
 	_dense_chunk_indices = PackedInt32Array()
 	_dense_chunks.clear()
 	_live_count = 0
+
+func _try_get_single_chunk_index(entity_ids: PackedInt64Array) -> int:
+	if entity_ids.is_empty():
+		return -1
+	var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_ids[0])
+	for i in range(1, entity_ids.size()):
+		if ECSEntityIdsUtils.chunk_index_from_handle(entity_ids[i]) != chunk_index:
+			return -1
+	return chunk_index
+
+func _ensure_batch_bucket_capacity(bucket_count: int) -> void:
+	if _batch_counts.size() < bucket_count:
+		_batch_counts.resize(bucket_count)
+		_batch_offsets.resize(bucket_count)
+		_batch_write_pos.resize(bucket_count)
+
+func _batch_unique_bucket_index(chunk_index: int, unique_count: int) -> int:
+	for i in range(unique_count):
+		if _batch_unique_chunk_indices[i] == chunk_index:
+			return i
+	return -1
+
+func _group_entity_ids_by_chunk_sparse(entity_ids: PackedInt64Array, max_chunk_index: int) -> int:
+	var entity_count: int = entity_ids.size()
+	var bucket_count: int = max_chunk_index + 1
+	_ensure_batch_bucket_capacity(bucket_count)
+	for i in range(bucket_count):
+		_batch_counts[i] = 0
+	for i in range(entity_count):
+		var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_ids[i])
+		_batch_counts[chunk_index] += 1
+	var running_offset: int = 0
+	for i in range(bucket_count):
+		_batch_offsets[i] = running_offset
+		running_offset += _batch_counts[i]
+	_batch_entity_scratch.resize(running_offset)
+	for i in range(bucket_count):
+		_batch_write_pos[i] = _batch_offsets[i]
+	for i in range(entity_count):
+		var entity_id: int = entity_ids[i]
+		var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_id)
+		var write_index: int = _batch_write_pos[chunk_index]
+		_batch_entity_scratch[write_index] = entity_id
+		_batch_write_pos[chunk_index] = write_index + 1
+	_batch_group_sparse_mode = true
+	return bucket_count
+
+func _group_entity_ids_by_chunk_compact(entity_ids: PackedInt64Array) -> int:
+	var entity_count: int = entity_ids.size()
+	var unique_count: int = 0
+	var max_chunk_index: int = 0
+	for i in range(entity_count):
+		var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_ids[i])
+		if chunk_index > max_chunk_index:
+			max_chunk_index = chunk_index
+		if _batch_unique_bucket_index(chunk_index, unique_count) >= 0:
+			continue
+		if unique_count >= _batch_unique_chunk_indices.size():
+			_batch_unique_chunk_indices.resize(maxi(unique_count + 1, 8))
+		_batch_unique_chunk_indices[unique_count] = chunk_index
+		unique_count += 1
+	var use_remap: bool = max_chunk_index + 1 <= _BATCH_SPARSE_BUCKET_MAX
+	if use_remap:
+		if _batch_chunk_remap.size() < max_chunk_index + 1:
+			_batch_chunk_remap.resize(max_chunk_index + 1)
+		for i in range(max_chunk_index + 1):
+			_batch_chunk_remap[i] = -1
+		for i in range(unique_count):
+			_batch_chunk_remap[_batch_unique_chunk_indices[i]] = i
+	_ensure_batch_bucket_capacity(unique_count)
+	for i in range(unique_count):
+		_batch_counts[i] = 0
+	for i in range(entity_count):
+		var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_ids[i])
+		var bucket_index: int
+		if use_remap:
+			bucket_index = _batch_chunk_remap[chunk_index]
+		else:
+			bucket_index = _batch_unique_bucket_index(chunk_index, unique_count)
+		_batch_counts[bucket_index] += 1
+	var running_offset: int = 0
+	for i in range(unique_count):
+		_batch_offsets[i] = running_offset
+		running_offset += _batch_counts[i]
+	_batch_entity_scratch.resize(running_offset)
+	for i in range(unique_count):
+		_batch_write_pos[i] = _batch_offsets[i]
+	for i in range(entity_count):
+		var entity_id: int = entity_ids[i]
+		var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_id)
+		var bucket_index: int
+		if use_remap:
+			bucket_index = _batch_chunk_remap[chunk_index]
+		else:
+			bucket_index = _batch_unique_bucket_index(chunk_index, unique_count)
+		var write_index: int = _batch_write_pos[bucket_index]
+		_batch_entity_scratch[write_index] = entity_id
+		_batch_write_pos[bucket_index] = write_index + 1
+	_batch_group_sparse_mode = false
+	return unique_count
+
+func _batch_group_chunk_index(bucket_index: int) -> int:
+	if _batch_group_sparse_mode:
+		return bucket_index
+	return _batch_unique_chunk_indices[bucket_index]
+
+func _group_entity_ids_by_chunk(entity_ids: PackedInt64Array) -> int:
+	var entity_count: int = entity_ids.size()
+	if entity_count == 0:
+		return 0
+	var max_chunk_index: int = 0
+	for i in range(entity_count):
+		var chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(entity_ids[i])
+		if chunk_index > max_chunk_index:
+			max_chunk_index = chunk_index
+	if max_chunk_index + 1 <= maxi(entity_count, 64):
+		return _group_entity_ids_by_chunk_sparse(entity_ids, max_chunk_index)
+	return _group_entity_ids_by_chunk_compact(entity_ids)

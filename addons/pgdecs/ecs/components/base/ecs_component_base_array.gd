@@ -60,6 +60,14 @@ func get_chunk_indices() -> Array[int]:
 		result[i] = _dense_chunk_indices[i]
 	return result
 
+func get_dense_chunk_indices() -> PackedInt32Array:
+	return _dense_chunk_indices
+
+func for_each_chunk_index(callback: Callable) -> void:
+	## Callback не должен вызывать evict_chunk_by_index — иначе сжимается _dense_chunk_indices.
+	for i in range(_dense_chunk_indices.size()):
+		callback.call(_dense_chunk_indices[i])
+
 func get_chunks() -> Array[ECSComponentBaseArrayChunk]:
 	var result: Array[ECSComponentBaseArrayChunk] = []
 	result.resize(_dense_chunks.size())

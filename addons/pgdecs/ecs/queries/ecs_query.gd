@@ -61,12 +61,13 @@ func for_each_chunk(callback: Callable) -> void:
 	_ensure_archetype_cache()
 	_chunk_pool_used = 0
 	for archetype in _cached_archetypes:
-		archetype.for_each_chunk_index(func(chunk_index: int) -> void:
+		var chunk_indices: PackedInt32Array = archetype.get_dense_chunk_indices()
+		for i in range(chunk_indices.size()):
+			var chunk_index: int = chunk_indices[i]
 			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
 			if archetype_chunk.get_entity_count() == 0:
-				return
+				continue
 			callback.call(_acquire_query_chunk(archetype_chunk, chunk_index))
-		)
 
 func _ensure_archetype_cache() -> void:
 	var version: int = _ecs_manager.get_archetypes_version()
@@ -74,7 +75,7 @@ func _ensure_archetype_cache() -> void:
 		return
 	_cached_archetypes_version = version
 	_cached_archetypes.clear()
-	for archetype in _ecs_manager.get_archetypes():
+	for archetype in _ecs_manager.get_registered_archetypes():
 		var arch_mask: ECSBitMask = archetype.get_bitmask()
 		if !arch_mask.bit_match(_components_bitmask):
 			continue
@@ -106,12 +107,26 @@ func collect_chunks(out_chunks: Array[ECSQueryChunk], _reuse_snapshot: bool = fa
 	out_chunks.clear()
 	_ensure_archetype_cache()
 	for archetype in _cached_archetypes:
-		archetype.for_each_chunk_index(func(chunk_index: int) -> void:
+		var chunk_indices: PackedInt32Array = archetype.get_dense_chunk_indices()
+		for i in range(chunk_indices.size()):
+			var chunk_index: int = chunk_indices[i]
 			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
 			if archetype_chunk.get_entity_count() == 0:
-				return
+				continue
 			out_chunks.append(_create_snapshot_chunk(archetype_chunk, chunk_index))
-		)
+
+## Заполняет out_active instance_id archetype-чанков, видимых query (для change_detection prune).
+func collect_active_chunk_instance_ids(out_active: Dictionary[int, bool]) -> void:
+	out_active.clear()
+	_ensure_archetype_cache()
+	for archetype in _cached_archetypes:
+		var chunk_indices: PackedInt32Array = archetype.get_dense_chunk_indices()
+		for i in range(chunk_indices.size()):
+			var chunk_index: int = chunk_indices[i]
+			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
+			if archetype_chunk.get_entity_count() == 0:
+				continue
+			out_active[archetype_chunk.get_instance_id()] = true
 
 ## Возвращает независимый снимок чанков; безопасно сохранять между вызовами query.
 func get_chunks() -> Array[ECSQueryChunk]:

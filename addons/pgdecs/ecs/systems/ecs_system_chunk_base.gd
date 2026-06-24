@@ -110,7 +110,7 @@ func _consume_chunk_dirty(chunk: ECSQueryChunk) -> bool:
 		_version_scratch[i + 1] = chunk.get_component_version(component_ids[i])
 	var key: int = chunk.get_archetype_chunk().get_instance_id()
 	if !_chunk_seen.has(key):
-		_chunk_seen[key] = _version_scratch.duplicate()
+		_store_version_snapshot(key)
 		return true
 	var seen: PackedInt64Array = _chunk_seen[key]
 	if seen.size() == _version_scratch.size():
@@ -121,16 +121,25 @@ func _consume_chunk_dirty(chunk: ECSQueryChunk) -> bool:
 				break
 		if same:
 			return false
-	_chunk_seen[key] = _version_scratch.duplicate()
+	_store_version_snapshot(key)
 	return true
+
+func _store_version_snapshot(key: int) -> void:
+	if !_chunk_seen.has(key):
+		var stored: PackedInt64Array = PackedInt64Array()
+		stored.resize(_version_scratch.size())
+		_chunk_seen[key] = stored
+	var seen: PackedInt64Array = _chunk_seen[key]
+	if seen.size() != _version_scratch.size():
+		seen.resize(_version_scratch.size())
+	for i in range(_version_scratch.size()):
+		seen[i] = _version_scratch[i]
 
 func _prune_stale_chunk_seen() -> void:
 	if _chunk_seen.is_empty():
 		return
 	var active: Dictionary[int, bool] = {}
-	_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
-		active[chunk.get_archetype_chunk().get_instance_id()] = true
-	)
+	_query.collect_active_chunk_instance_ids(active)
 	var stale: Array[int] = []
 	for key: int in _chunk_seen:
 		if !active.has(key):

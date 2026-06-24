@@ -57,6 +57,19 @@ func test_remove_entities_batch(runner: ECSTestRunner) -> void:
 	arch.remove_entities_batch(handles)
 	runner.assert_eq(chunk.get_entity_count(), 0)
 
+func test_remove_entities_batch_multi_chunk(runner: ECSTestRunner) -> void:
+	var bits: PackedInt64Array = PackedInt64Array([1])
+	var arch: ECSArchetype = ECSArchetype.new(bits, PackedInt64Array([1]))
+	var low: int = ECSEntityHandle.make(10, 1)
+	var high: int = ECSEntityHandle.make(5000, 1)
+	arch.add_entity(low)
+	arch.add_entity(high)
+	runner.assert_eq(arch.get_live_count(), 2)
+	runner.assert_eq(arch.get_chunk_indices().size(), 2)
+	arch.remove_entities_batch(PackedInt64Array([low, high]))
+	runner.assert_eq(arch.get_live_count(), 0)
+	runner.assert_eq(arch.get_chunk_indices().size(), 0)
+
 func test_high_entity_index_allocates_single_chunk(runner: ECSTestRunner) -> void:
 	var bits: PackedInt64Array = PackedInt64Array([1])
 	var arch: ECSArchetype = ECSArchetype.new(bits, PackedInt64Array([1]))

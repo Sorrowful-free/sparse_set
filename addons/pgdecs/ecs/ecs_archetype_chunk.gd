@@ -42,15 +42,30 @@ func add_entity(handle: int) -> void:
 	_slots[slot] = handle
 
 func remove_entity(handle: int) -> void:
+	if _remove_entity_internal(handle):
+		_structural_version += 1
+
+## Batch remove: один structural_version bump на чанк.
+func remove_entities_batch(handles: PackedInt64Array) -> int:
+	if handles.is_empty():
+		return 0
+	var removed: int = 0
+	for handle in handles:
+		if _remove_entity_internal(handle):
+			removed += 1
+	if removed > 0:
+		_structural_version += 1
+	return removed
+
+func _remove_entity_internal(handle: int) -> bool:
 	var entity_index: int = ECSEntityHandle.index_of(handle)
 	var slot: int = ECSEntityIdsUtils.get_chunk_entity_index(entity_index)
 	if _slots[slot] != handle:
-		return
-	_structural_version += 1
+		return false
 	var dense_index: int = _slot_to_dense[slot]
 	if dense_index < 0 || dense_index >= _count:
 		_slots[slot] = ECSEntityIdsUtils.NULL_ENTITY_ID
-		return
+		return true
 	_slots[slot] = ECSEntityIdsUtils.NULL_ENTITY_ID
 	_slot_to_dense[slot] = -1
 	var last_idx: int = _count - 1
@@ -63,6 +78,7 @@ func remove_entity(handle: int) -> void:
 	_dense[last_idx] = ECSEntityIdsUtils.NULL_ENTITY_ID
 	_dense_slots[last_idx] = -1
 	_count -= 1
+	return true
 
 func has_entity(handle: int) -> bool:
 	var entity_index: int = ECSEntityHandle.index_of(handle)

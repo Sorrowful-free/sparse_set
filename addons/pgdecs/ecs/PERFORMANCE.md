@@ -22,10 +22,10 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Доступ к данным | index→slot O(1) сохранён |
 | Fast-path iterate | `get_dense_slots()` + `get_values_buffer()` — ~12× быстрее legacy slot API |
 | Архетипы | Единый hash-кэш (info + id), `precache_archetype_packed()`, очистка при evict |
-| Query | Кэш подходящих архетипов; `for_each_chunk()` без `Array` у вызывающего |
+| Query | Кэш подходящих архетипов; inline chunk loop без nested Callable |
 | Query (legacy) | `get_chunks()` — возвращает внутренний кэш; для WTP — `collect_chunks()` в свой буфер |
 | Handles | Generational id — безопасный реюз без stale access через `has_component` |
-| Destroy | Итерация только по `component_ids` архетипа, батч `remove_entities_batch` |
+| Destroy | Archetype batch remove по chunk; component `remove_entities_batch` |
 | Component batch | Hybrid bucketing: sparse при плотном chunk range, compact при разреженных index |
 | Command buffer | Coalescing перед `execute()`: cancel create+destroy, add+remove, merge destroys |
 | Change detection | Монотонные версии на archetype/component chunk; opt-in `change_detection` в системах |

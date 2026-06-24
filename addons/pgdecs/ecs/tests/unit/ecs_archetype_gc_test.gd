@@ -129,3 +129,13 @@ func test_churn_gc_cycles_do_not_leak_archetypes(runner: ECSTestRunner) -> void:
 	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	runner.assert_true(ecs.is_alive(eid))
 	runner.assert_eq(ecs.count_registered_archetypes(), 1)
+
+func test_flush_gc_evicts_multiple_orphan_chunks_without_error(runner: ECSTestRunner) -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_INT32_ARRAY)
+	var ids: PackedInt64Array = ecs.create_entities_packed(600, PackedInt64Array([POSITION_ID]))
+	ecs.destroy_entities_packed(ids)
+	ecs.flush_archetype_gc()
+	runner.assert_eq(ecs.count_registered_archetypes(), 0)
+	var pos: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
+	runner.assert_eq(pos.size_chunks(), 0)
