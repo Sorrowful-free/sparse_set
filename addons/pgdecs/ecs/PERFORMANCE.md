@@ -56,6 +56,21 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 
 **Ограничение:** записи в `_chunk_seen` для исчезнувших чанков не удаляются (некритичная утечка; prune вне текущего скоупа).
 
+### Два режима бенчмарка (iterations=25000)
+
+| Сценарий | Что моделирует | change_detection ON | OFF | Вывод |
+|---|---|---:|---:|---|
+| **steady** | Ничего не меняется | **0.038 s** | — | Потолок оверхеда: только проверка версий |
+| **scattered** | ~2% случайных записей/кадр по всему миру | 1.924 s | 1.911 s | Почти нет выигрыша — грязными становятся многие чанки |
+| **hot-chunks** | 2 локальных чанка × 32 записи/кадр | **0.108 s** | 1.842 s | **~17× быстрее** — типичный игровой паттерн |
+
+**В реальном приложении** изменения почти никогда не равномерны: движется группа сущностей (игрок, снаряды, AI-зона), остальной мир статичен. `change_detection` экономит стоимость `process_chunk` на чистых чанках; steady/scattered — граничные случаи (оверхед vs «всё горячее»).
+
+```gdscript
+# Включать, когда большинство чанков большую часть кадров чистые:
+system.change_detection = true
+```
+
 ```gdscript
 class MySystem extends ECSSystemChunkBase:
     func _init(ecs: ECSManager) -> void:
@@ -111,6 +126,8 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `command_buffer execute` | 1000× `create_entity` + execute |
 | `command_buffer coalescing frame` | 5000 raw-команд с coalescing (см. ниже) |
 | `system change_detection steady` | 100× update с `change_detection` без записей в мир |
+| `system change_detection scattered ON/OFF` | ~2% случайных записей/кадр (размазанные изменения) |
+| `system change_detection hot-chunks ON/OFF` | 2 локальных чанка/кадр (неравномерная активность) |
 
 ### Coalescing frame
 

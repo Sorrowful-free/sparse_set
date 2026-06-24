@@ -237,6 +237,28 @@ class _ChangeDetectChunkSystem extends ECSSystemChunkBase:
 	func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
 		touched += 1
 
+class _HeavyReadChunkSystem extends ECSSystemChunkBase:
+	const _POSITION_ID: int = 1
+	const _HEALTH_ID: int = 2
+	var processed_chunks: int = 0
+	var acc: float = 0.0
+
+	func _build_query() -> ECSQuery:
+		return ECSQueryBuilder.new().with_component(_POSITION_ID).with_component(_HEALTH_ID).build(get_ecs_manager())
+
+	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
+		processed_chunks += 1
+		var pos_chunk: ECSComponentVector2ArrayChunk = chunk.get_component_chunk(_POSITION_ID) as ECSComponentVector2ArrayChunk
+		var health_chunk: ECSComponentInt32ArrayChunk = chunk.get_component_chunk(_HEALTH_ID) as ECSComponentInt32ArrayChunk
+		if pos_chunk == null || health_chunk == null:
+			return
+		var count: int = chunk.get_entity_count()
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		for i in range(count):
+			var slot: int = ECSEntityIdsUtils.slot_from_handle(dense[i])
+			var pos: Vector2 = pos_chunk.get_value_at_slot(slot)
+			acc += pos.x + pos.y + float(health_chunk.get_value_at_slot(slot))
+
 func benchmark_system_change_detection() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
 	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
@@ -249,6 +271,70 @@ func benchmark_system_change_detection() -> float:
 	return _time_block("system change_detection steady (no writes) x %d (world %d)" % [runs, _iterations], func():
 		for j in range(runs):
 			system.update(0.016)
+	)
+
+## ~2% сущностей в случайных чанках (размазанные изменения); read-only heavy process_chunk.
+func benchmark_system_change_detection_sparse_scattered(use_change_detection: bool) -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var ids: PackedInt64Array = PackedInt64Array()
+	ids.resize(_iterations)
+	for i in range(_iterations):
+		ids[i] = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var pos: ECSComponentVector2Array = _ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var system: _HeavyReadChunkSystem = _HeavyReadChunkSystem.new(_ecs)
+	system.change_detection = use_change_detection
+	var touches_per_frame: int = maxi(1, _iterations / 50)
+	var runs: int = 100
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 12345
+	var label: String = "ON" if use_change_detection else "OFF"
+	return _time_block(
+		"system change_detection scattered %s (~%d rand writes/frame) x %d" % [label, touches_per_frame, runs],
+		func():
+			system.update(0.016)
+			for j in range(runs):
+				for k in range(touches_per_frame):
+					var eid: int = ids[rng.randi() % ids.size()]
+					pos.set_component(eid, Vector2(float(j + k), float(k)))
+				system.update(0.016)
+	)
+
+## 1–2 «горячих» чанка за кадр (локальная активность); типичный игровой паттерн.
+func benchmark_system_change_detection_hot_chunks(use_change_detection: bool) -> float:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	var ids: PackedInt64Array = PackedInt64Array()
+	ids.resize(_iterations)
+	for i in range(_iterations):
+		ids[i] = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var pos: ECSComponentVector2Array = _ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var system: _HeavyReadChunkSystem = _HeavyReadChunkSystem.new(_ecs)
+	system.change_detection = use_change_detection
+	var chunk_size: int = ECSEntityIdsUtils.CHUNK_SIZE
+	var chunk_count: int = maxi(1, (ids.size() + chunk_size - 1) / chunk_size)
+	var hot_chunks_per_frame: int = 2
+	var touches_per_hot_chunk: int = 32
+	var runs: int = 100
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 54321
+	var label: String = "ON" if use_change_detection else "OFF"
+	return _time_block(
+		"system change_detection hot-chunks %s (%d chunks x %d writes/frame) x %d (world %d)" % [
+			label, hot_chunks_per_frame, touches_per_hot_chunk, runs, _iterations],
+		func():
+			system.update(0.016)
+			for j in range(runs):
+				for h in range(hot_chunks_per_frame):
+					var ci: int = rng.randi() % chunk_count
+					var base: int = ci * chunk_size
+					var in_chunk: int = mini(chunk_size, ids.size() - base)
+					if in_chunk <= 0:
+						continue
+					for k in range(touches_per_hot_chunk):
+						var eid: int = ids[base + rng.randi() % in_chunk]
+						pos.set_component(eid, Vector2(float(j + h + k), float(k)))
+				system.update(0.016)
 	)
 
 func run_all() -> void:
@@ -304,3 +390,19 @@ func run_all() -> void:
 	ecs_fresh = ECSManager.new()
 	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection()
 	print("  system change_detection steady: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_sparse_scattered(true)
+	print("  system change_detection scattered ON: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_sparse_scattered(false)
+	print("  system change_detection scattered OFF: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(true)
+	print("  system change_detection hot-chunks ON: %.3f s" % t)
+
+	ecs_fresh = ECSManager.new()
+	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(false)
+	print("  system change_detection hot-chunks OFF: %.3f s" % t)
