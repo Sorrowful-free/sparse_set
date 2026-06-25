@@ -309,6 +309,15 @@ chunk.get_component_version(component_id)
 1. Переопределить `_build_query()` → `ECSQuery`.
 2. Переопределить `process_chunk(chunk, delta)`.
 3. Опционально: `change_detection = true`, `use_worker_pool = true` (только чтение в WTP).
+4. Настройка WTP per-system: `parallel_settings` ([`ECSChunkParallelSettings`](systems/ecs_chunk_parallel_settings.gd)) или через [`ECSChunkSystemStrategy`](config/ecs_chunk_system_strategy.gd) в profile.
+
+| Поле | Режим | Смысл |
+|------|--------|--------|
+| `chunks_per_task` | AUTO | Сколько чанков батчить на одну WTP-задачу (default 8) |
+| `min_parallel_tasks` | AUTO | Если задач меньше — fallback на main thread (default 2) |
+| `parallel_mode` | AUTO / FORCE | AUTO — экономия WTP; FORCE — max параллелизм для тяжёлого `process_chunk` |
+
+[`ECSChunkWorkerDispatch`](systems/ecs_chunk_worker_dispatch.gd) — единая политика: strided WTP или main thread.
 
 ```gdscript
 class MySystem extends ECSSystemChunkBase:
@@ -443,7 +452,7 @@ profile.visual_registry_strategy = UnitsVisualStrategy.new()
 - **Не вызывайте** `create_entity`, `destroy_entity`, `add_component`, `remove_component` изнутри `for_each_chunk` / `process_chunk` напрямую — используйте `ECSCommandBuffer`.
 - `ECSManager` и `ECSComponentBaseArray` используют **общие scratch-буферы** (`_work_bitmask`, `_destroy_*`, `_batch_*`); вложенные мутации без command buffer в debug могут вызвать `push_error`.
 - `for_each_chunk` переиспользует `ECSQueryChunk` из пула; `get_chunks()` возвращает отдельные snapshot-объекты.
-- `WorkerThreadPool` в `ECSSystemChunkBase` — только чтение/запись значений компонентов, без структурных изменений мира.
+- `WorkerThreadPool` в `ECSSystemChunkBase` — только чтение/запись значений компонентов, без структурных изменений мира. Политика: `parallel_settings` (AUTO батчинг + fallback; FORCE — max tasks). Не вызывать WTP вручную — используйте `use_worker_pool` на системе.
 
 ---
 

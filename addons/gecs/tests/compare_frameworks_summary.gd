@@ -7,7 +7,11 @@ static func print_summary(pgdecs: Dictionary, gecs: Dictionary, iterations: int)
 	print("")
 	print("--- Compare summary (iterations=%d) ---" % iterations)
 	var chunk_count: int = ceili(float(iterations) / float(ECSEntityIdsUtils.CHUNK_SIZE))
-	print("  WTP granularity: PGDECS ~%d archetype-chunks, GECS ~1 archetype (homogeneous world)" % chunk_count)
+	var batched_tasks: int = mini(
+		ECSChunkWorkerDispatch.max_parallel_tasks(),
+		ceili(float(chunk_count) / float(ECSChunkParallelSettings.DEFAULT_CHUNKS_PER_TASK))
+	)
+	print("  WTP granularity: PGDECS ~%d archetype-chunks, ~%d batched tasks (AUTO), GECS ~1 archetype" % [chunk_count, batched_tasks])
 	print("")
 	_print_pair(
 		"Fair: fast-path iteration (PGDECS dense_slots+buffers vs GECS column iterate)",
@@ -20,7 +24,7 @@ static func print_summary(pgdecs: Dictionary, gecs: Dictionary, iterations: int)
 		_lookup(gecs, _MetricNames.QUERY_E_C_COLUMN, "query iterate entities+components")
 	)
 	_print_pair(
-		"WorkerThreadPool e+c (overhead dominates; PGDECS ~%d tasks/run)" % chunk_count,
+		"WorkerThreadPool e+c (AUTO batched ~%d tasks/run, was ~%d)" % [batched_tasks, chunk_count],
 		_lookup(pgdecs, _MetricNames.QUERY_E_C_WTP),
 		_lookup(gecs, _MetricNames.QUERY_E_C_WTP)
 	)

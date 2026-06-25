@@ -21,6 +21,9 @@ var _version_scratch: PackedInt64Array = PackedInt64Array()
 ## Если true, чанки обрабатываются параллельно через WorkerThreadPool (только чтение в process_chunk).
 var use_worker_pool: bool = false
 
+## Per-system политика WTP: батчинг, AUTO fallback, FORCE для тяжёлой логики.
+var parallel_settings: ECSChunkParallelSettings = ECSChunkParallelSettings.new()
+
 func _init(ecs_manager: ECSManager) -> void:
 	super._init(ecs_manager)
 	_query = _build_query()
@@ -47,8 +50,12 @@ func update(delta: float) -> void:
 			if change_detection:
 				_prune_stale_chunk_seen()
 			return
-		var group_id: int = WorkerThreadPool.add_group_task(_run_chunk_for_index.bind(_worker_chunks, delta), _worker_chunks.size())
-		WorkerThreadPool.wait_for_group_task_completion(group_id)
+		ECSChunkWorkerDispatch.run_chunks(
+			_worker_chunks,
+			parallel_settings,
+			func(chunk: ECSQueryChunk) -> void:
+				process_chunk(chunk, delta)
+		)
 	else:
 		if change_detection:
 			_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
@@ -91,9 +98,6 @@ func update(delta: float) -> void:
 ## При [member use_worker_pool] == true не вызывайте [method get_command_buffer] — только чтение.
 func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
 	pass
-
-func _run_chunk_for_index(chunks: Array[ECSQueryChunk], delta: float, index: int) -> void:
-	process_chunk(chunks[index], delta)
 
 func _collect_dirty_chunks(out_chunks: Array[ECSQueryChunk]) -> void:
 	out_chunks.clear()

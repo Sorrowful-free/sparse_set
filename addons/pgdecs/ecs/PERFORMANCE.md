@@ -67,11 +67,20 @@ for i in range(chunk.get_entity_count()):
 
 Запись напрямую в `get_values_buffer()[slot]` без `set_value_at_slot` обходит инкремент `_value_version` — не используйте при `change_detection = true`.
 
+### WTP tuning (per-system)
+
+[`ECSChunkParallelSettings`](systems/ecs_chunk_parallel_settings.gd): `chunks_per_task` (default 8), `min_parallel_tasks` (default 2), `parallel_mode` AUTO|FORCE.
+
+- **AUTO** — лёгкие системы; при малом числе задач — main thread.
+- **FORCE** — тяжёлый `process_chunk`; `task_count = min(CPU, chunk_count)`.
+
+В profile: [`ECSChunkSystemStrategy`](config/ecs_chunk_system_strategy.gd) с `@export parallel_settings`.
+
 Median perf (5 runs, iterations=25000): legacy **3.38 s**, FAST **0.29 s** — см. `tests/reports/multirun_dense_fast_verify/`.
 
 ### Общие рекомендации
 
-1. **Chunk iteration** — `query.for_each_chunk(callback)` на main thread; для WTP — `query.collect_chunks(scratch)` + `WorkerThreadPool` (см. `ECSSystemChunkBase`).
+1. **Chunk iteration** — `query.for_each_chunk(callback)` на main thread; для WTP — `use_worker_pool` + `ECSChunkWorkerDispatch` (см. `ECSSystemChunkBase`, `ECSChunkParallelSettings`).
 2. **Dense iteration** — `chunk.get_entity_count()` + fast-path или `get_dense_entities()` + slot API.
 3. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
 4. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
@@ -179,8 +188,8 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `query.for_each_chunk iterate` | hot path chunk-callback без `Array` у вызывающего |
 | `query iterate entities+components` | entity-level loop + get/set компонентов (slot API) |
 | `query iterate entities+components FAST` | fast-path: `get_dense_slots()` + `get_values_buffer()` |
-| `query iterate e+c WorkerThreadPool` | то же через WTP |
-| `query.for_each_chunk WorkerThreadPool` | chunk iteration через WTP (`collect_chunks` + group task) |
+| `query iterate e+c WorkerThreadPool` | slot API через `ECSChunkWorkerDispatch` (AUTO, chunks_per_task=8) |
+| `query.for_each_chunk WorkerThreadPool` | chunk count через `ECSChunkWorkerDispatch` (AUTO) |
 | `add/remove_component` | N пар add+remove (archetype transition) |
 | `command_buffer execute` | 1000× `create_entity` + execute |
 | `command_buffer coalescing frame` | 5000 raw-команд с coalescing (см. ниже) |

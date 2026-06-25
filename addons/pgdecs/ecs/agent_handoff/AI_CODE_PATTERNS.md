@@ -147,6 +147,12 @@ use_worker_pool = true
 func process_chunk(...):
 	get_command_buffer().destroy_entity(...)  # ЗАПРЕЩЕНО
 
+# WTP: parallel_settings на системе или ECSChunkSystemStrategy в profile
+# AUTO (лёгкое) — chunks_per_task=8, fallback если задач < 2
+# FORCE (тяжёлое pathfinding/физика) — parallel_mode = FORCE
+use_worker_pool = true
+parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
+
 # ПЛОХО: смешать visual mirror / дублировать handle вне SoA
 # handle/type только в компонентах VISUAL_* + registry.release_entity перед destroy
 ```

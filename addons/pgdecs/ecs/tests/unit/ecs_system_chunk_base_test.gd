@@ -35,18 +35,37 @@ func test_process_chunk_single_thread() -> void:
 func test_process_chunk_worker_pool_matches_single_thread() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	ecs.create_entities_packed(8, PackedInt64Array([VALUE_ID]))
+	ecs.create_entities_packed(600, PackedInt64Array([VALUE_ID]))
 	var single: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	single.update(0.016)
 	var parallel: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	parallel.use_worker_pool = true
 	parallel.update(0.016)
-	if parallel.processed_chunks == 0:
-		assert_gt(single.processed_chunks, 0)
-		assert_eq(single.processed_entities, 8)
-		return
 	assert_eq(parallel.processed_chunks, single.processed_chunks)
 	assert_eq(parallel.processed_entities, single.processed_entities)
+
+func test_auto_worker_pool_falls_back_to_main_for_small_world() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.use_worker_pool = true
+	system.parallel_settings = ECSChunkParallelSettings.new()
+	ECSChunkWorkerDispatch.last_used_worker_pool = false
+	system.update(0.016)
+	assert_false(ECSChunkWorkerDispatch.last_used_worker_pool)
+	assert_eq(system.processed_entities, 3)
+
+func test_force_worker_pool_runs_for_single_chunk() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
+	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
+	system.use_worker_pool = true
+	system.parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
+	ECSChunkWorkerDispatch.last_used_worker_pool = false
+	system.update(0.016)
+	assert_true(ECSChunkWorkerDispatch.last_used_worker_pool)
 
 func test_change_detection_skips_unchanged() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -87,17 +106,12 @@ func test_change_detection_reprocesses_after_value_write() -> void:
 func test_change_detection_worker_pool_parity() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	ecs.create_entities_packed(8, PackedInt64Array([VALUE_ID]))
+	ecs.create_entities_packed(600, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.change_detection = true
 	system.use_worker_pool = true
 	system.update(0.016)
-	if system.processed_chunks == 0:
-		var single: _SumChunkSystem = _SumChunkSystem.new(ecs)
-		single.change_detection = true
-		single.update(0.016)
-		assert_gt(single.processed_chunks, 0)
-		return
+	assert_gt(system.processed_chunks, 0)
 	var after_first: int = system.processed_chunks
 	system.update(0.016)
 	assert_eq(system.processed_chunks, after_first)

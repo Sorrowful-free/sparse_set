@@ -3,52 +3,52 @@ Godot Engine v4.7.stable.steam.5b4e0cb0f - https://godotengine.org
 === Framework comparison (iterations=25000) ===
 
 --- ECS Performance (iterations=25000) ---
-  create_entity: 0.230 s
-  destroy_entity: 0.215 s
-  create_entities batch: 0.118 s
-  destroy_entities batch: 0.159 s
-  query.get_entity_ids: 0.080 s
-  query.for_each_chunk iterate: 0.015 s
-  query iterate entities+components [slot API]: 2.966 s
-  query iterate entities+components FAST [dense_slots+buffers]: 0.231 s
+  create_entity: 0.210 s
+  destroy_entity: 0.200 s
+  create_entities batch: 0.108 s
+  destroy_entities batch: 0.146 s
+  query.get_entity_ids: 0.071 s
+  query.for_each_chunk iterate: 0.013 s
+  query iterate entities+components [slot API]: 2.761 s
+  query iterate entities+components FAST [dense_slots+buffers]: 0.218 s
   query iterate entities+components WorkerThreadPool: 0.031 s
   query.for_each_chunk WorkerThreadPool: 0.030 s
-  add/remove_component: 0.185 s
+  add/remove_component: 0.168 s
   command_buffer execute: 0.013 s
-  command_buffer coalescing frame: 0.037 s
-  system change_detection steady: 0.053 s
-  system change_detection scattered ON: 2.217 s
-  system change_detection scattered OFF: 2.161 s
-  system change_detection hot-chunks ON: 0.130 s
-  system change_detection hot-chunks OFF: 2.075 s
+  command_buffer coalescing frame: 0.028 s
+  system change_detection steady: 0.049 s
+  system change_detection scattered ON: 2.071 s
+  system change_detection scattered OFF: 1.965 s
+  system change_detection hot-chunks ON: 0.122 s
+  system change_detection hot-chunks OFF: 1.894 s
 
 --- GECS Performance (iterations=25000) ---
-  create_entity: 3.340 s
-  destroy_entity: 1.740 s
-  create_entities batch: 4.594 s
-  destroy_entities batch: 1.508 s
+  create_entity: 2.892 s
+  destroy_entity: 0.907 s
+  create_entities batch: 2.883 s
+  destroy_entities batch: 0.741 s
   query.get_entity_ids: 0.000 s
-  query.for_each_chunk iterate: 0.001 s
-  query iterate entities+components [column iterate]: 2.757 s
-  query iterate entities+components WorkerThreadPool: 0.005 s
-  query.for_each_chunk WorkerThreadPool: 0.005 s
-  add/remove_component: 1.066 s
-  command_buffer execute: 0.059 s
-  command_buffer coalescing frame: 0.370 s
-  system change_detection steady: 2.514 s
-  system process scattered: 2.846 s
-  system process hot-chunks: 2.513 s
+  query.for_each_chunk iterate: 0.000 s
+  query iterate entities+components [column iterate]: 2.294 s
+  query iterate entities+components WorkerThreadPool: 0.003 s
+  query.for_each_chunk WorkerThreadPool: 0.004 s
+  add/remove_component: 0.719 s
+  command_buffer execute: 0.035 s
+  command_buffer coalescing frame: 0.244 s
+  system change_detection steady: 2.401 s
+  system process scattered: 2.569 s
+  system process hot-chunks: 2.419 s
 
 --- Compare summary (iterations=25000) ---
-  WTP granularity: PGDECS ~98 archetype-chunks, GECS ~1 archetype (homogeneous world)
+  WTP granularity: PGDECS ~98 archetype-chunks, ~13 batched tasks (AUTO), GECS ~1 archetype
 
   Fair: fast-path iteration (PGDECS dense_slots+buffers vs GECS column iterate)
-    PGDECS 0.231 s  |  GECS 2.757 s  →  PGDECS 11.96x faster
+    PGDECS 0.218 s  |  GECS 2.294 s  →  PGDECS 10.53x faster
   Unfair: PGDECS slot API vs GECS column iterate (do not compare as equals)
-    PGDECS 2.966 s  |  GECS 2.757 s  →  GECS 1.08x faster
-  WorkerThreadPool e+c (overhead dominates; PGDECS ~98 tasks/run)
-    PGDECS 0.031 s  |  GECS 0.005 s  →  GECS 6.02x faster
+    PGDECS 2.761 s  |  GECS 2.294 s  →  GECS 1.20x faster
+  WorkerThreadPool e+c (AUTO batched ~13 tasks/run, was ~98)
+    PGDECS 0.031 s  |  GECS 0.003 s  →  GECS 10.50x faster
   WorkerThreadPool chunk count only
-    PGDECS 0.030 s  |  GECS 0.005 s  →  GECS 6.10x faster
+    PGDECS 0.030 s  |  GECS 0.004 s  →  GECS 6.83x faster
 
 --- Done ---

@@ -155,14 +155,20 @@ func benchmark_query_iterate_entities_with_components_fast() -> float:
 			)
 		)
 
-## То же, что iterate_entities_with_components, но чанки обрабатываются через WorkerThreadPool:
-## каждый воркер обрабатывает один чанк (читает position и health по слотам), пишет сумму в results[index].
-static func _process_chunk_entities_with_components(chunks: Array[ECSQueryChunk], results: PackedFloat32Array, position_id: int, health_id: int, index: int) -> void:
-	var chunk: ECSQueryChunk = chunks[index]
+## Сумма по одному чанку (slot API) — callback для [ECSChunkWorkerDispatch].
+static func _sum_chunk_entities_with_components(
+	chunk: ECSQueryChunk,
+	chunk_to_index: Dictionary,
+	results: PackedFloat32Array,
+	position_id: int,
+	health_id: int
+) -> void:
+	var key: int = chunk.get_archetype_chunk().get_instance_id()
+	var idx: int = int(chunk_to_index[key])
 	var pos_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(position_id)
 	var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(health_id)
 	if pos_chunk == null || health_chunk == null:
-		results[index] = 0.0
+		results[idx] = 0.0
 		return
 	var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
 	var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
@@ -173,54 +179,184 @@ static func _process_chunk_entities_with_components(chunks: Array[ECSQueryChunk]
 		var pos: Vector2 = pos_typed.get_value_at_slot(slot)
 		var health: int = health_typed.get_value_at_slot(slot)
 		acc += pos.x + pos.y + float(health)
-	results[index] = acc
+	results[idx] = acc
 
-## Итерация по сущностям с чтением всех компонентов через WorkerThreadPool (аналог iterate_entities_with_components).
+static func _wtp_auto_settings() -> ECSChunkParallelSettings:
+	return _wtp_settings(
+		ECSChunkParallelSettings.DEFAULT_CHUNKS_PER_TASK,
+		ECSChunkParallelSettings.DEFAULT_MIN_PARALLEL_TASKS,
+		ECSChunkParallelSettings.ParallelMode.AUTO
+	)
+
+static func _wtp_main_fallback_settings() -> ECSChunkParallelSettings:
+	## ceil(98/256)==1 при 25k сущностях → task_count < min_parallel_tasks → main thread.
+	return _wtp_settings(256, ECSChunkParallelSettings.DEFAULT_MIN_PARALLEL_TASKS, ECSChunkParallelSettings.ParallelMode.AUTO)
+
+static func _wtp_settings(
+	chunks_per_task: int,
+	min_parallel_tasks: int,
+	mode: ECSChunkParallelSettings.ParallelMode
+) -> ECSChunkParallelSettings:
+	var settings: ECSChunkParallelSettings = ECSChunkParallelSettings.new()
+	settings.chunks_per_task = chunks_per_task
+	settings.min_parallel_tasks = min_parallel_tasks
+	settings.parallel_mode = mode
+	return settings
+
+static func _build_chunk_index_map(chunks: Array[ECSQueryChunk]) -> Dictionary:
+	var chunk_to_index: Dictionary = {}
+	for i in range(chunks.size()):
+		chunk_to_index[chunks[i].get_archetype_chunk().get_instance_id()] = i
+	return chunk_to_index
+
+static func _sum_chunk_entities_with_components_acc(
+	chunk: ECSQueryChunk,
+	position_id: int,
+	health_id: int
+) -> float:
+	var pos_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(position_id)
+	var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(health_id)
+	if pos_chunk == null || health_chunk == null:
+		return 0.0
+	var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
+	var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
+	var acc: float = 0.0
+	for i in range(chunk.get_entity_count()):
+		var eid: int = chunk.get_entity_id_at(i)
+		var slot: int = ECSEntityIdsUtils.slot_from_handle(eid)
+		var pos: Vector2 = pos_typed.get_value_at_slot(slot)
+		var health: int = health_typed.get_value_at_slot(slot)
+		acc += pos.x + pos.y + float(health)
+	return acc
+
+static func _run_wtp_e_c_dispatch(
+	query: ECSQuery,
+	runs: int,
+	settings: ECSChunkParallelSettings,
+	worker_chunks: Array[ECSQueryChunk]
+) -> void:
+	for _run in range(runs):
+		query.collect_chunks(worker_chunks)
+		if worker_chunks.is_empty():
+			continue
+		var results: PackedFloat32Array = PackedFloat32Array()
+		results.resize(worker_chunks.size())
+		var chunk_to_index: Dictionary = _build_chunk_index_map(worker_chunks)
+		ECSChunkWorkerDispatch.run_chunks(
+			worker_chunks,
+			settings,
+			func(chunk: ECSQueryChunk) -> void:
+				_sum_chunk_entities_with_components(chunk, chunk_to_index, results, POSITION_ID, HEALTH_ID)
+		)
+		var acc: float = 0.0
+		for k in range(results.size()):
+			acc += results[k]
+
+static func _count_chunk_entities(
+	chunk: ECSQueryChunk,
+	chunk_to_index: Dictionary,
+	results: PackedInt32Array
+) -> void:
+	var key: int = chunk.get_archetype_chunk().get_instance_id()
+	var idx: int = int(chunk_to_index[key])
+	results[idx] = chunk.get_entity_count()
+
+static func _run_wtp_chunk_count_dispatch(
+	query: ECSQuery,
+	runs: int,
+	settings: ECSChunkParallelSettings,
+	worker_chunks: Array[ECSQueryChunk]
+) -> void:
+	for _run in range(runs):
+		query.collect_chunks(worker_chunks)
+		if worker_chunks.is_empty():
+			continue
+		var results: PackedInt32Array = PackedInt32Array()
+		results.resize(worker_chunks.size())
+		var chunk_to_index: Dictionary = _build_chunk_index_map(worker_chunks)
+		ECSChunkWorkerDispatch.run_chunks(
+			worker_chunks,
+			settings,
+			func(chunk: ECSQueryChunk) -> void:
+				_count_chunk_entities(chunk, chunk_to_index, results)
+		)
+
+func _prepare_e_c_query() -> ECSQuery:
+	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	for i in range(_iterations):
+		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	return ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+
+## Прямой for_each_chunk на main thread (без collect_chunks / dispatch).
+func benchmark_query_iterate_entities_with_components_for_each_chunk_main() -> float:
+	var query: ECSQuery = _prepare_e_c_query()
+	var runs: int = 100
+	return _time_block(
+		"query iterate e+c for_each_chunk main x %d (world %d)" % [runs, _iterations],
+		func():
+			for _run in range(runs):
+				var acc: float = 0.0
+				query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+					acc += _sum_chunk_entities_with_components_acc(chunk, POSITION_ID, HEALTH_ID)
+				)
+	)
+
+## Итерация по сущностям через ECSChunkWorkerDispatch (настраиваемые settings).
+func benchmark_query_iterate_entities_with_components_worker_pool_settings(
+	settings: ECSChunkParallelSettings,
+	metric_label: String
+) -> float:
+	var query: ECSQuery = _prepare_e_c_query()
+	var runs: int = 100
+	var worker_chunks: Array[ECSQueryChunk] = []
+	return _time_block(
+		"%s x %d (world size %d)" % [metric_label, runs, _iterations],
+		func():
+			_run_wtp_e_c_dispatch(query, runs, settings, worker_chunks)
+	)
+
+## Итерация по сущностям с чтением всех компонентов через WorkerThreadPool (ECSChunkWorkerDispatch AUTO cpt=8).
 func benchmark_query_iterate_entities_with_components_worker_pool() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	for i in range(_iterations):
-		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
-	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
+	return benchmark_query_iterate_entities_with_components_worker_pool_settings(
+		_wtp_auto_settings(),
+		"query iterate entities+components WorkerThreadPool [AUTO cpt=8]"
+	)
+
+## AUTO cpt=256: одна задача < min_parallel_tasks → dispatch уходит на main thread.
+func benchmark_query_iterate_entities_with_components_worker_pool_main_fallback() -> float:
+	return benchmark_query_iterate_entities_with_components_worker_pool_settings(
+		_wtp_main_fallback_settings(),
+		"query iterate entities+components WorkerThreadPool [AUTO cpt=256 main-fallback]"
+	)
+
+## Обработка чанков через ECSChunkWorkerDispatch (настраиваемые settings).
+func benchmark_query_worker_pool_settings(
+	settings: ECSChunkParallelSettings,
+	metric_label: String
+) -> float:
+	var query: ECSQuery = _prepare_e_c_query()
 	var runs: int = 100
 	var worker_chunks: Array[ECSQueryChunk] = []
-	return _time_block("query iterate entities+components WorkerThreadPool x %d (world size %d)" % [runs, _iterations], func():
-		for _run in range(runs):
-			query.collect_chunks(worker_chunks)
-			if worker_chunks.is_empty():
-				continue
-			var results: PackedFloat32Array = PackedFloat32Array()
-			results.resize(worker_chunks.size())
-			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_entities_with_components.bind(worker_chunks, results, POSITION_ID, HEALTH_ID), worker_chunks.size())
-			WorkerThreadPool.wait_for_group_task_completion(group_id)
-			var acc: float = 0.0
-			for k in range(results.size()):
-				acc += results[k]
-		)
+	return _time_block(
+		"%s x %d (world %d)" % [metric_label, runs, _iterations],
+		func():
+			_run_wtp_chunk_count_dispatch(query, runs, settings, worker_chunks)
+	)
 
-## Обработка чанков через WorkerThreadPool: collect_chunks (for_each_chunk) + group task по индексам.
+## Обработка чанков через WorkerThreadPool (ECSChunkWorkerDispatch AUTO cpt=8).
 func benchmark_query_worker_pool() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	for i in range(_iterations):
-		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
-	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
-	var runs: int = 100
-	var worker_chunks: Array[ECSQueryChunk] = []
-	return _time_block("query.for_each_chunk WorkerThreadPool x %d (world %d)" % [runs, _iterations], func():
-		for _run in range(runs):
-			query.collect_chunks(worker_chunks)
-			if worker_chunks.is_empty():
-				continue
-			var results: PackedInt32Array = PackedInt32Array()
-			results.resize(worker_chunks.size())
-			var group_id: int = WorkerThreadPool.add_group_task(_process_chunk_index.bind(worker_chunks, results), worker_chunks.size())
-			WorkerThreadPool.wait_for_group_task_completion(group_id)
-		)
+	return benchmark_query_worker_pool_settings(
+		_wtp_auto_settings(),
+		"query.for_each_chunk WorkerThreadPool [AUTO cpt=8]"
+	)
 
-static func _process_chunk_index(chunks: Array[ECSQueryChunk], results: PackedInt32Array, index: int) -> void:
-	var chunk: ECSQueryChunk = chunks[index]
-	results[index] = chunk.get_entity_count()
+## AUTO cpt=256 → main thread через dispatch.
+func benchmark_query_worker_pool_main_fallback() -> float:
+	return benchmark_query_worker_pool_settings(
+		_wtp_main_fallback_settings(),
+		"query.for_each_chunk WorkerThreadPool [AUTO cpt=256 main-fallback]"
+	)
 
 func benchmark_add_remove_component() -> float:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)

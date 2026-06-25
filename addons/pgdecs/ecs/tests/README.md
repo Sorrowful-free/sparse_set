@@ -82,7 +82,7 @@ Headless прогоняет три шкалы: **5000 / 15000 / 25000** итер
 - `query.for_each_chunk iterate` (hot path chunk callback)
 - `query iterate entities+components [slot API]` — slow path (handle/slot; для command buffer / структурных операций)
 - `query iterate entities+components FAST [dense_slots+buffers]` — fast path (сравнивать с GECS column iterate)
-- WorkerThreadPool варианты (`collect_chunks` + group task; ~N/256 задач у PGDECS vs ~1 у GECS)
+- WorkerThreadPool варианты (`ECSChunkWorkerDispatch` AUTO: ~CPU batched tasks, не 1:1 chunk)
 - `add/remove_component`
 - `command_buffer execute` (1000× create)
 - `command_buffer coalescing frame` (шумный deferred-кадр)
@@ -93,6 +93,12 @@ Headless прогоняет три шкалы: **5000 / 15000 / 25000** итер
 
 ```powershell
 & "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_change_detection_hot_perf_headless.gd
+```
+
+Сравнение WTP-политик (AUTO cpt=8 vs cpt=256 main-fallback vs for_each_chunk main):
+
+```powershell
+& godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_wtp_policy_compare_headless.gd
 ```
 
 Логи multirun: `tests/reports/multirun_dirty_hot/run_1.log` … `run_5.log`.
