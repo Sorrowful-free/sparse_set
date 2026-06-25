@@ -68,24 +68,26 @@ func destroy_visual(ecs: ECSManager, registry: ECSNodeRegistry, entity: int) -> 
 
 Планируется поддержка **только через реестры и примитивные компоненты-индексы**. Ядро ECS не будет расширено под object types.
 
-## Visual registry
+## Bridge registry
 
-Presentation-слой: [`ECSVisualHost`](presentation/ecs_visual_host.gd), [`ECSVisualBackend`](presentation/ecs_visual_backend.gd), [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd). Подключение через [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) в `ECSWorldProfile` (как системы).
+Bridge-слой: [`ECSBridgeHost`](bridge/ecs_bridge_host.gd), [`ECSBridgeBackend`](bridge/ecs_bridge_backend.gd), [`ECSBridgeRegistry`](bridge/ecs_bridge_registry.gd). Подключение: [`ECSBridgeRegistryStrategy`](config/ecs_bridge_registry_strategy.gd) в `ECSWorldProfile` (`component_ids` + `backend_strategies[]`). Sync — [`ECSBridgeSyncStrategy`](config/ecs_bridge_sync_strategy.gd); lifecycle — [`ECSBridgeOrchestratorStrategy`](config/ecs_bridge_orchestrator_strategy.gd).
 
 Примитивные компоненты (регистрируются в игре через [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd)):
 
 | Component | Storage | Смысл |
 |-----------|---------|--------|
-| `VISUAL_TYPE` | `TYPE_PACKED_INT32_ARRAY` | ключ backend (какой MultiMesh / пул) |
-| `VISUAL_SUBTYPE` | `TYPE_PACKED_INT32_ARRAY` | вариант внутри type (свой enum на type) |
-| `VISUAL_HANDLE` | `TYPE_PACKED_INT32_ARRAY` | opaque instance (`-1` = нет) |
+| `BRIDGE_TYPE` | `TYPE_PACKED_INT32_ARRAY` | ключ backend (какой MultiMesh / пул) |
+| `BRIDGE_SUBTYPE` | `TYPE_PACKED_INT32_ARRAY` | вариант внутри type (свой enum на type) |
+| `BRIDGE_HANDLE` | `TYPE_PACKED_INT32_ARRAY` | opaque instance (`-1` = нет) |
+
+Теги: `TAG_BRIDGE`, `TAG_BRIDGE_PENDING_ACQUIRE`, `TAG_BRIDGE_PENDING_RELEASE`.
 
 Lifecycle:
 
-1. **Spawn:** `handle = registry.acquire(visual_type, entity_id, ecs)` → записать handle + type/subtype в SoA-компоненты.
-2. **Sync:** `ECSWorld._process` вызывает `registry.sync_all(ecs, delta)` после систем.
-3. **Destroy:** `registry.release_entity(entity_id, ecs)` **до** `destroy_entity` (читает type/handle из SoA).
+1. **Spawn:** entity + `BRIDGE_TYPE` + `TAG_BRIDGE_PENDING_ACQUIRE` → orchestrator `acquire` → handle в SoA + `TAG_BRIDGE`.
+2. **Sync:** `ECSBridgeSyncSystem` вызывает `backend.update(ecs, delta)` для своего `bridge_type` (частота через `run_group`).
+3. **Destroy:** `TAG_BRIDGE_PENDING_RELEASE` → orchestrator `release_entity` → `destroy_entity` (в той же системе, до flush).
 
-**LOD:** смена Skeletal → VAT → MultiMesh = смена `VISUAL_TYPE` (другой backend), не subtype. Опционально `APPEARANCE_VARIANT` + `LOD_LEVEL` — компоненты игры. Hysteresis на порогах — в игровой LOD-системе.
+**LOD:** смена Skeletal → VAT → MultiMesh = смена `BRIDGE_TYPE` (другой backend). Release → смена type → pending acquire.
 
-Конкретные backend'ы (MultiMesh, node pool, Skeletal) — **реализация в игре**, не в pgdecs.
+Конкретные backend'ы (MultiMesh, node pool, Limbo) — **реализация в игре**, не в pgdecs.

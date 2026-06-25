@@ -1,7 +1,7 @@
 extends Node
 class_name ECSWorld
 
-## Мир ECS: менеджер, раннер систем, scheduler по profile, опциональный visual registry.
+## Мир ECS: менеджер, раннер систем, scheduler по profile, опциональный bridge registry.
 ## Запуск через [@export var profile] или [method apply_profile] (один раз).
 
 @export var profile: ECSWorldProfile
@@ -9,7 +9,7 @@ class_name ECSWorld
 var _ecs_manager: ECSManager
 var _system_runner: ECSSystemRunner
 var _system_scheduler: ECSSystemScheduler
-var _visual_registry: ECSVisualRegistry
+var _bridge_registry: ECSBridgeRegistry
 var _profile_applied: bool = false
 var _schedule_installed: bool = false
 
@@ -22,7 +22,7 @@ func _ready() -> void:
 		push_warning("ECSWorld: profile is not set")
 
 func _enter_tree() -> void:
-	_try_install_deferred_visual_registry()
+	_try_install_deferred_bridge_registry()
 
 func _physics_process(delta: float) -> void:
 	if _schedule_installed:
@@ -33,8 +33,6 @@ func _process(delta: float) -> void:
 		_system_scheduler.tick_process(delta)
 	elif _system_runner != null:
 		_system_runner.run(delta)
-	if _visual_registry != null:
-		_visual_registry.sync_all(_ecs_manager, delta)
 	if _system_runner != null:
 		_system_runner.flush_manual_command_buffers()
 	if _ecs_manager != null and _ecs_manager.auto_gc_archetypes:
@@ -64,7 +62,7 @@ func apply_profile(world_profile: ECSWorldProfile) -> void:
 	_init_runtime()
 	profile = world_profile
 	_warn_component_registry_strategy(world_profile)
-	world_profile.apply_to_world(self, _find_visual_host())
+	world_profile.apply_to_world(self, _find_bridge_host())
 	_profile_applied = true
 
 func _warn_component_registry_strategy(world_profile: ECSWorldProfile) -> void:
@@ -76,20 +74,25 @@ func _warn_component_registry_strategy(world_profile: ECSWorldProfile) -> void:
 	elif not strategy.enabled:
 		push_warning("ECSWorldProfile: component_registry_strategy is disabled")
 
-func _find_visual_host() -> ECSVisualHost:
+func _find_bridge_host() -> ECSBridgeHost:
 	for child: Node in get_children():
-		if child is ECSVisualHost:
-			return child as ECSVisualHost
+		if child is ECSBridgeHost:
+			return child as ECSBridgeHost
 	return null
 
-func _try_install_deferred_visual_registry() -> void:
+func _try_install_deferred_bridge_registry() -> void:
 	if not _profile_applied or profile == null:
 		return
-	if _visual_registry != null:
+	if _bridge_registry != null:
 		return
-	if profile.visual_registry_strategy == null:
+	if profile.bridge_registry_strategy == null or not profile.bridge_registry_strategy.enabled:
 		return
-	profile.apply_visual_strategy(self, _find_visual_host())
+	if profile.bridge_registry_strategy.backend_strategies.is_empty():
+		return
+	var host: ECSBridgeHost = _find_bridge_host()
+	if host == null:
+		return
+	profile._apply_bridge_registry(self, host)
 
 func get_ecs_manager() -> ECSManager:
 	return _ecs_manager
@@ -104,17 +107,17 @@ func run_system_group(group: StringName, delta: float) -> void:
 	if _system_scheduler != null:
 		_system_scheduler.fire_group(group, delta)
 
-func get_visual_registry() -> ECSVisualRegistry:
-	return _visual_registry
+func get_bridge_registry() -> ECSBridgeRegistry:
+	return _bridge_registry
 
-func set_visual_registry(registry: ECSVisualRegistry) -> void:
-	_visual_registry = registry
+func set_bridge_registry(registry: ECSBridgeRegistry) -> void:
+	_bridge_registry = registry
 
 func reset_world() -> void:
 	if _ecs_manager != null:
 		_ecs_manager.reset()
 	if _system_runner != null:
 		_system_runner.clear()
-	_visual_registry = null
+	_bridge_registry = null
 	_schedule_installed = false
 	_profile_applied = false

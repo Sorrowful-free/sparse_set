@@ -33,7 +33,7 @@ alwaysApply: false
 - `query.for_each_chunk` / Callable-итерация **внутри** `ECSSystemChunkBase` вместо `process_chunk`
 - кэш `ECSQueryChunk` между кадрами
 - `query.get_entity_ids()` в hot loop вместо chunk iteration
-- `Host.build_registry`, `*InitStrategy`, `RegistryConfig`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror
+- `Host.build_registry`, `*InitStrategy`, `RegistryConfig`, `visual_registry_strategy`, `ECSVisual*`, `absorb()`, visual dispatcher/mirror
 - Повторный `apply_profile` без проверки `is_profile_applied()`
 - Запись в компоненты по temp id сразу после `buf.create_entity` в том же `process_chunk`
 

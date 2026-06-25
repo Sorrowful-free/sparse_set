@@ -14,7 +14,7 @@
 3. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
 4. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner` после каждой системы, `PER_SYSTEM`).
 5. Не сохраняй `ECSQueryChunk` между кадрами (`begin_chunk_run` инвалидирует pooled views).
-6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror.
+6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategy`, `ECSVisual*`, `absorb()`, visual dispatcher/mirror.
 7. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
 
 ---
@@ -48,7 +48,7 @@
 - `buf.create_entity(...)` → **temp id** (&lt; 0) до `execute()` этой системы.
 - Real id и membership в query — после flush **предыдущих** систем в том же `run_group`.
 - Bootstrap / тесты **вне** `process_chunk`: `ecs.create_entity_packed()` — сразу real id.
-- Перед `destroy_entity`: `visual_registry.release_entity(entity_id, ecs)` если был visual.
+- Перед `destroy_entity`: `TAG_BRIDGE_PENDING_RELEASE` + orchestrator, или `bridge_registry.release_entity(entity_id, ecs)` вручную.
 
 ## System groups (кратко)
 
@@ -58,11 +58,11 @@
 
 ---
 
-## Visual / profile
+## Profile / bridge
 
 - Компоненты: одна `ECSComponentRegistryStrategy` на profile.
-- Visual: `visual_registry_strategy` (одна на profile); `ECSVisualHost` — только слоты (`slots`), без `build_registry`.
-- `acquire` не пишет в SoA; handle/type пишет игра.
+- Bridge: `bridge_registry_strategy` (`component_ids` + `backend_strategies[]`); orchestrator читает ids из `get_bridge_registry()`; `ECSBridgeHost` — слоты.
+- Sync / lifecycle: `ECSBridgeSyncStrategy`, `ECSBridgeOrchestratorStrategy` в `system_strategies`.
 
 ## Entity blueprint
 

@@ -17,7 +17,7 @@ Data-oriented ECS для Godot 4.x (GDScript). Документ описывае
 11. [Change detection](#change-detection)
 12. [Мир (ECSWorld)](#мир-ecsworld)
 13. [Configuration (profile, registry, strategies)](#configuration-profile-registry-strategies)
-14. [Visual layer](#visual-layer)
+14. [Bridge layer](#bridge-layer-godot--ecs)
 15. [Threading и reentrancy](#threading-и-reentrancy)
 16. [Структура каталогов](#структура-каталогов)
 17. [См. также](#см-также)
@@ -406,10 +406,10 @@ buf.execute()  # вызывается раннером автоматическ�
 ```gdscript
 # Нода на сцене
 @export var profile: ECSWorldProfile
-# Дочерний ECSVisualHost со slots — опционально
+# Дочерний ECSBridgeHost со slots — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `visual_registry.sync_all`, `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и visual registry и сбрасывает флаг profile — для reload сцены.
+`ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Bridge sync — через `ECSBridgeSyncSystem` в `system_strategies` (не `sync_all`). Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и bridge registry и сбрасывает флаг profile — для reload сцены.
 
 ---
 
@@ -419,12 +419,16 @@ buf.execute()  # вызывается раннером автоматическ�
 |-------|------|
 | [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd) | `get_tags()` + `get_components()` → `apply_to(ecs)` (одна на profile) |
 | [`ECSSystemStrategy`](config/ecs_system_strategy.gd) | `@export` + `create_system(ecs, world)`; `run_group` |
-| [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) | `@export` + `create_registry(ecs, world, host)` |
+| [`ECSBridgeRegistryStrategy`](config/ecs_bridge_registry_strategy.gd) | `component_ids` + `backend_strategies[]` → `apply_to(world, host)` |
+| [`ECSBridgeBackendStrategy`](config/ecs_bridge_backend_strategy.gd) | один `bridge_type` + `create_backend(host, ecs, world)` |
+| [`ECSBridgeComponentIds`](config/ecs_bridge_component_ids.gd) | id компонентов/тегов (внутри registry strategy) |
+| [`ECSBridgeOrchestratorStrategy`](config/ecs_bridge_orchestrator_strategy.gd) | pending acquire/release; ids из registry |
+| [`ECSBridgeSyncStrategy`](config/ecs_bridge_sync_strategy.gd) | один `bridge_type` + `run_group` |
 | [`ECSSystemGroupConfig`](config/ecs_system_group_config.gd) | run_group, hook, hz, execution_order |
-| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component strategy + visual/system strategies + `system_groups` |
+| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component + bridge registry strategies + system strategies + `system_groups` |
 | [`ECSEntityBlueprint`](config/ecs_entity_blueprint.gd) | абстрактный blueprint сущности (игра наследует Resource) |
 
-Порядок `apply_to_world`: component registry strategy → `install_system_schedule` → system strategies → visual registry strategy (если host готов). `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSVisualHost` в visual strategies для `require_slot`.
+Порядок `apply_to_world`: component registry strategy → bridge registry (если host готов) → `install_system_schedule` → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSBridgeHost` в backend strategies для `require_slot`.
 
 Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
 
@@ -458,49 +462,53 @@ Bootstrap и системы: один буфер на кадр/фазу — crea
 
 ---
 
-## Visual layer
+## Bridge layer (Godot ↔ ECS)
 
 | Класс | Роль |
 |-------|------|
-| [`ECSVisualHost`](presentation/ecs_visual_host.gd) | якорь visual-сцены, слоты нод (опционально) |
-| [`ECSVisualBackend`](presentation/ecs_visual_backend.gd) | один `visual_type` (игра реализует) |
-| [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd) | acquire / release_entity / sync_all |
+| [`ECSBridgeHost`](bridge/ecs_bridge_host.gd) | якорь bridge-сцены, слоты нод (опционально) |
+| [`ECSBridgeBackend`](bridge/ecs_bridge_backend.gd) | один `bridge_type` (игра реализует) |
+| [`ECSBridgeRegistry`](bridge/ecs_bridge_registry.gd) | acquire / release_entity / маршрутизация backends |
+| [`ECSBridgeOrchestratorSystem`](systems/ecs_bridge_orchestrator_system.gd) | pending acquire/release (+ destroy) |
+| [`ECSBridgeSyncSystem`](systems/ecs_bridge_sync_system.gd) | `backend.update(ecs, delta)` для одного type |
 
 Сцена (Host опционален — только если backends нужны ноды сцены):
 
 ```
 ECSWorld
-└── GameVisualHost       # slots: { &"units": NodePath("UnitsMultiMesh") }
+└── GameBridgeHost       # slots: { &"units": NodePath("UnitsMultiMesh") }
     └── UnitsMultiMesh
 ```
 
-`ECSWorldProfile.visual_registry_strategy` — подключение registry (одна strategy на profile). Host передаётся в `create_registry` для `require_slot`. Несколько backends — регистрируйте в одном `create_registry` через `registry.register_backend(...)`.
+`ECSWorldProfile.bridge_registry_strategy` — `component_ids` + `backend_strategies[]` (по одной backend strategy на `bridge_type`). Orchestrator читает ids из `world.get_bridge_registry()`. Sync — `ECSBridgeSyncStrategy` в `system_strategies`.
 
-Если `apply_profile` вызван до `add_child(world)` и strategy вернула `null` без host, `ECSWorld._enter_tree()` повторно вызывает `apply_visual_strategy` после появления дочернего `ECSVisualHost`.
+Если `apply_profile` вызван до `add_child(world)` без host, `ECSWorld._enter_tree()` повторно собирает registry после появления дочернего `ECSBridgeHost`.
 
-Игра — strategy в profile:
+Игра — backend strategy:
 
 ```gdscript
-class_name UnitsVisualStrategy extends ECSVisualRegistryStrategy
+class_name UnitsBridgeBackendStrategy extends ECSBridgeBackendStrategy
 
-func create_registry(_ecs, world, host) -> ECSVisualRegistry:
-    if host == null:
-        return null
-    var registry := ECSVisualRegistry.new()
-    registry.visual_type_component_id = GameComponents.VISUAL_TYPE
-    registry.visual_handle_component_id = GameComponents.VISUAL_HANDLE
-    var mesh := host.require_slot(&"units") as MultiMeshInstance3D
-    registry.register_backend(VisualType.UNITS, UnitsBackend.new(mesh))
-    return registry
+@export var slot: StringName = &"units"
+
+func create_backend(host, _ecs, _world) -> ECSBridgeBackend:
+    return UnitsBackend.new(host.require_slot(slot))
 ```
 
 ```gdscript
-profile.visual_registry_strategy = UnitsVisualStrategy.new()
+var bridge_strategy := ECSBridgeRegistryStrategy.new()
+bridge_strategy.component_ids = GameBridgeComponentIds.new()
+bridge_strategy.backend_strategies = [UnitsBridgeBackendStrategy.new()]
+profile.bridge_registry_strategy = bridge_strategy
+profile.system_strategies = [
+    ECSBridgeOrchestratorStrategy.new(),  # run_group=frame
+    ECSBridgeSyncStrategy.new(),          # bridge_type, run_group=frame
+]
 ```
 
-Без Host и без visual strategy — `get_visual_registry()` вернёт `null`, sync не вызывается.
+Без Host и без `bridge_registry_strategy` — `get_bridge_registry()` вернёт `null`.
 
-Примитивные компоненты в игре: `VISUAL_TYPE`, `VISUAL_SUBTYPE`, `VISUAL_HANDLE` (`TYPE_PACKED_INT32_ARRAY`). Subtype — свой enum на каждый visual type. LOD swap: `release_entity` → смена `VISUAL_TYPE` → `acquire`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+Теги: `TAG_BRIDGE`, `TAG_BRIDGE_PENDING_ACQUIRE`, `TAG_BRIDGE_PENDING_RELEASE`. SoA: `BRIDGE_TYPE`, `BRIDGE_HANDLE`, опционально `BRIDGE_SUBTYPE`. Spawn: pending acquire → orchestrator → sync. Death: pending release → orchestrator `release_entity` → destroy (flush в той же системе). LOD: release → смена `BRIDGE_TYPE` → pending acquire. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ---
 
@@ -520,8 +528,8 @@ profile.visual_registry_strategy = UnitsVisualStrategy.new()
 addons/pgdecs/ecs/
 ├── ecs_manager.gd
 ├── ecs_world.gd
-├── config/                 # Strategy (component, visual, system), ECSWorldProfile
-├── presentation/           # VisualHost, Backend, Registry
+├── config/                 # Strategy (component, bridge, system), ECSWorldProfile
+├── bridge/                 # BridgeHost, Backend, Registry
 ├── ecs_command_buffer.gd
 ├── entities/
 ├── components/

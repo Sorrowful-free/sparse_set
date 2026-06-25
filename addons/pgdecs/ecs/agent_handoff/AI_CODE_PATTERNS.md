@@ -281,8 +281,13 @@ world.apply_profile(profile)  # повторный вызов игнорируе
 # Компоненты: одна ECSComponentRegistryStrategy на profile
 profile.component_registry_strategy = MyComponentsStrategy.new()
 
-# Visual: visual_registry_strategy (Host — слоты, не build_registry)
-profile.visual_registry_strategy = MyVisualStrategy.new()
+# Bridge: bridge_registry_strategy (component_ids + backend_strategies внутри)
+var bridge := ECSBridgeRegistryStrategy.new()
+bridge.component_ids = GameBridgeComponentIds.new()
+bridge.backend_strategies = [MyUnitsBridgeBackendStrategy.new()]
+profile.bridge_registry_strategy = bridge
+profile.system_strategies.append(ECSBridgeOrchestratorStrategy.new())
+profile.system_strategies.append(ECSBridgeSyncStrategy.new())
 
 # Spawn: blueprint через command buffer
 var buf := ECSCommandBuffer.new(world.get_ecs_manager())

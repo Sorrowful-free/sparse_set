@@ -43,14 +43,27 @@ ecs.destroy_entities_packed(survivor_ids)
 | `begin_chunk_run()` | Предпочтительно в ручной итерации; системы используют через `ECSSystemChunkBase` |
 | `get_entity_archetype()` | Не кэшировать `ECSArchetype` между кадрами после destroy/GC |
 
-## Visual registry (profile)
+## Bridge registry (breaking: Visual → Bridge)
+
+Удалены `ECSVisual*`, `visual_registry_strategy`, `sync_all`.
 
 ```gdscript
-# было
-profile.visual_registry_strategies = [UnitsVisualStrategy.new()]
-
-# стало
+# было (Visual)
 profile.visual_registry_strategy = UnitsVisualStrategy.new()
+
+# bridge v1 (на profile)
+profile.bridge_component_ids = GameBridgeComponentIds.new()
+profile.bridge_backend_strategies = [UnitsBridgeBackendStrategy.new()]
+
+# стало (bridge registry strategy)
+var bridge := ECSBridgeRegistryStrategy.new()
+bridge.component_ids = GameBridgeComponentIds.new()
+bridge.backend_strategies = [UnitsBridgeBackendStrategy.new()]
+profile.bridge_registry_strategy = bridge
+profile.system_strategies = [
+    ECSBridgeOrchestratorStrategy.new(),
+    ECSBridgeSyncStrategy.new(),
+]
 ```
 
-Несколько backends — один `create_registry`, несколько `registry.register_backend(...)`. Удалены `absorb()` и массив strategies.
+Компоненты: `VISUAL_*` → `BRIDGE_*`. Orchestrator не дублирует `component_ids` — читает из `world.get_bridge_registry()`.

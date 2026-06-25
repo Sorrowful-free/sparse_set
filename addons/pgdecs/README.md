@@ -36,7 +36,7 @@ runner.add_system(MyMovementSystem.new(ecs))
 runner.run(delta)
 ```
 
-`ECSWorld` нужен, когда хотите `@export profile`, дочерний `ECSVisualHost`, `_process` и visual sync из коробки.
+`ECSWorld` нужен, когда хотите `@export profile`, дочерний `ECSBridgeHost`, scheduler и bridge sync через `system_strategies`.
 
 ## API
 
