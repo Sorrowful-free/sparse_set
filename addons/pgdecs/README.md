@@ -69,6 +69,14 @@ buf.destroy_entities_packed(batch_ids)
 - [agent_handoff/](ecs/agent_handoff/README.md) — шаблоны для Composer (батчи, gates, self-check)
 - [tests/README.md](ecs/tests/README.md) — юнит- и perf-тесты
 
+## Cursor / ИИ (переиспользование аддона)
+
+Правила для агентов **внутри аддона**, не в корне игрового проекта:
+
+- [AGENTS.md](AGENTS.md) — краткие инструкции (автоподхват при работе в `addons/pgdecs/`)
+- [.cursor/rules/](.cursor/README.md) — project rules (`.mdc`)
+- [ecs/agent_handoff/AI_CODE_PATTERNS.md](ecs/agent_handoff/AI_CODE_PATTERNS.md) — полная спецификация codegen
+
 ## Тесты
 
 ```powershell

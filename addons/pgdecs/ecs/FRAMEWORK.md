@@ -114,7 +114,7 @@ for i in range(chunk.get_entity_count()):
 - **Не создавать сущности** внутри `process_chunk` напрямую — только через command buffer в конце кадра; такие системы относятся к slot/handle API.
 - **Не вызывать** `get_entity_ids()` каждый кадр, если достаточно chunk-итерации.
 
-Подробности и бенчмарки: [PERFORMANCE.md](PERFORMANCE.md).
+Подробности и бенчмарки: [PERFORMANCE.md](PERFORMANCE.md). **ИИ:** [agent_handoff/AI_CODE_PATTERNS.md](agent_handoff/AI_CODE_PATTERNS.md).
 
 ---
 
@@ -336,6 +336,8 @@ buf.execute()  # вызывается раннером автоматическ�
 ```
 
 Тот же двухслойный API: `Array[int]` и `*_packed`. В `process_chunk` при `use_worker_pool == true` command buffer **не вызывать**.
+
+**Для ИИ-агентов:** канонические примеры и антипаттерны — [agent_handoff/AI_CODE_PATTERNS.md](agent_handoff/AI_CODE_PATTERNS.md). Cursor: [../AGENTS.md](../AGENTS.md), [../.cursor/rules/](../.cursor/README.md).
 
 ---
 

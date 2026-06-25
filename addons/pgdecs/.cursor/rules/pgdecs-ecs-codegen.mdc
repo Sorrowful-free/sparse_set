@@ -1,0 +1,36 @@
+---
+description: PGDECS ECS — канон process_chunk, command buffer, запрет случайного API (addons/pgdecs)
+globs: ["**/*.gd"]
+alwaysApply: false
+---
+
+# PGDECS: не генерировать случайный ECS-код
+
+Полная спецификация: `addons/pgdecs/ecs/agent_handoff/AI_CODE_PATTERNS.md`
+
+## Выбор API в `process_chunk`
+
+- **Только значения** → fast-path: `get_dense_slots()`, `get_values_buffer()`, запись через `set_value_at_slot` (не голый `buf[slot]` при change_detection).
+- **Structural changes** → `get_dense_entities()` + `get_command_buffer()`; slot для чтения SoA: `ECSEntityIdsUtils.slot_from_handle(entity_id)`.
+- **Не смешивать** fast-path и buffer в одном проходе без необходимости.
+
+## Command buffer
+
+- В системах: `get_command_buffer()` — не `ecs.create_*` / `destroy_*` / `add_component` / `remove_component`.
+- Не вызывать `execute()` в системах (только runner / unit-тесты).
+- `create_entity` → temp id (&lt; 0); real id после `runner.run()`.
+- При `use_worker_pool == true` — buffer **запрещён**.
+
+## Запрещено генерировать
+
+- `ecs.create_entity_packed` в `process_chunk`
+- `query.get_entity_ids()` в hot loop вместо chunk iteration
+- `Host.build_registry`, `*InitStrategy`, visual dispatcher/mirror
+- Повторный `apply_profile` без проверки `is_profile_applied()`
+- Запись в компоненты по temp id сразу после `buf.create_entity` в том же `process_chunk`
+
+## Эталоны
+
+- Fast-path: `addons/pgdecs/ecs/examples/demo_movement_system.gd`
+- Buffer: `addons/pgdecs/ecs/tests/unit/ecs_command_buffer_test.gd`
+- Bootstrap: `addons/pgdecs/ecs/config/ecs_world_profile.gd`

@@ -1,0 +1,18 @@
+---
+description: PGDECS ECS — agent handoff, scope, gates (addons/pgdecs docs and tests)
+globs: ["**/*.md", "**/tests/**"]
+alwaysApply: false
+---
+
+# PGDECS agent handoff
+
+При задачах в `addons/pgdecs/ecs/`:
+
+1. Прочитать `ecs/agent_handoff/AI_CODE_PATTERNS.md` перед генерацией систем.
+2. Один батч из `ecs/agent_handoff/BATCHES.md`; не трогать файлы вне Scope.
+3. Перед сдачей: `ecs/agent_handoff/SELF_CHECK.md`.
+4. Gates: `res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd` → `failed: 0`.
+
+Не редактировать `.cursor/plans/` в корне игрового проекта без явной просьбы.
+
+Обратная совместимость не приоритет; приоритет — производительность и простой API.

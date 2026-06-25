@@ -17,6 +17,7 @@ Composer обязан пройти чеклист **до** финального 
 
 ## Data-path invariants (если Batch A/B)
 
+- [ ] Соблюдены правила [`AI_CODE_PATTERNS.md`](AI_CODE_PATTERNS.md) (fast-path vs command buffer, без антипаттернов)
 - [ ] Dense iteration: только `[0, get_entity_count())`
 - [ ] Slot API: `ECSEntityIdsUtils.slot_from_handle(handle)`
 - [ ] `component_ids` нормализуются (sort + unique) на входе менеджера
