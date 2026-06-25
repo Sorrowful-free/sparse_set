@@ -47,17 +47,17 @@ func get_component_ids() -> PackedInt64Array:
 
 func get_entity_ids() -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
-	for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+	var run_count: int = begin_chunk_run()
+	for i in range(run_count):
+		var chunk: ECSQueryChunk = get_chunk_at_run_index(i)
 		var dense: PackedInt64Array = chunk.get_dense_entities()
 		var count: int = chunk.get_entity_count()
-		for i in range(count):
-			result.append(dense[i])
-	)
+		for j in range(count):
+			result.append(dense[j])
 	return result
 
-## Итерация по чанкам без возврата Array вызывающему коду (alloc-free hot path).
-## Объекты ECSQueryChunk переиспользуются из внутреннего пула — не сохранять между вызовами.
-func for_each_chunk(callback: Callable) -> void:
+## Заполняет внутренний пул chunk-views и возвращает число чанков. Views инвалидируются следующим begin_chunk_run / for_each_chunk.
+func begin_chunk_run() -> int:
 	_ensure_archetype_cache()
 	_chunk_pool_used = 0
 	for archetype in _cached_archetypes:
@@ -67,7 +67,19 @@ func for_each_chunk(callback: Callable) -> void:
 			var archetype_chunk: ECSArchetypeChunk = archetype.get_archetype_chunk_by_index(chunk_index)
 			if archetype_chunk.get_entity_count() == 0:
 				continue
-			callback.call(_acquire_query_chunk(archetype_chunk, chunk_index))
+			_acquire_query_chunk(archetype_chunk, chunk_index)
+	return _chunk_pool_used
+
+## Чанк текущего run по индексу [0, begin_chunk_run()). Не сохранять между вызовами begin_chunk_run.
+func get_chunk_at_run_index(index: int) -> ECSQueryChunk:
+	return _chunk_pool[index]
+
+## Итерация по чанкам без возврата Array вызывающему коду (alloc-free hot path).
+## Объекты ECSQueryChunk переиспользуются из внутреннего пула — не сохранять между вызовами.
+func for_each_chunk(callback: Callable) -> void:
+	var run_count: int = begin_chunk_run()
+	for i in range(run_count):
+		callback.call(_chunk_pool[i])
 
 func _ensure_archetype_cache() -> void:
 	var version: int = _ecs_manager.get_archetypes_version()
@@ -102,9 +114,14 @@ func _acquire_query_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) 
 func _create_snapshot_chunk(archetype_chunk: ECSArchetypeChunk, chunk_index: int) -> ECSQueryChunk:
 	return ECSQueryChunk.new(archetype_chunk, _ecs_manager, chunk_index)
 
-## Заполняет out_chunks независимыми snapshot-объектами (не из пула for_each_chunk).
-func collect_chunks(out_chunks: Array[ECSQueryChunk], _reuse_snapshot: bool = false) -> void:
+## Заполняет out_chunks views на текущий run. По умолчанию reuse_snapshot=true — ссылки на pooled views (как begin_chunk_run).
+func collect_chunks(out_chunks: Array[ECSQueryChunk], reuse_snapshot: bool = true) -> void:
 	out_chunks.clear()
+	if reuse_snapshot:
+		var run_count: int = begin_chunk_run()
+		for i in range(run_count):
+			out_chunks.append(_chunk_pool[i])
+		return
 	_ensure_archetype_cache()
 	for archetype in _cached_archetypes:
 		var chunk_indices: PackedInt32Array = archetype.get_dense_chunk_indices()
@@ -128,8 +145,11 @@ func collect_active_chunk_instance_ids(out_active: Dictionary[int, bool]) -> voi
 				continue
 			out_active[archetype_chunk.get_instance_id()] = true
 
-## Возвращает независимый снимок чанков; безопасно сохранять между вызовами query.
+## Возвращает ссылки на pooled chunk views текущего run; не сохранять между вызовами get_chunks / begin_chunk_run.
 func get_chunks() -> Array[ECSQueryChunk]:
 	var result: Array[ECSQueryChunk] = []
 	collect_chunks(result)
 	return result
+
+func get_chunk_pool_size() -> int:
+	return _chunk_pool.size()

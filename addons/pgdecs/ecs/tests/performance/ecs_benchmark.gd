@@ -229,29 +229,6 @@ static func _sum_chunk_entities_with_components_acc(
 		acc += pos.x + pos.y + float(health)
 	return acc
 
-static func _run_wtp_e_c_dispatch(
-	query: ECSQuery,
-	runs: int,
-	settings: ECSChunkParallelSettings,
-	worker_chunks: Array[ECSQueryChunk]
-) -> void:
-	for _run in range(runs):
-		query.collect_chunks(worker_chunks)
-		if worker_chunks.is_empty():
-			continue
-		var results: PackedFloat32Array = PackedFloat32Array()
-		results.resize(worker_chunks.size())
-		var chunk_to_index: Dictionary = _build_chunk_index_map(worker_chunks)
-		ECSChunkWorkerDispatch.run_chunks(
-			worker_chunks,
-			settings,
-			func(chunk: ECSQueryChunk) -> void:
-				_sum_chunk_entities_with_components(chunk, chunk_to_index, results, POSITION_ID, HEALTH_ID)
-		)
-		var acc: float = 0.0
-		for k in range(results.size()):
-			acc += results[k]
-
 static func _count_chunk_entities(
 	chunk: ECSQueryChunk,
 	chunk_to_index: Dictionary,
@@ -261,6 +238,34 @@ static func _count_chunk_entities(
 	var idx: int = int(chunk_to_index[key])
 	results[idx] = chunk.get_entity_count()
 
+static func _run_wtp_e_c_dispatch(
+	query: ECSQuery,
+	runs: int,
+	settings: ECSChunkParallelSettings,
+	worker_chunks: Array[ECSQueryChunk]
+) -> void:
+	for _run in range(runs):
+		var run_count: int = query.begin_chunk_run()
+		if run_count == 0:
+			continue
+		worker_chunks.clear()
+		for i in range(run_count):
+			worker_chunks.append(query.get_chunk_at_run_index(i))
+		var results: PackedFloat32Array = PackedFloat32Array()
+		results.resize(worker_chunks.size())
+		var chunk_to_index: Dictionary = _build_chunk_index_map(worker_chunks)
+		var process_chunk := func(chunk: ECSQueryChunk) -> void:
+			_sum_chunk_entities_with_components(chunk, chunk_to_index, results, POSITION_ID, HEALTH_ID)
+		var task_count: int = ECSChunkWorkerDispatch.compute_task_count(run_count, settings)
+		if task_count <= 0:
+			for chunk: ECSQueryChunk in worker_chunks:
+				process_chunk.call(chunk)
+		else:
+			ECSChunkWorkerDispatch.run_chunks(worker_chunks, settings, process_chunk)
+		var acc: float = 0.0
+		for k in range(results.size()):
+			acc += results[k]
+
 static func _run_wtp_chunk_count_dispatch(
 	query: ECSQuery,
 	runs: int,
@@ -268,18 +273,23 @@ static func _run_wtp_chunk_count_dispatch(
 	worker_chunks: Array[ECSQueryChunk]
 ) -> void:
 	for _run in range(runs):
-		query.collect_chunks(worker_chunks)
-		if worker_chunks.is_empty():
+		var run_count: int = query.begin_chunk_run()
+		if run_count == 0:
 			continue
+		worker_chunks.clear()
+		for i in range(run_count):
+			worker_chunks.append(query.get_chunk_at_run_index(i))
 		var results: PackedInt32Array = PackedInt32Array()
 		results.resize(worker_chunks.size())
 		var chunk_to_index: Dictionary = _build_chunk_index_map(worker_chunks)
-		ECSChunkWorkerDispatch.run_chunks(
-			worker_chunks,
-			settings,
-			func(chunk: ECSQueryChunk) -> void:
-				_count_chunk_entities(chunk, chunk_to_index, results)
-		)
+		var process_chunk := func(chunk: ECSQueryChunk) -> void:
+			_count_chunk_entities(chunk, chunk_to_index, results)
+		var task_count: int = ECSChunkWorkerDispatch.compute_task_count(run_count, settings)
+		if task_count <= 0:
+			for chunk: ECSQueryChunk in worker_chunks:
+				process_chunk.call(chunk)
+		else:
+			ECSChunkWorkerDispatch.run_chunks(worker_chunks, settings, process_chunk)
 
 func _prepare_e_c_query() -> ECSQuery:
 	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
@@ -288,7 +298,22 @@ func _prepare_e_c_query() -> ECSQuery:
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	return ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
 
-## Прямой for_each_chunk на main thread (без collect_chunks / dispatch).
+## Прямой begin_chunk_run на main thread (без Callable в hot loop).
+func benchmark_query_iterate_entities_with_components_begin_chunk_run() -> float:
+	var query: ECSQuery = _prepare_e_c_query()
+	var runs: int = 100
+	return _time_block(
+		"query iterate e+c begin_chunk_run main x %d (world %d)" % [runs, _iterations],
+		func():
+			for _run in range(runs):
+				var acc: float = 0.0
+				var run_count: int = query.begin_chunk_run()
+				for i in range(run_count):
+					var chunk: ECSQueryChunk = query.get_chunk_at_run_index(i)
+					acc += _sum_chunk_entities_with_components_acc(chunk, POSITION_ID, HEALTH_ID)
+	)
+
+## Прямой for_each_chunk на main thread (Callable; для сравнения с begin_chunk_run).
 func benchmark_query_iterate_entities_with_components_for_each_chunk_main() -> float:
 	var query: ECSQuery = _prepare_e_c_query()
 	var runs: int = 100

@@ -3,9 +3,9 @@ class_name ECSSystemChunkBase extends ECSSystemBase
 ## Базовый класс системы с итерацией по чанкам query.
 ## В [method _init] переопределите [method _build_query] и создайте query через [ECSQueryBuilder].
 ## Переопределите [method process_chunk]: в нём обрабатывайте один чанк (SoA через [method ECSQueryChunk.get_component_chunk]).
-## При [member use_worker_pool] == true чанки собираются через [method ECSQuery.collect_chunks]
-## ([method ECSQuery.for_each_chunk] под капотом) и обрабатываются через [WorkerThreadPool]; в этом случае
-## [method process_chunk] не должен вызывать [method get_command_buffer] (только чтение данных).
+## При [member use_worker_pool] == true чанки собираются через [method ECSQuery.begin_chunk_run]
+## и обрабатываются через [WorkerThreadPool]; в этом случае [method process_chunk] не должен вызывать
+## [method get_command_buffer] (только чтение данных).
 
 var _query: ECSQuery
 var _worker_chunks: Array[ECSQueryChunk] = []
@@ -42,32 +42,47 @@ func update(delta: float) -> void:
 	if _query == null:
 		return
 	if use_worker_pool:
-		if change_detection:
-			_collect_dirty_chunks(_worker_chunks)
-		else:
-			_query.collect_chunks(_worker_chunks)
-		if _worker_chunks.is_empty():
-			if change_detection:
-				_prune_stale_chunk_seen()
-			return
-		ECSChunkWorkerDispatch.run_chunks(
-			_worker_chunks,
-			parallel_settings,
-			func(chunk: ECSQueryChunk) -> void:
-				process_chunk(chunk, delta)
-		)
+		_run_worker_pool_update(delta)
 	else:
-		if change_detection:
-			_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
-				if _consume_chunk_dirty(chunk):
-					process_chunk(chunk, delta)
-			)
-		else:
-			_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
-				process_chunk(chunk, delta)
-			)
+		_run_main_thread_update(delta)
 	if change_detection:
 		_prune_stale_chunk_seen()
+
+func _run_main_thread_update(delta: float) -> void:
+	var run_count: int = _query.begin_chunk_run()
+	for i in range(run_count):
+		var chunk: ECSQueryChunk = _query.get_chunk_at_run_index(i)
+		if change_detection and not _consume_chunk_dirty(chunk):
+			continue
+		process_chunk(chunk, delta)
+
+func _run_worker_pool_update(delta: float) -> void:
+	var run_count: int = _prepare_worker_chunks_for_run()
+	if run_count == 0:
+		return
+	var task_count: int = ECSChunkWorkerDispatch.compute_task_count(run_count, parallel_settings)
+	if task_count <= 0:
+		for chunk: ECSQueryChunk in _worker_chunks:
+			process_chunk(chunk, delta)
+		return
+	ECSChunkWorkerDispatch.run_chunks(
+		_worker_chunks,
+		parallel_settings,
+		func(chunk: ECSQueryChunk) -> void:
+			process_chunk(chunk, delta)
+	)
+
+func _prepare_worker_chunks_for_run() -> int:
+	_worker_chunks.clear()
+	var run_count: int = _query.begin_chunk_run()
+	for i in range(run_count):
+		var chunk: ECSQueryChunk = _query.get_chunk_at_run_index(i)
+		if change_detection:
+			if _consume_chunk_dirty(chunk):
+				_worker_chunks.append(chunk)
+		else:
+			_worker_chunks.append(chunk)
+	return _worker_chunks.size()
 
 ## Обрабатывает один чанк. Переопределяйте в наследниках.
 ##
@@ -98,13 +113,6 @@ func update(delta: float) -> void:
 ## При [member use_worker_pool] == true не вызывайте [method get_command_buffer] — только чтение.
 func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
 	pass
-
-func _collect_dirty_chunks(out_chunks: Array[ECSQueryChunk]) -> void:
-	out_chunks.clear()
-	_query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
-		if _consume_chunk_dirty(chunk):
-			out_chunks.append(chunk)
-	)
 
 ## true, если чанк изменился с прошлого вызова; обновляет сохранённые версии.
 func _consume_chunk_dirty(chunk: ECSQueryChunk) -> bool:

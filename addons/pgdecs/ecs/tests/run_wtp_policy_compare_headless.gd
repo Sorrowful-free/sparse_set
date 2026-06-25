@@ -10,7 +10,8 @@ func _initialize() -> void:
 	print("=== WTP policy compare (iterations=%d, ~%d chunks) ===" % [iterations, chunk_count])
 	print("")
 	var rows: Array[Dictionary] = []
-	_add_row(rows, "for_each_chunk main (baseline)", _run(iterations, "for_each_main"))
+	_add_row(rows, "for_each_chunk main (Callable baseline)", _run(iterations, "for_each_main"))
+	_add_row(rows, "begin_chunk_run main (no Callable)", _run(iterations, "begin_chunk_run_main"))
 	_add_row(rows, "dispatch AUTO cpt=8 (WTP)", _run(iterations, "wtp_auto"))
 	_add_row(rows, "dispatch AUTO cpt=256 (main-fallback)", _run(iterations, "wtp_main_fallback"))
 	_add_row(rows, "chunk-count dispatch AUTO cpt=8", _run(iterations, "chunk_wtp_auto"))
@@ -36,6 +37,8 @@ func _run(iterations: int, kind: String) -> float:
 	match kind:
 		"for_each_main":
 			return bench.benchmark_query_iterate_entities_with_components_for_each_chunk_main()
+		"begin_chunk_run_main":
+			return bench.benchmark_query_iterate_entities_with_components_begin_chunk_run()
 		"wtp_auto":
 			return bench.benchmark_query_iterate_entities_with_components_worker_pool()
 		"wtp_main_fallback":

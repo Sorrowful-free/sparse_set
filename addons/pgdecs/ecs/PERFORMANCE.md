@@ -22,8 +22,8 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Доступ к данным | index→slot O(1) сохранён |
 | Fast-path iterate | `get_dense_slots()` + `get_values_buffer()` — ~12× быстрее legacy slot API |
 | Архетипы | Единый hash-кэш (info + id), `precache_archetype_packed()`, очистка при evict |
-| Query | Кэш подходящих архетипов; inline chunk loop без nested Callable |
-| Query (legacy) | `get_chunks()` — возвращает внутренний кэш; для WTP — `collect_chunks()` в свой буфер |
+| Query | Кэш подходящих архетипов; `begin_chunk_run` + index loop без Callable в системном раннере |
+| Query (legacy) | `get_chunks()` / `collect_chunks(out, true)` — pooled views; `collect_chunks(out, false)` — независимые snapshot |
 | Handles | Generational id — безопасный реюз без stale access через `has_component` |
 | Destroy | Archetype batch remove по chunk; component `remove_entities_batch` |
 | Component batch | Hybrid bucketing: sparse при плотном chunk range, compact при разреженных index |
@@ -80,7 +80,7 @@ Median perf (5 runs, iterations=25000): legacy **3.38 s**, FAST **0.29 s** — �
 
 ### Общие рекомендации
 
-1. **Chunk iteration** — `query.for_each_chunk(callback)` на main thread; для WTP — `use_worker_pool` + `ECSChunkWorkerDispatch` (см. `ECSSystemChunkBase`, `ECSChunkParallelSettings`).
+1. **Chunk iteration** — в `ECSSystemChunkBase`: `begin_chunk_run` + `process_chunk` без Callable; в gameplay-скриптах допустим `for_each_chunk`. WTP: `use_worker_pool` + `ECSChunkWorkerDispatch`; при `task_count == 0` — прямой main-loop без dispatch.
 2. **Dense iteration** — `chunk.get_entity_count()` + fast-path или `get_dense_entities()` + slot API.
 3. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
 4. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
@@ -157,7 +157,18 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
         pos_chunk.set_value_at_slot(slot, pos_chunk.get_value_at_slot(slot) + Vector2(1, 0))
 ```
 
-## Пример `for_each_chunk`
+## Пример итерации (система, раннер)
+
+`ECSSystemChunkBase` вызывает `process_chunk` через `begin_chunk_run` — без Callable на каждый чанк:
+
+```gdscript
+# Внутри ECSSystemChunkBase.update (main thread):
+var run_count := _query.begin_chunk_run()
+for i in range(run_count):
+    process_chunk(_query.get_chunk_at_run_index(i), delta)
+```
+
+## Пример `for_each_chunk` (скрипты / тесты)
 
 ```gdscript
 query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
@@ -165,7 +176,7 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 )
 ```
 
-`get_entity_ids()` и `get_chunks()` внутри используют тот же путь; для горячих систем предпочтителен прямой callback.
+`get_entity_ids()` и `get_chunks()` делегируют pooled run; для chunk-систем предпочтителен `begin_chunk_run` или наследование `ECSSystemChunkBase`.
 
 ## Устаревшие проблемы (исправлено)
 
@@ -185,7 +196,8 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `create_entities batch` | несколько батчей `create_entities_packed` |
 | `destroy_entities batch` | один батч destroy на N сущностей |
 | `query.get_entity_ids` | сбор id при большом мире |
-| `query.for_each_chunk iterate` | hot path chunk-callback без `Array` у вызывающего |
+| `query.for_each_chunk iterate` | hot path chunk-callback (Callable на границе) |
+| `query iterate e+c begin_chunk_run main` | index loop без Callable (как `ECSSystemChunkBase`) |
 | `query iterate entities+components` | entity-level loop + get/set компонентов (slot API) |
 | `query iterate entities+components FAST` | fast-path: `get_dense_slots()` + `get_values_buffer()` |
 | `query iterate e+c WorkerThreadPool` | slot API через `ECSChunkWorkerDispatch` (AUTO, chunks_per_task=8) |

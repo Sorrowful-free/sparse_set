@@ -119,15 +119,54 @@ func test_get_chunks_snapshots_do_not_alias() -> void:
 	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
 	ecs.create_entities_packed(3, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
-	var first: Array[ECSQueryChunk] = query.get_chunks()
-	var second: Array[ECSQueryChunk] = query.get_chunks()
-	assert_gt(first.size(), 0)
-	assert_eq(first.size(), second.size())
-	for i in range(first.size()):
-		assert_false(first[i] == second[i])
-	query.for_each_chunk(func(_chunk: ECSQueryChunk) -> void: pass)
-	for i in range(first.size()):
-		assert_eq(first[i].get_entity_count(), second[i].get_entity_count())
+	var independent: Array[ECSQueryChunk] = []
+	query.collect_chunks(independent, false)
+	var pooled: Array[ECSQueryChunk] = []
+	query.collect_chunks(pooled, true)
+	assert_gt(independent.size(), 0)
+	assert_eq(independent.size(), pooled.size())
+	for i in range(independent.size()):
+		assert_false(independent[i] == pooled[i])
+		assert_eq(independent[i].get_entity_count(), pooled[i].get_entity_count())
+	query.begin_chunk_run()
+	for i in range(pooled.size()):
+		assert_eq(pooled[i].get_entity_count(), independent[i].get_entity_count())
+
+func test_begin_chunk_run_matches_for_each_chunk() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.create_entities_packed(12, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
+	var from_foreach: PackedInt64Array = PackedInt64Array()
+	query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		for i in range(chunk.get_entity_count()):
+			from_foreach.append(dense[i])
+	)
+	var from_run: PackedInt64Array = PackedInt64Array()
+	var run_count: int = query.begin_chunk_run()
+	for i in range(run_count):
+		var chunk: ECSQueryChunk = query.get_chunk_at_run_index(i)
+		var dense: PackedInt64Array = chunk.get_dense_entities()
+		for j in range(chunk.get_entity_count()):
+			from_run.append(dense[j])
+	assert_eq(from_run.size(), from_foreach.size())
+	for entity_id in from_foreach:
+		assert_true(from_run.find(entity_id) >= 0)
+
+func test_collect_chunks_reuses_pool_after_warmup() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.create_entities_packed(300, PackedInt64Array([POSITION_ID, HEALTH_ID]))
+	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
+	var warmup: Array[ECSQueryChunk] = []
+	query.collect_chunks(warmup)
+	var pool_after_warmup: int = query.get_chunk_pool_size()
+	assert_gt(pool_after_warmup, 0)
+	query.collect_chunks(warmup)
+	assert_eq(query.get_chunk_pool_size(), pool_after_warmup)
 
 func test_get_component_ids_returns_query_components() -> void:
 	var ecs: ECSManager = ECSManager.new()

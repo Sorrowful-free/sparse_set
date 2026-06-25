@@ -276,9 +276,10 @@ var query := ECSQueryBuilder.new()
 
 | Метод | Назначение |
 |-------|------------|
-| `for_each_chunk(callback)` | **предпочтительно** — zero-alloc hot path; объекты из внутреннего пула, **не сохранять** между вызовами |
-| `collect_chunks(out)` | независимые snapshot-объекты `ECSQueryChunk` |
-| `get_chunks()` | snapshot; безопасно сохранять между вызовами query |
+| `begin_chunk_run()` + `get_chunk_at_run_index(i)` | **hot path в системах** — пул без Callable на каждый чанк; views **не сохранять** между вызовами |
+| `for_each_chunk(callback)` | удобный API для скриптов/тестов; внутри тот же пул; Callable на границе callback |
+| `collect_chunks(out, reuse_snapshot=true)` | по умолчанию pooled views (как `begin_chunk_run`); `reuse_snapshot=false` — независимые `ECSQueryChunk.new()` |
+| `get_chunks()` | ссылки на pooled views текущего run; **не** сохранять между вызовами |
 | `get_entity_ids()` | плоский список handle; дорого на больших мирах |
 | `match(entity_id)` | точечная проверка |
 
@@ -451,7 +452,7 @@ profile.visual_registry_strategy = UnitsVisualStrategy.new()
 - Один `ECSManager` — **один поток мутаций** (обычно main thread после `ECSSystemRunner.run`).
 - **Не вызывайте** `create_entity`, `destroy_entity`, `add_component`, `remove_component` изнутри `for_each_chunk` / `process_chunk` напрямую — используйте `ECSCommandBuffer`.
 - `ECSManager` и `ECSComponentBaseArray` используют **общие scratch-буферы** (`_work_bitmask`, `_destroy_*`, `_batch_*`); вложенные мутации без command buffer в debug могут вызвать `push_error`.
-- `for_each_chunk` переиспользует `ECSQueryChunk` из пула; `get_chunks()` возвращает отдельные snapshot-объекты.
+- `for_each_chunk` / `begin_chunk_run` переиспользуют `ECSQueryChunk` из пула; `get_chunks()` и `collect_chunks(out, true)` — те же pooled views, не хранить между кадрами. Независимые snapshot: `collect_chunks(out, false)`.
 - `WorkerThreadPool` в `ECSSystemChunkBase` — только чтение/запись значений компонентов, без структурных изменений мира. Политика: `parallel_settings` (AUTO батчинг + fallback; FORCE — max tasks). Не вызывать WTP вручную — используйте `use_worker_pool` на системе.
 
 ---
