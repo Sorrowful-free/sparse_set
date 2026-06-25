@@ -68,11 +68,11 @@ func destroy_visual(ecs: ECSManager, registry: ECSNodeRegistry, entity: int) -> 
 
 Планируется поддержка **только через реестры и примитивные компоненты-индексы**. Ядро ECS не будет расширено под object types.
 
-## Visual registry (abstract)
+## Visual registry
 
-Presentation-слой в `presentation/`: [`ECSVisualBackend`](presentation/ecs_visual_backend.gd), [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd), [`ECSVisualRegistryDispatcher`](presentation/ecs_visual_registry_dispatcher.gd).
+Presentation-слой: [`ECSVisualHost`](presentation/ecs_visual_host.gd), [`ECSVisualBackend`](presentation/ecs_visual_backend.gd), [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd). Подключение через [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) в `ECSWorldProfile` (как системы).
 
-Примитивные компоненты (регистрируются в игре через `ECSComponentRegistryConfig`):
+Примитивные компоненты (регистрируются в игре через [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd)):
 
 | Component | Storage | Смысл |
 |-----------|---------|--------|
@@ -82,9 +82,9 @@ Presentation-слой в `presentation/`: [`ECSVisualBackend`](presentation/ecs_
 
 Lifecycle:
 
-1. **Spawn:** `registry.acquire(visual_type, entity_id, ecs)` → записать handle + type/subtype на entity.
-2. **Sync:** `ECSVisualSyncSystem` или `backend.sync(ecs, delta)`.
-3. **Destroy:** `registry.release_entity(entity_id)` **до** `destroy_entity`.
+1. **Spawn:** `handle = registry.acquire(visual_type, entity_id, ecs)` → записать handle + type/subtype в SoA-компоненты.
+2. **Sync:** `ECSWorld._process` вызывает `registry.sync_all(ecs, delta)` после систем.
+3. **Destroy:** `registry.release_entity(entity_id, ecs)` **до** `destroy_entity` (читает type/handle из SoA).
 
 **LOD:** смена Skeletal → VAT → MultiMesh = смена `VISUAL_TYPE` (другой backend), не subtype. Опционально `APPEARANCE_VARIANT` + `LOD_LEVEL` — компоненты игры. Hysteresis на порогах — в игровой LOD-системе.
 

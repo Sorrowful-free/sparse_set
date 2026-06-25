@@ -6,7 +6,7 @@ const VELOCITY_ID: int = 2
 
 func build_profile() -> ECSWorldProfile:
 	var world_profile := ECSWorldProfile.new()
-	world_profile.component_registry_config = ExampleComponentRegistry.create_demo()
+	world_profile.component_registry_strategy = ExampleComponentRegistry.create_demo()
 	return world_profile
 
 func bootstrap(entity_count: int = 1000) -> void:

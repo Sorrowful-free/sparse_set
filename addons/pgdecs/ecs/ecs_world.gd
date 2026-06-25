@@ -19,6 +19,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_system_runner.run(delta)
+	if _visual_registry != null:
+		_visual_registry.sync_all(_ecs_manager, delta)
 
 func _init_runtime() -> void:
 	if _ecs_manager == null:
@@ -29,7 +31,13 @@ func _init_runtime() -> void:
 func apply_profile(world_profile: ECSWorldProfile) -> void:
 	_init_runtime()
 	profile = world_profile
-	world_profile.apply_to_world(self)
+	world_profile.apply_to_world(self, _find_visual_host())
+
+func _find_visual_host() -> ECSVisualHost:
+	for child: Node in get_children():
+		if child is ECSVisualHost:
+			return child as ECSVisualHost
+	return null
 
 func get_ecs_manager() -> ECSManager:
 	return _ecs_manager

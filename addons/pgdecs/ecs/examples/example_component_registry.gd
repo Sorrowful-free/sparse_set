@@ -1,4 +1,4 @@
-class_name ExampleComponentRegistry extends ECSComponentRegistryConfig
+class_name ExampleComponentRegistry extends ECSComponentRegistryStrategy
 
 enum Component {
 	POSITION = 1,
@@ -12,10 +12,14 @@ enum Tag {
 	PROJECTILE = 100,
 }
 
-static func create_demo() -> ExampleComponentRegistry:
-	var reg := ExampleComponentRegistry.new()
-	reg.components = {
+func get_tags() -> Array[int]:
+	return []
+
+func get_components() -> Dictionary[int, int]:
+	return {
 		Component.POSITION: TYPE_PACKED_VECTOR2_ARRAY,
 		Component.VELOCITY: TYPE_PACKED_FLOAT32_ARRAY,
 	}
-	return reg
+
+static func create_demo() -> ExampleComponentRegistry:
+	return ExampleComponentRegistry.new()

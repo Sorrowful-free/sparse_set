@@ -19,11 +19,10 @@
 | ECSArchetype | Архетип сущностей |
 | ECSQuery, ECSQueryBuilder | Запросы |
 | ECSSystemBase, ECSSystemRunner | Системы |
-| ECSComponentRegistryConfig | Конфиг тегов и компонентов (`Dictionary` id→storage) |
-| ECSSystemInitStrategy, ECSWorldProfile | Профиль мира и стратегии систем |
-| ECSVisualHost, ECSVisualSceneBinding, ECSVisualHostContext | Доставка нод сцены в backends |
-| ECSVisualBackend, ECSVisualRegistry, ECSVisualRegistryDispatcher | Абстрактный visual-слой |
-| ECSVisualRegistryConfig, ECSVisualSyncSystem | Visual config и sync |
+| ECSComponentRegistryStrategy | Схема ECS: `get_tags()`, `get_components()` (одна на profile) |
+| ECSSystemStrategy, ECSVisualRegistryStrategy, ECSWorldProfile | Профиль мира и стратегии |
+| ECSVisualHost | Якорь visual-сцены, слоты нод (опционально) |
+| ECSVisualBackend, ECSVisualRegistry | Visual-слой: backend в игре, registry в фреймворке |
 | ECSEntityIdsPool, ECSEntityIdsUtils, ECSSparseSet | Пул, утилиты ID и sparse set |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |

@@ -1,4 +1,4 @@
-class_name DemoMovementInitStrategy extends ECSSystemInitStrategy
+class_name DemoMovementStrategy extends ECSSystemStrategy
 
 @export var speed_multiplier: float = 1.0
 

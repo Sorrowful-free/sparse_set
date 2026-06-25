@@ -17,7 +17,7 @@ Data-oriented ECS для Godot 4.x (GDScript). Документ описывае
 11. [Change detection](#change-detection)
 12. [Мир (ECSWorld)](#мир-ecsworld)
 13. [Configuration (profile, registry, strategies)](#configuration-profile-registry-strategies)
-14. [Visual layer (abstract)](#visual-layer-abstract)
+14. [Visual layer](#visual-layer)
 15. [Threading и reentrancy](#threading-и-reentrancy)
 16. [Структура каталогов](#структура-каталогов)
 17. [См. также](#см-также)
@@ -47,8 +47,8 @@ add_child(world)
 
 # Свой профиль:
 var profile := ECSWorldProfile.new()
-profile.component_registry_config = ExampleComponentRegistry.create_demo()
-profile.system_strategies = [DemoMovementInitStrategy.new()]
+profile.component_registry_strategy = ExampleComponentRegistry.create_demo()
+profile.system_strategies = [DemoMovementStrategy.new()]
 world.apply_profile(profile)
 # spawn — в коде игры, не в профиле:
 var arch := world.get_ecs_manager().prepare_archetype([
@@ -357,10 +357,10 @@ buf.execute()  # вызывается раннером автоматическ�
 ```gdscript
 # Нода на сцене
 @export var profile: ECSWorldProfile
-# Дочерний ECSVisualHost со scene_binding — опционально
+# Дочерний ECSVisualHost со slots — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready`, вызывает `run(delta)` в `_process`. Для тестов без дерева сцены: `apply_profile(profile)`.
+`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready`, вызывает `run(delta)` и `visual_registry.sync_all` в `_process`. Для тестов без дерева сцены: `apply_profile(profile)`.
 
 ---
 
@@ -368,48 +368,58 @@ buf.execute()  # вызывается раннером автоматическ�
 
 | Класс | Роль |
 |-------|------|
-| [`ECSComponentRegistryConfig`](config/ecs_component_registry_config.gd) | теги + `Dictionary` id→storage → `apply_to(ecs)` |
-| [`ECSSystemInitStrategy`](config/ecs_system_init_strategy.gd) | `@export` + `create_system(ecs, world)` |
-| [`ECSWorldProfile`](config/ecs_world_profile.gd) | registry configs, strategies, visual config |
+| [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd) | `get_tags()` + `get_components()` → `apply_to(ecs)` (одна на profile) |
+| [`ECSSystemStrategy`](config/ecs_system_strategy.gd) | `@export` + `create_system(ecs, world)` |
+| [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) | `@export` + `create_registry(ecs, world, host)` |
+| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component strategy + visual/system strategies |
 
-Порядок `apply_to_world`: component registry → visual registry → strategies.
+Порядок `apply_to_world`: component registry strategy → visual registry strategies → system strategies. `ECSWorld.apply_profile` передаёт опциональный дочерний `ECSVisualHost` в стратегии; fallback — `host.build_registry(world)`.
 
 Spawn и precache архетипов — в коде игры (`prepare_archetype` / `create_entities_packed`), не в профиле.
 
 ---
 
-## Visual layer (abstract)
+## Visual layer
 
 | Класс | Роль |
 |-------|------|
-| [`ECSVisualHost`](presentation/ecs_visual_host.gd) | якорь visual-сцены под world |
-| [`ECSVisualSceneBinding`](presentation/ecs_visual_scene_binding.gd) | StringName слот → NodePath |
-| [`ECSVisualHostContext`](presentation/ecs_visual_host_context.gd) | разрешённые ноды для `create_registry` |
+| [`ECSVisualHost`](presentation/ecs_visual_host.gd) | якорь visual-сцены, слоты нод (опционально) |
 | [`ECSVisualBackend`](presentation/ecs_visual_backend.gd) | один `visual_type` (игра реализует) |
-| [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd) | фасад: acquire / release_entity / sync_all |
-| [`ECSVisualRegistryDispatcher`](presentation/ecs_visual_registry_dispatcher.gd) | маршрутизатор + entity mirror |
-| [`ECSVisualRegistryConfig`](presentation/ecs_visual_registry_config.gd) | `create_registry(world, context)` |
-| [`ECSVisualSyncSystem`](presentation/ecs_visual_sync_system.gd) | thin `sync_all` каждый кадр |
+| [`ECSVisualRegistry`](presentation/ecs_visual_registry.gd) | acquire / release_entity / sync_all |
 
-Сцена:
+Сцена (Host опционален — только если backends нужны ноды сцены):
 
 ```
 ECSWorld
-└── ECSVisualHost          # scene_binding: { &"units": NodePath("UnitsMultiMesh"), ... }
+└── GameVisualHost       # slots: { &"units": NodePath("UnitsMultiMesh") }
     └── UnitsMultiMesh
 ```
 
-`ECSWorldProfile.apply_to_world` вызывает `ECSVisualHostContext.from_world(world)` — ищет дочерний [ECSVisualHost] или использует сам world как root.
+`ECSWorldProfile.visual_registry_strategies` — основной способ подключения registry (как `system_strategies`). Host передаётся в `create_registry` для `require_slot`.
 
-Игра в `create_registry`:
+Игра — strategy в profile:
 
 ```gdscript
-func create_registry(_world: ECSWorld, context: ECSVisualHostContext) -> ECSVisualRegistry:
-    var registry := ECSVisualRegistryDispatcher.new()
-    var mesh := context.require_node(&"units") as MultiMeshInstance3D
+class_name UnitsVisualStrategy extends ECSVisualRegistryStrategy
+
+func create_registry(_ecs, world, host) -> ECSVisualRegistry:
+    if host == null:
+        return null
+    var registry := ECSVisualRegistry.new()
+    registry.visual_type_component_id = GameComponents.VISUAL_TYPE
+    registry.visual_handle_component_id = GameComponents.VISUAL_HANDLE
+    var mesh := host.require_slot(&"units") as MultiMeshInstance3D
     registry.register_backend(VisualType.UNITS, UnitsBackend.new(mesh))
     return registry
 ```
+
+```gdscript
+profile.visual_registry_strategies = [UnitsVisualStrategy.new()]
+```
+
+Без Host и без strategy — `get_visual_registry()` вернёт `null`, sync не вызывается.
+
+Альтернатива без strategy: переопределить `ECSVisualHost.build_registry(world)` — используется как fallback, если стратегии не вернули registry.
 
 Примитивные компоненты в игре: `VISUAL_TYPE`, `VISUAL_SUBTYPE`, `VISUAL_HANDLE` (`TYPE_PACKED_INT32_ARRAY`). Subtype — свой enum на каждый visual type. LOD swap: `release_entity` → смена `VISUAL_TYPE` → `acquire`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
@@ -431,8 +441,8 @@ func create_registry(_world: ECSWorld, context: ECSVisualHostContext) -> ECSVisu
 addons/pgdecs/ecs/
 ├── ecs_manager.gd
 ├── ecs_world.gd
-├── config/                 # ECSComponentRegistryConfig, ECSWorldProfile, InitStrategy
-├── presentation/           # VisualHost, SceneBinding, Backend, Registry, Dispatcher
+├── config/                 # Strategy (component, visual, system), ECSWorldProfile
+├── presentation/           # VisualHost, Backend, Registry
 ├── ecs_command_buffer.gd
 ├── entities/
 ├── components/
