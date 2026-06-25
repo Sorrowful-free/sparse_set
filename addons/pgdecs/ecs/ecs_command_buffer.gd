@@ -32,11 +32,19 @@ func _init(ecs_manager: ECSManager) -> void:
 func _packed_from_array(component_ids: Array[int]) -> PackedInt64Array:
 	return PackedInt64Array(component_ids)
 
+func _guard_main_thread(context: String) -> bool:
+	if Thread.is_main_thread():
+		return true
+	push_error("ECSCommandBuffer: %s requires main thread" % context)
+	return false
+
 ## Внешний API: Array[int], PackedInt64Array создаётся внутри.
 func create_entity(component_ids: Array[int]) -> int:
 	return create_entity_packed(_packed_from_array(component_ids))
 
 func create_entity_packed(component_ids: PackedInt64Array) -> int:
+	if not _guard_main_thread("create_entity_packed"):
+		return 0
 	# Генерируем временный отрицательный ID для отслеживания
 	var temp_id: int = _next_temp_id
 	_next_temp_id -= 1
@@ -50,6 +58,8 @@ func create_entities(count: int, component_ids: Array[int]) -> PackedInt64Array:
 	return create_entities_packed(count, _packed_from_array(component_ids))
 
 func create_entities_packed(count: int, component_ids: PackedInt64Array) -> PackedInt64Array:
+	if not _guard_main_thread("create_entities_packed"):
+		return PackedInt64Array()
 	# Генерируем временные отрицательные ID для отслеживания
 	var temp_ids: PackedInt64Array = PackedInt64Array()
 	var base_temp_id: int = _next_temp_id
@@ -64,18 +74,24 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 	return temp_ids
 
 func add_component(entity_id: int, component_id: int) -> void:
+	if not _guard_main_thread("add_component"):
+		return
 	var entity_ids: PackedInt64Array = PackedInt64Array([entity_id])
 	var component_ids: PackedInt64Array = PackedInt64Array([component_id])
 	var command: Command = Command.new(CommandType.ADD_COMPONENT, component_ids, entity_ids)
 	_commands.append(command)
 
 func remove_component(entity_id: int, component_id: int) -> void:
+	if not _guard_main_thread("remove_component"):
+		return
 	var entity_ids: PackedInt64Array = PackedInt64Array([entity_id])
 	var component_ids: PackedInt64Array = PackedInt64Array([component_id])
 	var command: Command = Command.new(CommandType.REMOVE_COMPONENT, component_ids, entity_ids)
 	_commands.append(command)
 
 func destroy_entity(entity_id: int) -> void:
+	if not _guard_main_thread("destroy_entity"):
+		return
 	var entity_ids: PackedInt64Array = PackedInt64Array([entity_id])
 	var command: Command = Command.new(CommandType.DESTROY_ENTITY, PackedInt64Array(), entity_ids)
 	_commands.append(command)
@@ -85,6 +101,8 @@ func destroy_entities(entity_ids: Array[int]) -> void:
 	destroy_entities_packed(_packed_from_array(entity_ids))
 
 func destroy_entities_packed(entity_ids: PackedInt64Array) -> void:
+	if not _guard_main_thread("destroy_entities_packed"):
+		return
 	if entity_ids.is_empty():
 		return
 	var command: Command = Command.new(CommandType.DESTROY_ENTITIES, PackedInt64Array(), entity_ids)

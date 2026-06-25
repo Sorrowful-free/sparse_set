@@ -24,6 +24,8 @@ var use_worker_pool: bool = false
 func _init(ecs_manager: ECSManager) -> void:
 	super._init(ecs_manager)
 	_query = _build_query()
+	if _query == null:
+		push_warning("ECSSystemChunkBase: _build_query() returned null in %s" % get_script())
 
 ## Переопределяйте в наследниках: создайте и верните query через [ECSQueryBuilder].build(get_ecs_manager()).
 func _build_query() -> ECSQuery:

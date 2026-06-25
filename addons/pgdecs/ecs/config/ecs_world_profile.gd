@@ -7,17 +7,27 @@ class_name ECSWorldProfile extends Resource
 func apply_to_world(world: ECSWorld, visual_host: ECSVisualHost = null) -> void:
 	var ecs: ECSManager = world.get_ecs_manager()
 	if component_registry_strategy != null and component_registry_strategy.enabled:
-		component_registry_strategy.apply_to(ecs)
-	for strategy: ECSVisualRegistryStrategy in visual_registry_strategies:
-		if strategy == null or not strategy.enabled:
-			continue
-		var registry: ECSVisualRegistry = strategy.create_registry(ecs, world, visual_host)
-		if registry != null:
-			world.set_visual_registry(registry)
-			break
+		if not ecs.is_schema_registered():
+			component_registry_strategy.apply_to(ecs)
+	apply_visual_strategies(world, visual_host)
 	for strategy: ECSSystemStrategy in system_strategies:
 		if strategy == null or not strategy.enabled:
 			continue
 		var system: ECSSystemBase = strategy.create_system(ecs, world)
 		if system != null:
 			world.get_system_runner().add_system(system)
+
+func apply_visual_strategies(world: ECSWorld, visual_host: ECSVisualHost = null) -> void:
+	var ecs: ECSManager = world.get_ecs_manager()
+	var merged: ECSVisualRegistry = null
+	for strategy: ECSVisualRegistryStrategy in visual_registry_strategies:
+		if strategy == null or not strategy.enabled:
+			continue
+		var registry: ECSVisualRegistry = strategy.create_registry(ecs, world, visual_host)
+		if registry == null:
+			continue
+		if merged == null:
+			merged = registry
+			world.set_visual_registry(registry)
+		else:
+			merged.absorb(registry)

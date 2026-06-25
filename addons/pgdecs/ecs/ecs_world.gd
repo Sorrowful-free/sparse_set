@@ -18,6 +18,9 @@ func _ready() -> void:
 	elif OS.is_debug_build():
 		push_warning("ECSWorld: profile is not set")
 
+func _enter_tree() -> void:
+	_try_install_deferred_visual_registry()
+
 func _process(delta: float) -> void:
 	_system_runner.run(delta)
 	if _visual_registry != null:
@@ -58,6 +61,15 @@ func _find_visual_host() -> ECSVisualHost:
 			return child as ECSVisualHost
 	return null
 
+func _try_install_deferred_visual_registry() -> void:
+	if not _profile_applied or profile == null:
+		return
+	if _visual_registry != null:
+		return
+	if profile.visual_registry_strategies.is_empty():
+		return
+	profile.apply_visual_strategies(self, _find_visual_host())
+
 func get_ecs_manager() -> ECSManager:
 	return _ecs_manager
 
@@ -69,3 +81,11 @@ func get_visual_registry() -> ECSVisualRegistry:
 
 func set_visual_registry(registry: ECSVisualRegistry) -> void:
 	_visual_registry = registry
+
+func reset_world() -> void:
+	if _ecs_manager != null:
+		_ecs_manager.reset()
+	if _system_runner != null:
+		_system_runner.clear()
+	_visual_registry = null
+	_profile_applied = false

@@ -10,9 +10,35 @@ func register_backend(visual_type: int, backend: ECSVisualBackend) -> void:
 	backend.visual_type = visual_type
 	_backends[visual_type] = backend
 
+func absorb(other: ECSVisualRegistry) -> void:
+	if other == null:
+		return
+	if other == self:
+		return
+	_merge_component_ids_from(other)
+	for visual_type: int in other._backends:
+		if _backends.has(visual_type):
+			if OS.is_debug_build():
+				push_error("ECSVisualRegistry.absorb: duplicate visual_type %d" % visual_type)
+			continue
+		register_backend(visual_type, other._backends[visual_type])
+
+func _merge_component_ids_from(other: ECSVisualRegistry) -> void:
+	if visual_type_component_id < 0 and other.visual_type_component_id >= 0:
+		visual_type_component_id = other.visual_type_component_id
+	elif other.visual_type_component_id >= 0 and visual_type_component_id != other.visual_type_component_id:
+		if OS.is_debug_build():
+			push_error("ECSVisualRegistry.absorb: visual_type_component_id mismatch")
+	if visual_handle_component_id < 0 and other.visual_handle_component_id >= 0:
+		visual_handle_component_id = other.visual_handle_component_id
+	elif other.visual_handle_component_id >= 0 and visual_handle_component_id != other.visual_handle_component_id:
+		if OS.is_debug_build():
+			push_error("ECSVisualRegistry.absorb: visual_handle_component_id mismatch")
+
 func acquire(visual_type: int, entity_id: int, ecs: ECSManager) -> int:
 	var backend: ECSVisualBackend = _backends.get(visual_type)
 	if backend == null:
+		push_warning("ECSVisualRegistry.acquire: unknown visual_type %d" % visual_type)
 		return -1
 	var handle: int = backend.acquire_for_entity(entity_id, ecs)
 	if handle >= 0:

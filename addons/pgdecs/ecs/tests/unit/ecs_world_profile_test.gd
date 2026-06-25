@@ -56,6 +56,17 @@ func test_apply_profile_twice_does_not_duplicate_systems() -> void:
 	world.apply_profile(world_profile)
 	assert_eq(world.get_system_runner().get_systems().size(), 1)
 
+func test_reset_world_allows_reapply_profile() -> void:
+	var world: ECSWorld = add_child_autofree(ECSWorld.new())
+	var world_profile := ECSWorldProfile.new()
+	world_profile.component_registry_strategy = _make_component_registry_strategy()
+	world_profile.system_strategies = [ECSTestMockSystemStrategy.new()]
+	world.apply_profile(world_profile)
+	world.reset_world()
+	world.apply_profile(world_profile)
+	assert_eq(world.get_system_runner().get_systems().size(), 1)
+	assert_true(world.is_profile_applied())
+
 func test_disabled_component_registry_strategy_skips_registration() -> void:
 	var world: ECSWorld = add_child_autofree(ECSWorld.new())
 	var strategy := _make_component_registry_strategy()

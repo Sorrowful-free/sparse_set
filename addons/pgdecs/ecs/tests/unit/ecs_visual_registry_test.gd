@@ -39,6 +39,7 @@ func test_unknown_visual_type_returns_negative() -> void:
 	var registry := ECSVisualRegistry.new()
 	var ecs: ECSManager = ECSManager.new()
 	assert_eq(registry.acquire(999, 1, ecs), -1)
+	assert_push_warning("unknown visual_type")
 
 func test_host_resolves_slots() -> void:
 	var host := ECSVisualHost.new()

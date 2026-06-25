@@ -4,23 +4,26 @@ on:
   push:
     paths:
       - 'addons/pgdecs/**'
+      - '.github/workflows/ecs-tests.yml'
   pull_request:
     paths:
       - 'addons/pgdecs/**'
+      - '.github/workflows/ecs-tests.yml'
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run ECS unit tests (Godot headless)
-        shell: pwsh
-        run: |
-          $godot = "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe"
-          if (Test-Path $godot) {
-            & $godot --headless --path . --import
-            & $godot --headless --path . --script res://addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json -gexit
-          } else {
-            Write-Host "::warning::Godot not found at $godot. ECS tests skipped in CI; run locally (addons/pgdecs/ecs/tests/README.md)."
-            exit 0
-          }
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.stable
+          include-templates: true
+
+      - name: Import project
+        run: godot --headless --path . --import
+
+      - name: Run Composer quality gates
+        run: godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd

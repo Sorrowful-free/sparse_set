@@ -626,6 +626,9 @@ func count_live_archetypes() -> int:
 func count_registered_archetypes() -> int:
 	return _registered_archetypes.size()
 
+func is_schema_registered() -> bool:
+	return not _components.is_empty() or not _tags.is_empty()
+
 func reset() -> void:
 	var to_destroy: PackedInt64Array = PackedInt64Array()
 	for archetype in _registered_archetypes:

@@ -14,11 +14,13 @@
 При первом запуске или после добавления `class_name` выполните импорт:
 
 ```powershell
-& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --import
-& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json -gexit
+$godot = (Get-Command godot -ErrorAction SilentlyContinue).Source
+if (-not $godot) { $godot = "godot" }
+& $godot --headless --path . --import
+& $godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
 ```
 
-Альтернатива-обёртка: `ecs/tests/run_unit_tests_headless.gd` (тот же GUT CLI).
+Альтернатива-обёртка: `ecs/tests/run_unit_tests_headless.gd` (GUT CLI напрямую).
 
 Тесты в `unit/`:
 - `unit/ecs_archetype_key_test.gd` — канонические ключи архетипов, bit_equals
@@ -42,16 +44,21 @@
 - `unit/ecs_archetype_chunk_test.gd` — dense add/remove, swap-remove, slots
 - `unit/ecs_membership_test.gd` — has_component только через archetype
 - `unit/ecs_dense_iteration_test.gd` — count O(alive), dense vs query ids
-- `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()`
+- `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()` и движение сущностей
+- `unit/ecs_world_profile_test.gd` — profile strategies, `reset_world`, повторный apply
+- `unit/ecs_visual_registry_test.gd` — acquire/release, sync, host slots
+- `unit/ecs_visual_registry_strategy_test.gd` — visual strategies, merge, deferred install
 
-CI: `.github/workflows/ecs-tests.yml` (best-effort на Windows runner с локальным путём Godot).
+CI: `.github/workflows/ecs-tests.yml` (Godot 4.7 + `run_composer_gates_headless.gd`).
 
 ## Composer quality gates
 
 См. [`agent_handoff/QUALITY_GATES.md`](../agent_handoff/QUALITY_GATES.md).
 
 ```powershell
-& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
+$godot = (Get-Command godot -ErrorAction SilentlyContinue).Source
+if (-not $godot) { $godot = "godot" }
+& $godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
 ```
 
 ## Тесты производительности

@@ -113,3 +113,13 @@ func test_change_detection_prunes_stale_chunk_seen() -> void:
 	ecs.destroy_entities_packed(ids)
 	system.update(0.016)
 	assert_eq(system._chunk_seen.size(), 0)
+
+class _NullQuerySystem extends ECSSystemChunkBase:
+	pass
+
+func test_null_query_emits_warning() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	var system: _NullQuerySystem = _NullQuerySystem.new(ecs)
+	system.update(0.016)
+	assert_null(system.get_query())
+	assert_push_warning("_build_query() returned null")

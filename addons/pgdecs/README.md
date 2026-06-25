@@ -14,11 +14,12 @@ Data-oriented ECS для Godot 4.x (GDScript).
 ## Быстрый старт
 
 ```gdscript
-# Сцена: ECSWorld + ECSWorldProfile (.tres)
 var world := ECSDemoWorld.new()
-world.bootstrap(1000)
-add_child(world)
+add_child(world)          # рекомендуется до bootstrap (visual host)
+world.bootstrap(1000)     # profile + DemoMovementStrategy + spawn
 ```
+
+`bootstrap()` до `add_child` тоже работает: visual strategies без host переустанавливаются в `_enter_tree()`.
 
 Подробнее: [ecs/FRAMEWORK.md](ecs/FRAMEWORK.md#configuration-profile-registry-strategies).
 
@@ -80,10 +81,12 @@ buf.destroy_entities_packed(batch_ids)
 ## Тесты
 
 ```powershell
-& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_unit_tests_headless.gd
-& "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --script res://addons/pgdecs/ecs/tests/run_performance_tests_headless.gd
+$godot = (Get-Command godot -ErrorAction SilentlyContinue).Source
+if (-not $godot) { $godot = "godot" }
+& $godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
+& $godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_performance_tests_headless.gd
 ```
 
 ## Demo
 
-См. [ecs/examples/demo_world.gd](ecs/examples/demo_world.gd) — bootstrap 1000 сущностей без сцены.
+См. [ecs/examples/demo_world.gd](ecs/examples/demo_world.gd) — bootstrap 1000 сущностей с `DemoMovementStrategy`.

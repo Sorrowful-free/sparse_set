@@ -1,11 +1,13 @@
 # Решения по архитектуре ECS (Фаза 0)
 
+> **Исторический документ** (фазы 0–2): описывает эволюцию решений. Актуальные имена классов — с префиксом `ECS` (`ECSEntityIdsUtils`, `ECSComponentBaseArray`). См. [FRAMEWORK.md](FRAMEWORK.md) и [NAMING.md](NAMING.md).
+
 ## 0.1. Размер чанка
 
 **Решение: фиксированный размер 256.**
 
-- Используется константа `EntityIdsUtils.CHUNK_SIZE` (256) везде: архетипы, компоненты, утилиты.
-- Сигнатура `EntityIdsUtils.get_chunk_entity_index(entity_id)` — один аргумент. Формула: `entity_id & 0xFF`, `get_chunk_index(entity_id)` = `entity_id >> 8`.
+- Используется константа `ECSEntityIdsUtils.CHUNK_SIZE` (256) везде: архетипы, компоненты, утилиты.
+- Сигнатура `ECSEntityIdsUtils.get_chunk_entity_index(entity_id)` — один аргумент. Формула: `entity_id & 0xFF`, `get_chunk_index(entity_id)` = `entity_id >> 8`.
 - Не вводим параметр `chunk_capacity` в ECSManager, Archetype, ComponentFactory — меньше путаницы и проще код.
 
 При необходимости настраиваемого размера чанка можно будет ввести позже через единую точку (константа или настройка в ECSManager).

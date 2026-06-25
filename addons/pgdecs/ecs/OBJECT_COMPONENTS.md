@@ -42,7 +42,7 @@ const NODE_SLOT_ID: int = 10
 
 func spawn_visual(ecs: ECSManager, registry: ECSNodeRegistry, node: Node) -> int:
     var slot: int = registry.register(node)
-    var entity: int = ecs.create_entity(POSITION_ID, NODE_SLOT_ID)
+    var entity: int = ecs.create_entity([POSITION_ID, NODE_SLOT_ID])
     var slots: ECSComponentInt32Array = ecs.get_component_array(NODE_SLOT_ID)
     slots.set_component(entity, slot)
     return entity

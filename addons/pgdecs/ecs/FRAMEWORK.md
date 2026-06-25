@@ -362,7 +362,7 @@ buf.execute()  # вызывается раннером автоматическ�
 # Дочерний ECSVisualHost со slots — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready` (один раз), вызывает `run(delta)` и `visual_registry.sync_all` в `_process`. Повторный `apply_profile` игнорируется.
+`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready` (один раз), вызывает `run(delta)` и `visual_registry.sync_all` в `_process`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и visual registry и сбрасывает флаг profile — для reload сцены.
 
 ---
 
@@ -398,6 +398,10 @@ ECSWorld
 ```
 
 `ECSWorldProfile.visual_registry_strategies` — основной способ подключения registry (как `system_strategies`). Host передаётся в `create_registry` для `require_slot`.
+
+Несколько enabled strategies объединяются в **один** `ECSVisualRegistry`: первый non-null registry — база, остальные передают backends через `absorb()`. Конфликт `visual_type` или component id — `push_error` в debug.
+
+Если `apply_profile` вызван до `add_child(world)` и strategy вернула `null` без host, `ECSWorld._enter_tree()` повторно вызывает `apply_visual_strategies` после появления дочернего `ECSVisualHost`.
 
 Игра — strategy в profile:
 

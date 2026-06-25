@@ -84,6 +84,46 @@ func test_first_non_null_strategy_wins() -> void:
 	assert_eq(first.create_count, 1)
 	assert_eq(second.create_count, 1)
 
+func test_multiple_strategies_merge_backends() -> void:
+	var world: ECSWorld = ECSWorld.new()
+	add_child_autofree(world)
+	var backend_a := ECSTestMockVisualBackend.new()
+	var backend_b := ECSTestMockVisualBackend.new()
+	var registry_a := ECSVisualRegistry.new()
+	registry_a.register_backend(1, backend_a)
+	var registry_b := ECSVisualRegistry.new()
+	registry_b.register_backend(2, backend_b)
+	var first := _MOCK_STRATEGY.new()
+	first.registry_to_return = registry_a
+	var second := _MOCK_STRATEGY.new()
+	second.registry_to_return = registry_b
+	var profile := ECSWorldProfile.new()
+	profile.visual_registry_strategies = [first, second]
+	world.apply_profile(profile)
+	var merged: ECSVisualRegistry = world.get_visual_registry()
+	assert_eq(merged, registry_a)
+	var ecs: ECSManager = world.get_ecs_manager()
+	assert_eq(merged.acquire(1, 1, ecs), 2)
+	assert_eq(merged.acquire(2, 1, ecs), 2)
+	assert_eq(backend_a.acquire_count, 1)
+	assert_eq(backend_b.acquire_count, 1)
+
+func test_apply_profile_before_add_child_installs_visual_on_enter_tree() -> void:
+	var world: ECSWorld = ECSWorld.new()
+	var strategy := _MOCK_STRATEGY.new()
+	strategy.return_null_without_host = true
+	var registry := ECSVisualRegistry.new()
+	strategy.registry_to_return = registry
+	var profile := ECSWorldProfile.new()
+	profile.visual_registry_strategies = [strategy]
+	world.apply_profile(profile)
+	assert_eq(world.get_visual_registry(), null)
+	world.add_child(ECSVisualHost.new())
+	add_child_autofree(world)
+	assert_eq(world.get_visual_registry(), registry)
+	assert_eq(strategy.create_count, 2)
+	assert_true(strategy.last_host != null)
+
 func test_apply_profile_only_once() -> void:
 	var world: ECSWorld = ECSWorld.new()
 	add_child_autofree(world)
