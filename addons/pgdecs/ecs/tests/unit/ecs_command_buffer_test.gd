@@ -22,6 +22,41 @@ func test_destroy_via_buffer() -> void:
 	buf.execute()
 	assert_false(ecs.has_component(real_id, POSITION_ID))
 
+func test_create_then_set_in_same_frame_before_execute() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	var temp_id: int = buf.create_entity([POSITION_ID])
+	buf.set_component_value(temp_id, POSITION_ID, Vector2(1.0, 2.0))
+	buf.execute()
+	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	assert_eq(ids.size(), 1)
+	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	assert_eq(pos.get_component(ids[0]), Vector2(1.0, 2.0))
+
+func test_set_on_temp_skipped_after_create_destroy_coalesce() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	var temp_id: int = buf.create_entity([POSITION_ID])
+	buf.set_component_value(temp_id, POSITION_ID, Vector2(9.0, 9.0))
+	buf.destroy_entity(temp_id)
+	buf.execute()
+	var q: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
+	assert_eq(q.get_entity_ids().size(), 0)
+
+func test_coalesce_set_component_last_wins() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	var temp_id: int = buf.create_entity([POSITION_ID])
+	buf.set_component_value(temp_id, POSITION_ID, Vector2(1.0, 1.0))
+	buf.set_component_value(temp_id, POSITION_ID, Vector2(3.0, 4.0))
+	buf.execute()
+	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	assert_eq(pos.get_component(ids[0]), Vector2(3.0, 4.0))
+
 func test_create_then_use_in_same_frame() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)

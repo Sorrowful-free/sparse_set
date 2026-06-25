@@ -5,6 +5,7 @@ enum CommandType {
 	CREATE_ENTITIES,
 	ADD_COMPONENT,
 	REMOVE_COMPONENT,
+	SET_COMPONENT,
 	DESTROY_ENTITY,
 	DESTROY_ENTITIES
 }
@@ -14,6 +15,7 @@ class Command:
 	var component_ids: PackedInt64Array
 	var entity_ids: PackedInt64Array  # Для массовых операций
 	var count: int  # Количество сущностей для создания
+	var component_value: Variant
 
 	func _init(cmd_type: CommandType, c_ids: PackedInt64Array = PackedInt64Array(), e_ids: PackedInt64Array = PackedInt64Array(), cnt: int = 0) -> void:
 		type = cmd_type
@@ -28,6 +30,9 @@ var _next_temp_id: int = -1  # Счетчик для генерации уник
 
 func _init(ecs_manager: ECSManager) -> void:
 	_ecs_manager = ecs_manager
+
+func get_ecs_manager() -> ECSManager:
+	return _ecs_manager
 
 func _packed_from_array(component_ids: Array[int]) -> PackedInt64Array:
 	return PackedInt64Array(component_ids)
@@ -89,6 +94,16 @@ func remove_component(entity_id: int, component_id: int) -> void:
 	var command: Command = Command.new(CommandType.REMOVE_COMPONENT, component_ids, entity_ids)
 	_commands.append(command)
 
+## Запись значения компонента (temp id до execute разрешается после CREATE в том же буфере).
+func set_component_value(entity_id: int, component_id: int, value: Variant) -> void:
+	if not _guard_main_thread("set_component_value"):
+		return
+	var entity_ids: PackedInt64Array = PackedInt64Array([entity_id])
+	var component_ids: PackedInt64Array = PackedInt64Array([component_id])
+	var command: Command = Command.new(CommandType.SET_COMPONENT, component_ids, entity_ids)
+	command.component_value = value
+	_commands.append(command)
+
 func destroy_entity(entity_id: int) -> void:
 	if not _guard_main_thread("destroy_entity"):
 		return
@@ -124,6 +139,8 @@ func execute() -> void:
 				_execute_add_component(command)
 			CommandType.REMOVE_COMPONENT:
 				_execute_remove_component(command)
+			CommandType.SET_COMPONENT:
+				_execute_set_component(command)
 			CommandType.DESTROY_ENTITY:
 				_execute_destroy_entity(command)
 			CommandType.DESTROY_ENTITIES:
@@ -151,6 +168,7 @@ func _coalesce_commands() -> Array[Command]:
 	var cancelled_temps: Dictionary[int, bool] = _find_cancelled_temp_entities()
 	var filtered: Array[Command] = _filter_commands(cancelled_temps)
 	filtered = _coalesce_component_ops(filtered)
+	filtered = _coalesce_set_component_ops(filtered)
 	return _merge_destroy_entity_commands(filtered)
 
 func _find_cancelled_temp_entities() -> Dictionary[int, bool]:
@@ -202,7 +220,7 @@ func _filter_commands(cancelled_temps: Dictionary[int, bool]) -> Array[Command]:
 				if kept_ids.is_empty():
 					continue
 				result.append(Command.new(CommandType.CREATE_ENTITIES, command.component_ids, kept_ids, kept_ids.size()))
-			CommandType.ADD_COMPONENT, CommandType.REMOVE_COMPONENT:
+			CommandType.ADD_COMPONENT, CommandType.REMOVE_COMPONENT, CommandType.SET_COMPONENT:
 				if command.entity_ids.is_empty() || command.component_ids.is_empty():
 					continue
 				var entity_id: int = command.entity_ids[0]
@@ -261,6 +279,23 @@ func _coalesce_component_ops(commands: Array[Command]) -> Array[Command]:
 		if !removed.has(command.get_instance_id()):
 			coalesced.append(command)
 	return coalesced
+
+func _coalesce_set_component_ops(commands: Array[Command]) -> Array[Command]:
+	var result: Array[Command] = []
+	var last_set_index: Dictionary[String, int] = {}
+	for command: Command in commands:
+		if command.type != CommandType.SET_COMPONENT:
+			result.append(command)
+			continue
+		var entity_id: int = command.entity_ids[0]
+		var component_id: int = command.component_ids[0]
+		var key: String = _component_op_key(entity_id, component_id)
+		if last_set_index.has(key):
+			result[last_set_index[key]] = command
+		else:
+			last_set_index[key] = result.size()
+			result.append(command)
+	return result
 
 func _merge_destroy_entity_commands(commands: Array[Command]) -> Array[Command]:
 	var result: Array[Command] = []
@@ -326,6 +361,23 @@ func _execute_remove_component(command: Command) -> void:
 		return  # Сущность не существует
 
 	_ecs_manager.remove_component(real_entity_id, command.component_ids[0])
+
+func _execute_set_component(command: Command) -> void:
+	if _ecs_manager == null:
+		return
+
+	if command.entity_ids.is_empty() || command.component_ids.is_empty():
+		return
+
+	var real_entity_id: int = _get_real_entity_id(command.entity_ids[0])
+	if real_entity_id == 0 || !_ecs_manager.is_alive(real_entity_id):
+		return
+
+	var component_array: ECSComponentBaseArray = _ecs_manager.get_component_array(command.component_ids[0])
+	if component_array == null:
+		return
+
+	component_array.set_component(real_entity_id, command.component_value)
 
 func _execute_destroy_entity(command: Command) -> void:
 	if _ecs_manager == null:

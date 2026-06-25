@@ -221,6 +221,56 @@ parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
 
 ---
 
+## 6b. Entity blueprint (канон)
+
+Наследуй [`ECSEntityBlueprint`](../config/ecs_entity_blueprint.gd) в игре; component id — **те же int**, что в enum схемы (`ECSComponentRegistryStrategy`).
+
+**Spawn и параметры — только через command buffer** (`create` + `set_component_value` в одном буфере).
+
+```gdscript
+class_name ZombieBlueprint extends ECSEntityBlueprint
+
+@export var base_health: int = 50
+@export var spawn_radius: float = 120.0
+
+func build_component_ids() -> PackedInt64Array:
+    return PackedInt64Array([
+        GameComponents.POSITION,
+        GameComponents.HEALTH,
+    ])
+
+func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+    buf.set_component_value(entity_id, GameComponents.HEALTH, base_health)
+
+func apply_instance(buf: ECSCommandBuffer, entity_id: int, _index: int) -> void:
+    apply_defaults(buf, entity_id)
+    buf.set_component_value(entity_id, GameComponents.POSITION, _random_point_in_radius(spawn_radius))
+
+# Толпа: один буфер — create batch + set на каждый temp id
+func spawn_horde(buf: ECSCommandBuffer, count: int) -> PackedInt64Array:
+    return spawn_batch(buf, count)
+```
+
+| Spawn | API |
+|-------|-----|
+| Одна сущность | `spawn_one(buf)` → `runner.run()` или `buf.execute()` |
+| Толпа / batch | `spawn_batch(buf, count)` — create + `apply_instance` на temp ids |
+| Bootstrap | отдельный `ECSCommandBuffer` + `execute()` после spawn |
+| Из системы | `spawn_batch(get_command_buffer(), n)` — **не** вызывать `execute()` в системе |
+
+```gdscript
+# ПЛОХО: прямой create / set_component в gameplay
+ecs.create_entity_packed(...)
+health.set_component(entity_id, 50)
+
+# ПЛОХО: spawn без буфера
+blueprint.spawn_immediate(ecs)  # удалено — только buffer
+```
+
+Эталон: [`example_mover_blueprint.gd`](../examples/example_mover_blueprint.gd).
+
+---
+
 ## 7. Bootstrap мира (не путать с spawn)
 
 ```gdscript
@@ -233,9 +283,11 @@ profile.component_registry_strategy = MyComponentsStrategy.new()
 # Visual: visual_registry_strategy (Host — слоты, не build_registry)
 profile.visual_registry_strategy = MyVisualStrategy.new()
 
-# Precache/spawn архетипов — код игры, не в profile
-var arch := ecs.prepare_archetype([POSITION_ID, VELOCITY_ID])
-ecs.create_entities_packed(1000, arch)
+# Spawn: blueprint через command buffer
+var buf := ECSCommandBuffer.new(world.get_ecs_manager())
+var mover := ExampleMoverBlueprint.new()
+mover.spawn_one(buf)
+buf.execute()
 ```
 
 ---
@@ -280,4 +332,5 @@ Slot API на spawn достаточен; chunk-based visual bind в фрейм�
 | WTP dispatch | [`ecs_chunk_worker_dispatch.gd`](../systems/ecs_chunk_worker_dispatch.gd) |
 | Command buffer тесты | [`ecs_command_buffer_test.gd`](../tests/unit/ecs_command_buffer_test.gd) |
 | Profile / strategies | [`ecs_world_profile.gd`](../config/ecs_world_profile.gd) |
+| Entity blueprint | [`ecs_entity_blueprint.gd`](../config/ecs_entity_blueprint.gd), [`example_mover_blueprint.gd`](../examples/example_mover_blueprint.gd) |
 | Runner порядок | [`ecs_system_runner.gd`](../systems/ecs_system_runner.gd) |

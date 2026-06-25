@@ -401,10 +401,39 @@ buf.execute()  # вызывается раннером автоматическ�
 | [`ECSSystemStrategy`](config/ecs_system_strategy.gd) | `@export` + `create_system(ecs, world)` |
 | [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) | `@export` + `create_registry(ecs, world, host)` |
 | [`ECSWorldProfile`](config/ecs_world_profile.gd) | component strategy + visual/system strategies |
+| [`ECSEntityBlueprint`](config/ecs_entity_blueprint.gd) | абстрактный blueprint сущности (игра наследует Resource) |
 
 Порядок `apply_to_world`: component registry strategy → visual registry strategies → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSVisualHost` в visual strategies для `require_slot`.
 
-Spawn и precache архетипов — в коде игры (`prepare_archetype` / `create_entities_packed`), не в профиле.
+Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
+
+### ECSEntityBlueprint
+
+Абстрактный `Resource` по тому же принципу, что `ECSComponentRegistryStrategy`: ядро — `int` component id, игра — enum в наследнике.
+
+```gdscript
+class_name GoblinBlueprint extends ECSEntityBlueprint
+
+func build_component_ids() -> PackedInt64Array:
+    return PackedInt64Array([
+        MyComponents.POSITION,
+        MyComponents.HEALTH,
+        MyComponents.NAV_AGENT,
+    ])
+
+func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+    buf.set_component_value(entity_id, MyComponents.HEALTH, 100)
+```
+
+| Метод | Когда |
+|-------|--------|
+| `spawn_one(buf)` | одна сущность; temp id до execute |
+| `spawn_batch(buf, count)` | батч create + `apply_instance` на temp ids в том же буфере |
+| `apply_instance(buf, entity_id, index)` | только `buf.set_component_value` |
+
+Bootstrap и системы: один буфер на кадр/фазу — create + set, затем `execute()` (runner или вручную).
+
+Пример: [`examples/example_mover_blueprint.gd`](examples/example_mover_blueprint.gd).
 
 ---
 

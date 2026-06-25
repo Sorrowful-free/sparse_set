@@ -58,6 +58,12 @@
 - Visual: `visual_registry_strategy` (одна на profile); `ECSVisualHost` — только слоты (`slots`), без `build_registry`.
 - `acquire` не пишет в SoA; handle/type пишет игра.
 
+## Entity blueprint
+
+- Наследуй `ECSEntityBlueprint` в игре; `build_component_ids()` — id из твоего enum (int).
+- Spawn и параметры — **только** через `ECSCommandBuffer` (`spawn_batch` / `spawn_one` + `set_component_value`); `execute` — runner или bootstrap-буфер.
+- См. [`ecs/examples/example_mover_blueprint.gd`](ecs/examples/example_mover_blueprint.gd).
+
 ---
 
 ## Валидация после изменений
