@@ -62,6 +62,25 @@
 
 ---
 
+## Batch E — World / profile bootstrap
+
+**Файлы:**
+- [`ecs_world.gd`](../ecs_world.gd)
+- [`ecs_world_profile.gd`](../config/ecs_world_profile.gd)
+- [`ecs_visual_host.gd`](../presentation/ecs_visual_host.gd)
+- [`ecs_component_registry_strategy.gd`](../config/ecs_component_registry_strategy.gd)
+- [`ecs_visual_registry_strategy.gd`](../config/ecs_visual_registry_strategy.gd)
+- [`ecs_system_strategy.gd`](../config/ecs_system_strategy.gd)
+- [`examples/demo_world.gd`](../examples/demo_world.gd)
+- [`tests/unit/ecs_world_profile_test.gd`](../tests/unit/ecs_world_profile_test.gd)
+- [`tests/unit/ecs_visual_registry_strategy_test.gd`](../tests/unit/ecs_visual_registry_strategy_test.gd)
+
+**Тип задач:** `apply_profile` guard (один раз), visual wiring только через strategies, debug warnings, примеры.
+
+**Perf gate:** не требуется.
+
+---
+
 ## Порядок merge
 
-`A → B → C → D` (после каждого батча — unit gate).
+`A → B → C → D → E` (после каждого батча — unit gate).

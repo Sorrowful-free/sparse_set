@@ -26,7 +26,3 @@ func require_slot(slot: StringName) -> Node:
 	if node == null:
 		push_error("ECSVisualHost: missing slot '%s'" % slot)
 	return node
-
-## Переопределить в игре. null = visual layer отключён.
-func build_registry(_world: ECSWorld) -> ECSVisualRegistry:
-	return null

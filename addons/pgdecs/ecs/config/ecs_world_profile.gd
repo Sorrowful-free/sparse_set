@@ -15,10 +15,6 @@ func apply_to_world(world: ECSWorld, visual_host: ECSVisualHost = null) -> void:
 		if registry != null:
 			world.set_visual_registry(registry)
 			break
-	if world.get_visual_registry() == null and visual_host != null:
-		var fallback: ECSVisualRegistry = visual_host.build_registry(world)
-		if fallback != null:
-			world.set_visual_registry(fallback)
 	for strategy: ECSSystemStrategy in system_strategies:
 		if strategy == null or not strategy.enabled:
 			continue

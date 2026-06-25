@@ -4,7 +4,7 @@ class_name ECSVisualRegistry extends RefCounted
 var visual_type_component_id: int = -1
 var visual_handle_component_id: int = -1
 
-var _backends: Dictionary = {}
+var _backends: Dictionary[int, ECSVisualBackend] = {}
 
 func register_backend(visual_type: int, backend: ECSVisualBackend) -> void:
 	backend.visual_type = visual_type

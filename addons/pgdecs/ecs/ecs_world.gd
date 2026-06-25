@@ -2,13 +2,14 @@ extends Node
 class_name ECSWorld
 
 ## Мир ECS: менеджер, раннер систем, опциональный visual registry.
-## Запуск через [@export var profile] или [method apply_profile].
+## Запуск через [@export var profile] или [method apply_profile] (один раз).
 
 @export var profile: ECSWorldProfile
 
 var _ecs_manager: ECSManager
 var _system_runner: ECSSystemRunner
 var _visual_registry: ECSVisualRegistry
+var _profile_applied: bool = false
 
 func _ready() -> void:
 	_init_runtime()
@@ -28,10 +29,28 @@ func _init_runtime() -> void:
 	if _system_runner == null:
 		_system_runner = ECSSystemRunner.new()
 
+func is_profile_applied() -> bool:
+	return _profile_applied
+
 func apply_profile(world_profile: ECSWorldProfile) -> void:
+	if _profile_applied:
+		if OS.is_debug_build():
+			push_warning("ECSWorld.apply_profile: profile already applied, ignoring")
+		return
 	_init_runtime()
 	profile = world_profile
+	_warn_component_registry_strategy(world_profile)
 	world_profile.apply_to_world(self, _find_visual_host())
+	_profile_applied = true
+
+func _warn_component_registry_strategy(world_profile: ECSWorldProfile) -> void:
+	if not OS.is_debug_build():
+		return
+	var strategy: ECSComponentRegistryStrategy = world_profile.component_registry_strategy
+	if strategy == null:
+		push_warning("ECSWorldProfile: component_registry_strategy is not set")
+	elif not strategy.enabled:
+		push_warning("ECSWorldProfile: component_registry_strategy is disabled")
 
 func _find_visual_host() -> ECSVisualHost:
 	for child: Node in get_children():

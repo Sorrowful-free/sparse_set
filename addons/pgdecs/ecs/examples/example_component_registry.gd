@@ -1,4 +1,4 @@
-class_name ExampleComponentRegistry extends ECSComponentRegistryStrategy
+class_name ExampleComponentRegistryStrategy extends ECSComponentRegistryStrategy
 
 enum Component {
 	POSITION = 1,
@@ -21,5 +21,5 @@ func get_components() -> Dictionary[int, int]:
 		Component.VELOCITY: TYPE_PACKED_FLOAT32_ARRAY,
 	}
 
-static func create_demo() -> ExampleComponentRegistry:
-	return ExampleComponentRegistry.new()
+static func create_demo() -> ExampleComponentRegistryStrategy:
+	return ExampleComponentRegistryStrategy.new()

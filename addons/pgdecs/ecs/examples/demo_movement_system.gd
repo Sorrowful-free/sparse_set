@@ -8,16 +8,16 @@ func _init(ecs: ECSManager, speed_mul: float = 1.0) -> void:
 
 func _build_query() -> ECSQuery:
 	return ECSQueryBuilder.new()\
-		.with_component(ExampleComponentRegistry.Component.POSITION)\
-		.with_component(ExampleComponentRegistry.Component.VELOCITY)\
+		.with_component(ExampleComponentRegistryStrategy.Component.POSITION)\
+		.with_component(ExampleComponentRegistryStrategy.Component.VELOCITY)\
 		.build(get_ecs_manager())
 
 func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
 	var pos_chunk: ECSComponentVector2ArrayChunk = chunk.get_component_chunk(
-		ExampleComponentRegistry.Component.POSITION
+		ExampleComponentRegistryStrategy.Component.POSITION
 	) as ECSComponentVector2ArrayChunk
 	var vel_chunk: ECSComponentFloat32ArrayChunk = chunk.get_component_chunk(
-		ExampleComponentRegistry.Component.VELOCITY
+		ExampleComponentRegistryStrategy.Component.VELOCITY
 	) as ECSComponentFloat32ArrayChunk
 	if pos_chunk == null or vel_chunk == null:
 		return

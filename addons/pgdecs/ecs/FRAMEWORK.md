@@ -47,13 +47,13 @@ add_child(world)
 
 # Свой профиль:
 var profile := ECSWorldProfile.new()
-profile.component_registry_strategy = ExampleComponentRegistry.create_demo()
+profile.component_registry_strategy = ExampleComponentRegistryStrategy.create_demo()
 profile.system_strategies = [DemoMovementStrategy.new()]
 world.apply_profile(profile)
 # spawn — в коде игры, не в профиле:
 var arch := world.get_ecs_manager().prepare_archetype([
-    ExampleComponentRegistry.Component.POSITION,
-    ExampleComponentRegistry.Component.VELOCITY,
+    ExampleComponentRegistryStrategy.Component.POSITION,
+    ExampleComponentRegistryStrategy.Component.VELOCITY,
 ])
 world.get_ecs_manager().create_entities_packed(100, arch)
 ```
@@ -360,7 +360,7 @@ buf.execute()  # вызывается раннером автоматическ�
 # Дочерний ECSVisualHost со slots — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready`, вызывает `run(delta)` и `visual_registry.sync_all` в `_process`. Для тестов без дерева сцены: `apply_profile(profile)`.
+`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready` (один раз), вызывает `run(delta)` и `visual_registry.sync_all` в `_process`. Повторный `apply_profile` игнорируется.
 
 ---
 
@@ -373,7 +373,7 @@ buf.execute()  # вызывается раннером автоматическ�
 | [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) | `@export` + `create_registry(ecs, world, host)` |
 | [`ECSWorldProfile`](config/ecs_world_profile.gd) | component strategy + visual/system strategies |
 
-Порядок `apply_to_world`: component registry strategy → visual registry strategies → system strategies. `ECSWorld.apply_profile` передаёт опциональный дочерний `ECSVisualHost` в стратегии; fallback — `host.build_registry(world)`.
+Порядок `apply_to_world`: component registry strategy → visual registry strategies → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSVisualHost` в visual strategies для `require_slot`.
 
 Spawn и precache архетипов — в коде игры (`prepare_archetype` / `create_entities_packed`), не в профиле.
 
@@ -417,9 +417,7 @@ func create_registry(_ecs, world, host) -> ECSVisualRegistry:
 profile.visual_registry_strategies = [UnitsVisualStrategy.new()]
 ```
 
-Без Host и без strategy — `get_visual_registry()` вернёт `null`, sync не вызывается.
-
-Альтернатива без strategy: переопределить `ECSVisualHost.build_registry(world)` — используется как fallback, если стратегии не вернули registry.
+Без Host и без visual strategy — `get_visual_registry()` вернёт `null`, sync не вызывается.
 
 Примитивные компоненты в игре: `VISUAL_TYPE`, `VISUAL_SUBTYPE`, `VISUAL_HANDLE` (`TYPE_PACKED_INT32_ARRAY`). Subtype — свой enum на каждый visual type. LOD swap: `release_entity` → смена `VISUAL_TYPE` → `acquire`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
