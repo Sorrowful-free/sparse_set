@@ -31,6 +31,30 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 | Change detection | Монотонные версии на archetype/component chunk; opt-in `change_detection` в системах |
 | BitMask | Bounds-guard, стабильный hash без временных `slice` в `bit_hash()` |
 | Transitions | Кэш `(old_archetype_hash, component_id)` для add/remove |
+| Chunk run buffer | Один пул `ECSQueryChunk` на query; системы без Callable в main/WTP path |
+| WTP systems | `run_chunks_for_system` — прямой `process_chunk`; `run_chunks(Callable)` только бенчмарки |
+
+## PGDECS vs GECS (как читать бенчмарки)
+
+Запуск side-by-side:
+
+```powershell
+& godot --headless --path . --main-scene res://addons/gecs/tests/run_compare_frameworks_headless.tscn
+```
+
+В конце лога — `--- Compare summary ---`. Имена метрик: [`addons/gecs/tests/compare_metric_names.gd`](../../gecs/tests/compare_metric_names.gd).
+
+| Пара | Честно? | Типично (25k, одна сессия) |
+|------|---------|----------------------------|
+| PGDECS **FAST** vs GECS **column iterate** | **Да** — оба hot-path SoA | PGDECS **~10×** быстрее (~0.21 s vs ~2.3 s) |
+| PGDECS **slot API** vs GECS column | **Нет** — разный API | GECS ~1.1× быстрее |
+| WTP e+c | **Нет** — разная гранулярность | GECS ~9× быстрее (1 архетип vs ~98 чанков / ~13 tasks) |
+| create_entity / batch spawn | — | PGDECS **~10–16×** быстрее |
+| change_detection hot-chunks ON | Разный дизайн | PGDECS сильно быстрее (skip-clean чанков) |
+
+**Для агентов:** не сравнивать PGDECS slot API с GECS column как «кто лучше ECS»; fair-пара — FAST vs column. WTP GECS выигрывает на лёгкой работе из‑за overhead group tasks, не из‑за layout.
+
+Сводка и multirun: [`addons/gecs/tests/reports/compare_pgdecs_gecs.md`](../../gecs/tests/reports/compare_pgdecs_gecs.md).
 
 ## Рекомендации hot path
 
@@ -80,7 +104,7 @@ Median perf (5 runs, iterations=25000): legacy **3.38 s**, FAST **0.29 s** — �
 
 ### Общие рекомендации
 
-1. **Chunk iteration** — в `ECSSystemChunkBase`: `begin_chunk_run` + `process_chunk` без Callable; в gameplay-скриптах допустим `for_each_chunk`. WTP: `use_worker_pool` + `ECSChunkWorkerDispatch`; при `task_count == 0` — прямой main-loop без dispatch.
+1. **Chunk iteration** — системы: `ECSSystemChunkBase` + `process_chunk` (раннер: `begin_chunk_run`, без Callable). Скрипты: `for_each_chunk`. WTP: `use_worker_pool` + `parallel_settings` → `run_chunks_for_system`; при `task_count == 0` — main-loop без dispatch. `ECSChunkWorkerDispatch.run_chunks(Callable)` — только бенчмарки.
 2. **Dense iteration** — `chunk.get_entity_count()` + fast-path или `get_dense_entities()` + slot API.
 3. **Slot API** — `get_value_at_slot` / `set_value_at_slot` в component chunk (без lookup handle внутри get).
 4. **`precache_archetype_packed()`** — до массового spawn с известным набором компонентов.
@@ -159,7 +183,7 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 
 ## Пример итерации (система, раннер)
 
-`ECSSystemChunkBase` вызывает `process_chunk` через `begin_chunk_run` — без Callable на каждый чанк:
+`ECSSystemChunkBase` вызывает `process_chunk` через `begin_chunk_run` — без Callable на каждый чанк. При WTP и `task_count > 0` — `run_chunks_for_system` (виртуальный вызов, не lambda):
 
 ```gdscript
 # Внутри ECSSystemChunkBase.update (main thread):

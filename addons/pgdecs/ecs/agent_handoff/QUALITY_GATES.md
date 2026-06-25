@@ -24,7 +24,8 @@ $env:PGDECS_RUN_PERF = "1"
 
 **Критерий:**
 - perf-скрипт завершается без ошибок;
-- в handoff report — краткое сравнение с [`tests/reports/refactor_baseline_vs_after.md`](../tests/reports/refactor_baseline_vs_after.md) или новый multirun.
+- в handoff report — краткое сравнение с [`tests/reports/refactor_baseline_vs_after.md`](../tests/reports/refactor_baseline_vs_after.md) или новый multirun;
+- при сравнении с GECS: fair-пара FAST vs column ([`compare_pgdecs_gecs.md`](../../../gecs/tests/reports/compare_pgdecs_gecs.md)).
 
 ---
 

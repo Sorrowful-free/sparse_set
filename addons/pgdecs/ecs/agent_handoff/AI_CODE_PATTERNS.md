@@ -12,6 +12,61 @@
 
 ---
 
+## 0. Итерация по чанкам и Callable (обязательно для систем)
+
+### Что генерировать
+
+| Контекст | API | Callable? |
+|----------|-----|-----------|
+| **Система** (`ECSSystemChunkBase`) | Переопределить `process_chunk(chunk, delta)` | **Нет** — раннер вызывает напрямую |
+| **Скрипт / тест / one-off** | `query.for_each_chunk(func ...)` или `begin_chunk_run` + цикл | Допустим `for_each_chunk` |
+| **WTP в системе** | `use_worker_pool = true` + `parallel_settings` | **Нет** в hot path — `ECSChunkWorkerDispatch.run_chunks_for_system` |
+
+Раннер (`ECSSystemChunkBase.update`) на main thread:
+
+```gdscript
+var run_count := _query.begin_chunk_run()
+for i in range(run_count):
+    process_chunk(_query.get_chunk_at_run_index(i), delta)
+```
+
+**Не генерировать** в системах:
+
+```gdscript
+# ПЛОХО: Callable в hot path системы
+func update(delta):
+    _query.for_each_chunk(func(chunk): process_chunk(chunk, delta))
+
+# ПЛОХО: вручную ECSChunkWorkerDispatch в gameplay-системе
+ECSChunkWorkerDispatch.run_chunks(...)  # только бенчмарки / низкоуровневые тесты
+```
+
+### Пул `ECSQueryChunk` — контракт
+
+- `begin_chunk_run()` / `for_each_chunk` / `collect_chunks(out, true)` / `get_chunks()` — **одни и те же pooled views**.
+- Views **инвалидируются** следующим `begin_chunk_run` / `for_each_chunk` на том же `ECSQuery`.
+- **Не сохранять** `ECSQueryChunk` между кадрами и между вызовами query.
+- Независимые snapshot (редко): `collect_chunks(out, false)` — новый `ECSQueryChunk.new()` на чанк.
+
+### WTP (WorkerThreadPool)
+
+```gdscript
+# В _init системы или через ECSChunkSystemStrategy в profile:
+use_worker_pool = true
+parallel_settings.chunks_per_task = 8          # AUTO: батч чанков на задачу
+parallel_settings.min_parallel_tasks = 2       # меньше задач → main thread
+parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.AUTO
+# FORCE — тяжёлый process_chunk (pathfinding, физика): min(CPU, chunk_count) задач
+```
+
+- При `task_count == 0` (AUTO fallback) — тот же main-loop, **без** dispatch.
+- При `task_count > 0` — `run_chunks_for_system(self, chunks, delta, settings)` → прямой `process_chunk`, без lambda.
+- В `process_chunk` при WTP: **только чтение/запись значений** — `get_command_buffer()` **запрещён**.
+
+Сравнение с GECS: fair-пара — PGDECS FAST vs GECS column (~10× быстрее PGDECS); WTP GECS быстрее из‑за 1 архетипа vs ~98 чанков — см. [PERFORMANCE.md § PGDECS vs GECS](../PERFORMANCE.md).
+
+---
+
 ## 1. Правило выбора API (главное)
 
 | В `process_chunk` система… | Использовать |
@@ -137,6 +192,13 @@ func process_chunk(chunk, delta):
 for id in query.get_entity_ids():
 	...
 
+# ПЛОХО: for_each_chunk внутри ECSSystemChunkBase вместо process_chunk override
+func update(delta):
+	query.for_each_chunk(func(c): ...)  # раннер уже итерирует — переопредели process_chunk
+
+# ПЛОХО: кэшировать ECSQueryChunk между кадрами
+var saved_chunk: ECSQueryChunk = query.get_chunk_at_run_index(0)  # инвалидируется на следующем begin_chunk_run
+
 # ПЛОХО: execute() в системе при нормальном runner
 func process_chunk(...):
 	get_command_buffer().create_entity(...)
@@ -197,6 +259,8 @@ Slot API на spawn достаточен; chunk-based visual bind в фрейм�
 
 ## 9. Чеклист перед сдачей кода
 
+- [ ] Chunk-система наследует `ECSSystemChunkBase` и переопределяет `process_chunk`, **не** `for_each_chunk` в `update`
+- [ ] Нет сохранения `ECSQueryChunk` между кадрами / между `begin_chunk_run`
 - [ ] Система с structural changes использует `get_command_buffer()`, не `ecs.create_*` / `destroy_*` в `process_chunk`
 - [ ] Система только с мутацией значений — fast-path, образец как `DemoMovementSystem`
 - [ ] Нет ручного `buf.execute()` в production-системах
@@ -211,6 +275,9 @@ Slot API на spawn достаточен; chunk-based visual bind в фрейм�
 | Что | Файл |
 |-----|------|
 | Fast-path движение | [`demo_movement_system.gd`](../examples/demo_movement_system.gd) |
+| Chunk base + WTP | [`ecs_system_chunk_base.gd`](../systems/ecs_system_chunk_base.gd) |
+| Query chunk run API | [`ecs_query.gd`](../queries/ecs_query.gd) (`begin_chunk_run`) |
+| WTP dispatch | [`ecs_chunk_worker_dispatch.gd`](../systems/ecs_chunk_worker_dispatch.gd) |
 | Command buffer тесты | [`ecs_command_buffer_test.gd`](../tests/unit/ecs_command_buffer_test.gd) |
 | Profile / strategies | [`ecs_world_profile.gd`](../config/ecs_world_profile.gd) |
 | Runner порядок | [`ecs_system_runner.gd`](../systems/ecs_system_runner.gd) |

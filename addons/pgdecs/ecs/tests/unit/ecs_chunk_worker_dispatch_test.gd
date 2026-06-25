@@ -1,5 +1,13 @@
 extends GutTest
-class_name ECSChunkWorkerDispatchTest
+
+class _CountChunkSystem extends ECSSystemChunkBase:
+	var seen_indices: Dictionary = {}
+
+	func _build_query() -> ECSQuery:
+		return null
+
+	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
+		seen_indices[chunk.get_chunk_index()] = true
 
 func _auto_settings(chunks_per_task: int = 8, min_tasks: int = 2) -> ECSChunkParallelSettings:
 	var settings: ECSChunkParallelSettings = ECSChunkParallelSettings.new()
@@ -37,7 +45,7 @@ func test_run_chunks_main_thread_covers_all_indices() -> void:
 	var seen: Dictionary = {}
 	ECSChunkWorkerDispatch.run_chunks(
 		chunks,
-		_auto_settings(chunks_per_task = 8, min_tasks = 99),
+		_auto_settings(8, 99),
 		func(chunk: ECSQueryChunk) -> void:
 			seen[chunk.get_chunk_index()] = true
 	)
@@ -54,3 +62,18 @@ func test_run_chunks_force_uses_worker_pool_for_single_chunk() -> void:
 			pass
 	)
 	assert_true(ECSChunkWorkerDispatch.last_used_worker_pool)
+
+func test_run_chunks_for_system_covers_all_indices() -> void:
+	var chunks: Array[ECSQueryChunk] = []
+	for i in range(5):
+		chunks.append(ECSQueryChunk.new(null, null, i))
+	var ecs: ECSManager = ECSManager.new()
+	var system: _CountChunkSystem = _CountChunkSystem.new(ecs)
+	ECSChunkWorkerDispatch.run_chunks_for_system(
+		system,
+		chunks,
+		0.016,
+		_auto_settings(8, 99)
+	)
+	assert_false(ECSChunkWorkerDispatch.last_used_worker_pool)
+	assert_eq(system.seen_indices.size(), 5)

@@ -38,7 +38,7 @@
 
 **GC:** `_live_count` на архетипе; при опустошении — eviction из реестра и кэшей переходов; пустые chunk-map записи удаляются; `ECSManager.reset()` очищает мир, компоненты остаются.
 
-**Query API:** `for_each_chunk` — пул; `get_chunks()` / `collect_chunks` — snapshot.
+**Query API:** `begin_chunk_run` + pooled views (`for_each_chunk`, `get_chunks`, `collect_chunks(out, true)`); независимые snapshot — `collect_chunks(out, false)`.
 
 ---
 

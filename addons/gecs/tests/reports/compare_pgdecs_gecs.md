@@ -1,25 +1,40 @@
-# PGDECS vs GECS — сравнение итерации (iterations=25000)
+# PGDECS vs GECS — сравнение (iterations=25000)
 
-## Имена метрик (с 2025-06)
+## Имена метрик
 
 | Метрика | Фреймворк | Путь |
 |---|---|---|
-| `query iterate entities+components [slot API]` | PGDECS | Slow: `get_entity_id_at` → `slot_from_handle` → `get_value_at_slot` |
+| `query iterate entities+components [slot API]` | PGDECS | Slow: handle → slot → `get_value_at_slot` |
 | `query iterate entities+components FAST [dense_slots+buffers]` | PGDECS | Fast: `get_dense_slots()` + `get_values_buffer()` |
-| `query iterate entities+components [column iterate]` | GECS | Fast: `archetype.get_column()` + индекс `i` |
+| `query iterate entities+components [column iterate]` | GECS | Column: `archetype.get_column()` + индекс `i` |
 
-**Честное сравнение hot-path итерации:** PGDECS FAST ↔ GECS column iterate.
+**Честное сравнение hot-path:** PGDECS FAST ↔ GECS column iterate.
 
-**Нечестное (информативное):** PGDECS slot API ↔ GECS column — GECS почти всегда быстрее, т.к. сравниваются разные API.
+**Нечестное (информативное):** PGDECS slot API ↔ GECS column.
+
+## Последний прогон (2025-06, `compare_fresh.log`)
+
+| Benchmark | PGDECS | GECS | Вывод |
+|---|---:|---:|---|
+| **FAST vs column (fair)** | 0.210 s | 2.290 s | PGDECS **10.9×** faster |
+| slot API vs column (unfair) | 2.609 s | 2.290 s | GECS **1.14×** faster |
+| WTP e+c (AUTO ~13 tasks) | 0.022 s | 0.002 s | GECS **9.5×** faster* |
+| WTP chunk count | 0.020 s | 0.003 s | GECS **7.7×** faster* |
+| create_entity | 0.205 s | 2.866 s | PGDECS **14×** faster |
+| destroy_entity | 0.204 s | 0.908 s | PGDECS **4.5×** faster |
+| add/remove_component | 0.171 s | 0.574 s | PGDECS **3.4×** faster |
+| change_detection hot-chunks ON | 0.118 s | 2.300 s† | PGDECS **~19×** faster |
+| command_buffer coalescing | 0.028 s | 0.207 s | PGDECS **7.4×** faster |
+
+\* WTP: PGDECS ~98 archetype-chunks → ~13 batched tasks; GECS ~1 archetype → 1 task. Не показатель «лучшего ECS».
+
+† GECS hot-chunks без skip-clean по версиям чанков — другой сценарий.
 
 ## WorkerThreadPool
 
-При однородном мире (25k сущностей, один архетип компонентов):
-
-- PGDECS: ~98 archetype-chunks (256 слотов) → ~98 group tasks на прогон
-- GECS: ~1 archetype → 1 group task
-
-Overhead `add_group_task` / `wait_for_group_task_completion` доминирует — GECS выигрывает, это не показатель «лучшего ECS».
+- PGDECS: `ECSChunkWorkerDispatch` + `ECSChunkParallelSettings` (AUTO cpt=8, fallback main).
+- Системы: `run_chunks_for_system` — без Callable в hot path.
+- Бенчмарки: `run_chunks(..., Callable)` — для сравнения политик.
 
 ## Запуск
 
@@ -27,7 +42,11 @@ Overhead `add_group_task` / `wait_for_group_task_completion` доминируе�
 & godot --headless --path . --main-scene res://addons/gecs/tests/run_compare_frameworks_headless.tscn
 ```
 
-В конце лога — блок `--- Compare summary ---` с fair/unfair парами.
+WTP policy (только PGDECS):
+
+```powershell
+& godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_wtp_policy_compare_headless.gd
+```
 
 Multirun median:
 
@@ -36,16 +55,10 @@ cd addons/gecs/tests/reports
 .\compare_frameworks.ps1 -PgdecsDirectory multirun_pgdecs -GecsDirectory multirun_gecs -Markdown
 ```
 
-Скрипт поддерживает legacy-имена метрик из старых логов (`query iterate entities+components` без суффикса).
+Скрипт поддерживает legacy-имена метрик (`query iterate entities+components` без суффикса).
 
-## Шаблон таблицы (заполнить после прогона)
+## Для ИИ-агентов
 
-| Benchmark | PGDECS | GECS | Примечание |
-|---|---:|---:|---|
-| **FAST vs column (fair)** | | | PGDECS FAST / GECS column |
-| slot API vs column (unfair) | | | не сравнивать как равные |
-| WTP e+c | | | PGDECS ~98 tasks vs GECS 1 |
-| create_entity | | | PGDECS обычно >> быстрее |
-| system hot-chunks ON | | | change_detection |
-
-Перегенерировать median-таблицу: `.\compare_frameworks.ps1 ... -Markdown`
+- Не оптимизировать PGDECS под «обогнать GECS WTP» на лёгкой работе — структурное ограничение гранулярности.
+- Fair regression: FAST vs column, structural ops, change_detection hot-chunks.
+- Системы: `ECSSystemChunkBase` + fast-path; см. [`pgdecs/ecs/agent_handoff/AI_CODE_PATTERNS.md`](../../pgdecs/ecs/agent_handoff/AI_CODE_PATTERNS.md).

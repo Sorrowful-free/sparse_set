@@ -8,7 +8,7 @@ alwaysApply: false
 
 При задачах в `addons/pgdecs/ecs/`:
 
-1. Прочитать `ecs/agent_handoff/AI_CODE_PATTERNS.md` перед генерацией систем.
+1. Прочитать `ecs/agent_handoff/AI_CODE_PATTERNS.md` (**§0** итерация/Callable) перед генерацией систем.
 2. Один батч из `ecs/agent_handoff/BATCHES.md`; не трогать файлы вне Scope.
 3. Перед сдачей: `ecs/agent_handoff/SELF_CHECK.md`.
 4. Gates: `res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd` → `failed: 0`.

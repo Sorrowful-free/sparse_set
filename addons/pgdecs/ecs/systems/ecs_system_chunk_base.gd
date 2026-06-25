@@ -65,12 +65,7 @@ func _run_worker_pool_update(delta: float) -> void:
 		for chunk: ECSQueryChunk in _worker_chunks:
 			process_chunk(chunk, delta)
 		return
-	ECSChunkWorkerDispatch.run_chunks(
-		_worker_chunks,
-		parallel_settings,
-		func(chunk: ECSQueryChunk) -> void:
-			process_chunk(chunk, delta)
-	)
+	ECSChunkWorkerDispatch.run_chunks_for_system(self, _worker_chunks, delta, parallel_settings)
 
 func _prepare_worker_chunks_for_run() -> int:
 	_worker_chunks.clear()

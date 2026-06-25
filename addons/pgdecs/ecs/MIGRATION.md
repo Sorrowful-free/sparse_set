@@ -38,8 +38,9 @@ ecs.destroy_entities_packed(survivor_ids)
 | `ECSManager.reset()` | Уничтожает все сущности и архетипы; `register_component` сохраняется |
 | `auto_gc_archetypes` | По умолчанию `true`: GC один раз в конце `ECSSystemRunner.run()` |
 | `flush_archetype_gc()` | Ручной сброс отложенного GC (бенчмарки без раннера) |
-| `get_chunks()` | Возвращает **snapshot** `ECSQueryChunk` (безопасно кэшировать) |
-| `for_each_chunk()` | Внутренний пул — **не** сохранять объекты между вызовами |
+| `get_chunks()` | Pooled views текущего run — **не** кэшировать между вызовами |
+| `for_each_chunk()` | Тот же пул; Callable на границе callback — для скриптов/тестов |
+| `begin_chunk_run()` | Предпочтительно в ручной итерации; системы используют через `ECSSystemChunkBase` |
 | `get_entity_archetype()` | Не кэшировать `ECSArchetype` между кадрами после destroy/GC |
 
 ## Visual registry (profile)

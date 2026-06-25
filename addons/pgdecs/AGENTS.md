@@ -10,10 +10,24 @@
 ## Перед генерацией систем и gameplay-кода
 
 1. Определи режим в `process_chunk` (см. таблицу ниже).
-2. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
-3. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner`).
-4. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror.
-5. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
+2. **Системы** — `ECSSystemChunkBase` + `process_chunk`; **не** `for_each_chunk` / Callable в hot path.
+3. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
+4. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner`).
+5. Не сохраняй `ECSQueryChunk` между кадрами (`begin_chunk_run` инвалидирует pooled views).
+6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror.
+7. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
+
+---
+
+## Итерация по чанкам
+
+| Кто | Как |
+|-----|-----|
+| Система | `extends ECSSystemChunkBase` → `_build_query()` + `process_chunk(chunk, delta)` |
+| Скрипт / тест | `query.for_each_chunk(...)` или `begin_chunk_run()` + `get_chunk_at_run_index(i)` |
+| WTP | `use_worker_pool = true`, `parallel_settings`; не вызывать dispatch вручную |
+
+Детали: [`ecs/agent_handoff/AI_CODE_PATTERNS.md` §0](ecs/agent_handoff/AI_CODE_PATTERNS.md).
 
 ---
 

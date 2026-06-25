@@ -5,11 +5,13 @@
 ## Быстрый старт
 
 0. **Cursor (в аддоне):** [`../../AGENTS.md`](../../AGENTS.md) + [`../../.cursor/rules/`](../../.cursor/README.md)
-1. **Перед генерацией gameplay/system кода** — [`AI_CODE_PATTERNS.md`](AI_CODE_PATTERNS.md)
+1. **Перед генерацией gameplay/system кода** — [`AI_CODE_PATTERNS.md`](AI_CODE_PATTERNS.md) (**§0** — итерация, Callable, WTP)
 2. Выбери **один** батч: [`BATCHES.md`](BATCHES.md)
 3. Заполни [`TASK_BRIEF_TEMPLATE.md`](TASK_BRIEF_TEMPLATE.md) и вставь в промпт Composer
 4. После работы — [`SELF_CHECK.md`](SELF_CHECK.md)
 5. Прогони [`QUALITY_GATES.md`](QUALITY_GATES.md)
+
+**Частые ошибки агентов (2025-06):** `for_each_chunk` в системах вместо `process_chunk`; кэш `ECSQueryChunk` между кадрами; slot API vs GECS column как fair-benchmark; ручной `ECSChunkWorkerDispatch` в gameplay.
 
 ## Пример промпта (копипаст)
 
@@ -25,6 +27,7 @@
 
 - [**AI_CODE_PATTERNS.md**](AI_CODE_PATTERNS.md) — обязательные паттерны для ИИ (итерация, command buffer)
 - [DESIGN.md](../DESIGN.md)
-- [PERFORMANCE.md](../PERFORMANCE.md)
+- [PERFORMANCE.md](../PERFORMANCE.md) — § PGDECS vs GECS, fair/unfair пары
+- [compare_pgdecs_gecs.md](../../../gecs/tests/reports/compare_pgdecs_gecs.md)
 - [MIGRATION.md](../MIGRATION.md)
 - [tests/README.md](../tests/README.md)

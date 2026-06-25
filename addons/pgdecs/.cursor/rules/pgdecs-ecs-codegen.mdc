@@ -14,6 +14,12 @@ alwaysApply: false
 - **Structural changes** → `get_dense_entities()` + `get_command_buffer()`; slot для чтения SoA: `ECSEntityIdsUtils.slot_from_handle(entity_id)`.
 - **Не смешивать** fast-path и buffer в одном проходе без необходимости.
 
+## Chunk iteration (системы)
+
+- Наследовать `ECSSystemChunkBase`, переопределять `process_chunk` — **не** `for_each_chunk` / lambda в `update`.
+- Не кэшировать `ECSQueryChunk` между кадрами.
+- WTP: `use_worker_pool` + `parallel_settings`; при `use_worker_pool` buffer запрещён. Не вызывать `ECSChunkWorkerDispatch` из gameplay-кода.
+
 ## Command buffer
 
 - В системах: `get_command_buffer()` — не `ecs.create_*` / `destroy_*` / `add_component` / `remove_component`.
@@ -24,6 +30,8 @@ alwaysApply: false
 ## Запрещено генерировать
 
 - `ecs.create_entity_packed` в `process_chunk`
+- `query.for_each_chunk` / Callable-итерация **внутри** `ECSSystemChunkBase` вместо `process_chunk`
+- кэш `ECSQueryChunk` между кадрами
 - `query.get_entity_ids()` в hot loop вместо chunk iteration
 - `Host.build_registry`, `*InitStrategy`, `RegistryConfig`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror
 - Повторный `apply_profile` без проверки `is_profile_applied()`

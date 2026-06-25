@@ -17,7 +17,9 @@ Composer обязан пройти чеклист **до** финального 
 
 ## Data-path invariants (если Batch A/B)
 
-- [ ] Соблюдены правила [`AI_CODE_PATTERNS.md`](AI_CODE_PATTERNS.md) (fast-path vs command buffer, без антипаттернов)
+- [ ] Соблюдены правила [`AI_CODE_PATTERNS.md`](AI_CODE_PATTERNS.md) (§0 итерация, fast-path vs command buffer, WTP)
+- [ ] Chunk-системы: `process_chunk`, не `for_each_chunk` в hot path
+- [ ] Нет кэша `ECSQueryChunk` между `begin_chunk_run` / кадрами
 - [ ] Dense iteration: только `[0, get_entity_count())`
 - [ ] Slot API: `ECSEntityIdsUtils.slot_from_handle(handle)`
 - [ ] `component_ids` нормализуются (sort + unique) на входе менеджера

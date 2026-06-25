@@ -320,6 +320,13 @@ chunk.get_component_version(component_id)
 
 [`ECSChunkWorkerDispatch`](systems/ecs_chunk_worker_dispatch.gd) — единая политика: strided WTP или main thread.
 
+**Внутренний поток `update`:**
+
+1. `begin_chunk_run()` — заполняет pooled `ECSQueryChunk` views.
+2. Main thread (`use_worker_pool == false`): цикл `get_chunk_at_run_index` → `process_chunk` (без Callable).
+3. WTP: при `task_count == 0` — тот же main-loop; при `task_count > 0` — `run_chunks_for_system(self, chunks, delta, settings)` (прямой `process_chunk`, без per-frame lambda).
+4. `run_chunks(..., Callable)` — только бенчмарки и низкоуровневые тесты, не gameplay-системы.
+
 ```gdscript
 class MySystem extends ECSSystemChunkBase:
     func _init(ecs: ECSManager) -> void:
