@@ -36,6 +36,16 @@ profile.apply_to_world() → каждый кадр: systems.update() → command
 
 Точка входа в игре — нода [`ECSWorld`](ecs_world.gd) с [`ECSWorldProfile`](config/ecs_world_profile.gd) или прямое использование [`ECSManager`](ecs_manager.gd) + [`ECSSystemRunner`](systems/ecs_system_runner.gd).
 
+**Минимальный путь** (без сцены и profile):
+
+```gdscript
+var ecs := ECSManager.new()
+ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+var runner := ECSSystemRunner.new()
+runner.add_system(MySystem.new(ecs))
+runner.run(delta)  # каждый кадр
+```
+
 ---
 
 ## Быстрый старт
@@ -397,11 +407,9 @@ ECSWorld
     └── UnitsMultiMesh
 ```
 
-`ECSWorldProfile.visual_registry_strategies` — основной способ подключения registry (как `system_strategies`). Host передаётся в `create_registry` для `require_slot`.
+`ECSWorldProfile.visual_registry_strategy` — подключение registry (одна strategy на profile). Host передаётся в `create_registry` для `require_slot`. Несколько backends — регистрируйте в одном `create_registry` через `registry.register_backend(...)`.
 
-Несколько enabled strategies объединяются в **один** `ECSVisualRegistry`: первый non-null registry — база, остальные передают backends через `absorb()`. Конфликт `visual_type` или component id — `push_error` в debug.
-
-Если `apply_profile` вызван до `add_child(world)` и strategy вернула `null` без host, `ECSWorld._enter_tree()` повторно вызывает `apply_visual_strategies` после появления дочернего `ECSVisualHost`.
+Если `apply_profile` вызван до `add_child(world)` и strategy вернула `null` без host, `ECSWorld._enter_tree()` повторно вызывает `apply_visual_strategy` после появления дочернего `ECSVisualHost`.
 
 Игра — strategy в profile:
 
@@ -420,7 +428,7 @@ func create_registry(_ecs, world, host) -> ECSVisualRegistry:
 ```
 
 ```gdscript
-profile.visual_registry_strategies = [UnitsVisualStrategy.new()]
+profile.visual_registry_strategy = UnitsVisualStrategy.new()
 ```
 
 Без Host и без visual strategy — `get_visual_registry()` вернёт `null`, sync не вызывается.

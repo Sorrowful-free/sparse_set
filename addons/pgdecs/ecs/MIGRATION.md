@@ -41,3 +41,15 @@ ecs.destroy_entities_packed(survivor_ids)
 | `get_chunks()` | Возвращает **snapshot** `ECSQueryChunk` (безопасно кэшировать) |
 | `for_each_chunk()` | Внутренний пул — **не** сохранять объекты между вызовами |
 | `get_entity_archetype()` | Не кэшировать `ECSArchetype` между кадрами после destroy/GC |
+
+## Visual registry (profile)
+
+```gdscript
+# было
+profile.visual_registry_strategies = [UnitsVisualStrategy.new()]
+
+# стало
+profile.visual_registry_strategy = UnitsVisualStrategy.new()
+```
+
+Несколько backends — один `create_registry`, несколько `registry.register_backend(...)`. Удалены `absorb()` и массив strategies.

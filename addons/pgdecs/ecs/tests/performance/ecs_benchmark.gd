@@ -1,6 +1,8 @@
 extends RefCounted
 class_name ECSBenchmark
 
+const _MetricNames := preload("res://addons/gecs/tests/compare_metric_names.gd")
+
 const POSITION_ID: int = 1
 const HEALTH_ID: int = 2
 
@@ -380,79 +382,103 @@ func benchmark_system_change_detection_hot_chunks(use_change_detection: bool) ->
 				system.update(0.016)
 	)
 
-func run_all() -> void:
+func _record_metric(results: Dictionary, name: String, seconds: float) -> void:
+	results[name] = seconds
+	print("  %s: %.3f s" % [name, seconds])
+
+func run_all() -> Dictionary:
+	var results: Dictionary = {}
 	print("--- ECS Performance (iterations=%d) ---" % _iterations)
 	var ecs_fresh: ECSManager = ECSManager.new()
-	var t: float = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_create_entity()
-	print("  create_entity: %.3f s" % t)
+	var bench: ECSBenchmark = ECSBenchmark.new(ecs_fresh, _iterations)
+
+	_record_metric(results, "create_entity", bench.benchmark_create_entity())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_destroy_entity()
-	print("  destroy_entity: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "destroy_entity", bench.benchmark_destroy_entity())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_create_entities_batch()
-	print("  create_entities batch: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "create_entities batch", bench.benchmark_create_entities_batch())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_destroy_entities_batch()
-	print("  destroy_entities batch: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "destroy_entities batch", bench.benchmark_destroy_entities_batch())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_get_entity_ids()
-	print("  query.get_entity_ids: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "query.get_entity_ids", bench.benchmark_query_get_entity_ids())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_chunks()
-	print("  query.for_each_chunk iterate: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "query.for_each_chunk iterate", bench.benchmark_query_iterate_chunks())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components()
-	print("  query iterate entities+components: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(
+		results,
+		_MetricNames.QUERY_E_C_SLOT,
+		bench.benchmark_query_iterate_entities_with_components()
+	)
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components_fast()
-	print("  query iterate entities+components FAST: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(
+		results,
+		_MetricNames.QUERY_E_C_FAST,
+		bench.benchmark_query_iterate_entities_with_components_fast()
+	)
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_iterate_entities_with_components_worker_pool()
-	print("  query iterate entities+components WorkerThreadPool: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(
+		results,
+		_MetricNames.QUERY_E_C_WTP,
+		bench.benchmark_query_iterate_entities_with_components_worker_pool()
+	)
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_query_worker_pool()
-	print("  query.for_each_chunk WorkerThreadPool: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(
+		results,
+		_MetricNames.QUERY_CHUNKS_WTP,
+		bench.benchmark_query_worker_pool()
+	)
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_add_remove_component()
-	print("  add/remove_component: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "add/remove_component", bench.benchmark_add_remove_component())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_command_buffer_execute()
-	print("  command_buffer execute: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "command_buffer execute", bench.benchmark_command_buffer_execute())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_command_buffer_coalescing_frame()
-	print("  command_buffer coalescing frame: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "command_buffer coalescing frame", bench.benchmark_command_buffer_coalescing_frame())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection()
-	print("  system change_detection steady: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "system change_detection steady", bench.benchmark_system_change_detection())
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_sparse_scattered(true)
-	print("  system change_detection scattered ON: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "system change_detection scattered ON", bench.benchmark_system_change_detection_sparse_scattered(true))
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_sparse_scattered(false)
-	print("  system change_detection scattered OFF: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "system change_detection scattered OFF", bench.benchmark_system_change_detection_sparse_scattered(false))
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(true)
-	print("  system change_detection hot-chunks ON: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "system change_detection hot-chunks ON", bench.benchmark_system_change_detection_hot_chunks(true))
 
 	ecs_fresh = ECSManager.new()
-	t = ECSBenchmark.new(ecs_fresh, _iterations).benchmark_system_change_detection_hot_chunks(false)
-	print("  system change_detection hot-chunks OFF: %.3f s" % t)
+	bench = ECSBenchmark.new(ecs_fresh, _iterations)
+	_record_metric(results, "system change_detection hot-chunks OFF", bench.benchmark_system_change_detection_hot_chunks(false))
+
+	return results
 
 func run_change_detection_hot() -> void:
 	print("--- ECS Performance (iterations=%d) ---" % _iterations)

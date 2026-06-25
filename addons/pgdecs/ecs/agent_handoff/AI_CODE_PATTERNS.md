@@ -162,8 +162,8 @@ world.apply_profile(profile)  # повторный вызов игнорируе
 # Компоненты: одна ECSComponentRegistryStrategy на profile
 profile.component_registry_strategy = MyComponentsStrategy.new()
 
-# Visual: только visual_registry_strategies (Host — слоты, не build_registry)
-profile.visual_registry_strategies = [MyVisualStrategy.new()]
+# Visual: visual_registry_strategy (Host — слоты, не build_registry)
+profile.visual_registry_strategy = MyVisualStrategy.new()
 
 # Precache/spawn архетипов — код игры, не в profile
 var arch := ecs.prepare_archetype([POSITION_ID, VELOCITY_ID])

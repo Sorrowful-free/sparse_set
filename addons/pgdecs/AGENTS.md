@@ -12,7 +12,7 @@
 1. Определи режим в `process_chunk` (см. таблицу ниже).
 2. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
 3. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner`).
-4. Не используй устаревшее: `InitStrategy`, `build_registry`, `component_registry_config`, visual dispatcher/mirror.
+4. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror.
 5. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
 
 ---
@@ -41,7 +41,7 @@
 ## Visual / profile
 
 - Компоненты: одна `ECSComponentRegistryStrategy` на profile.
-- Visual: `visual_registry_strategies`; `ECSVisualHost` — только слоты (`slots`), без `build_registry`.
+- Visual: `visual_registry_strategy` (одна на profile); `ECSVisualHost` — только слоты (`slots`), без `build_registry`.
 - `acquire` не пишет в SoA; handle/type пишет игра.
 
 ---

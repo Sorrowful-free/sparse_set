@@ -23,7 +23,7 @@
 | ECSSystemStrategy, ECSVisualRegistryStrategy, ECSWorldProfile | Профиль мира и стратегии |
 | ECSVisualHost | Якорь visual-сцены, слоты нод (опционально) |
 | ECSVisualBackend, ECSVisualRegistry | Visual-слой: backend в игре, registry в фреймворке |
-| ECSEntityIdsPool, ECSEntityIdsUtils, ECSSparseSet | Пул, утилиты ID и sparse set |
+| ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |
 | ECSComponentBaseArray, ECSComponentBaseArrayChunk | Базовые классы компонентов |

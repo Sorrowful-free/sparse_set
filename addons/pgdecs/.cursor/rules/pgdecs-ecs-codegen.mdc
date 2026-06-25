@@ -25,7 +25,7 @@ alwaysApply: false
 
 - `ecs.create_entity_packed` в `process_chunk`
 - `query.get_entity_ids()` в hot loop вместо chunk iteration
-- `Host.build_registry`, `*InitStrategy`, visual dispatcher/mirror
+- `Host.build_registry`, `*InitStrategy`, `RegistryConfig`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror
 - Повторный `apply_profile` без проверки `is_profile_applied()`
 - Запись в компоненты по temp id сразу после `buf.create_entity` в том же `process_chunk`
 

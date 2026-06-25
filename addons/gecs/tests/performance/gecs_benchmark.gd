@@ -1,6 +1,7 @@
 extends RefCounted
 class_name GECSBenchmark
 
+const _MetricNames := preload("res://addons/gecs/tests/compare_metric_names.gd")
 const BenchPosition := preload("res://addons/gecs/tests/performance/bench_components/bench_position.gd")
 const BenchHealth := preload("res://addons/gecs/tests/performance/bench_components/bench_health.gd")
 const World := preload("res://addons/gecs/ecs/world.gd")
@@ -360,50 +361,36 @@ func benchmark_system_process_hot_chunks() -> float:
 	_dispose_world(world)
 	return t
 
-func run_all() -> void:
+func _record_metric(results: Dictionary, name: String, seconds: float) -> void:
+	results[name] = seconds
+	print("  %s: %.3f s" % [name, seconds])
+
+func run_all() -> Dictionary:
+	var results: Dictionary = {}
 	print("--- GECS Performance (iterations=%d) ---" % _iterations)
+	var bench: GECSBenchmark = GECSBenchmark.new(_root, _iterations)
 
-	var t: float = GECSBenchmark.new(_root, _iterations).benchmark_create_entity()
-	print("  create_entity: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_destroy_entity()
-	print("  destroy_entity: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_create_entities_batch()
-	print("  create_entities batch: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_destroy_entities_batch()
-	print("  destroy_entities batch: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_query_get_entity_ids()
-	print("  query.get_entity_ids: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_query_iterate_archetypes()
-	print("  query.for_each_chunk iterate: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_query_iterate_entities_with_components()
-	print("  query iterate entities+components: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_query_iterate_entities_with_components_worker_pool()
-	print("  query iterate entities+components WorkerThreadPool: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_query_worker_pool()
-	print("  query.for_each_chunk WorkerThreadPool: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_add_remove_component()
-	print("  add/remove_component: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_command_buffer_execute()
-	print("  command_buffer execute: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_command_buffer_coalescing_frame()
-	print("  command_buffer coalescing frame: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_system_process_steady()
-	print("  system change_detection steady: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_system_process_scattered()
-	print("  system process scattered: %.3f s" % t)
-
-	t = GECSBenchmark.new(_root, _iterations).benchmark_system_process_hot_chunks()
-	print("  system process hot-chunks: %.3f s" % t)
+	_record_metric(results, "create_entity", bench.benchmark_create_entity())
+	_record_metric(results, "destroy_entity", bench.benchmark_destroy_entity())
+	_record_metric(results, "create_entities batch", bench.benchmark_create_entities_batch())
+	_record_metric(results, "destroy_entities batch", bench.benchmark_destroy_entities_batch())
+	_record_metric(results, "query.get_entity_ids", bench.benchmark_query_get_entity_ids())
+	_record_metric(results, "query.for_each_chunk iterate", bench.benchmark_query_iterate_archetypes())
+	_record_metric(
+		results,
+		_MetricNames.QUERY_E_C_COLUMN,
+		bench.benchmark_query_iterate_entities_with_components()
+	)
+	_record_metric(
+		results,
+		_MetricNames.QUERY_E_C_WTP,
+		bench.benchmark_query_iterate_entities_with_components_worker_pool()
+	)
+	_record_metric(results, _MetricNames.QUERY_CHUNKS_WTP, bench.benchmark_query_worker_pool())
+	_record_metric(results, "add/remove_component", bench.benchmark_add_remove_component())
+	_record_metric(results, "command_buffer execute", bench.benchmark_command_buffer_execute())
+	_record_metric(results, "command_buffer coalescing frame", bench.benchmark_command_buffer_coalescing_frame())
+	_record_metric(results, "system change_detection steady", bench.benchmark_system_process_steady())
+	_record_metric(results, "system process scattered", bench.benchmark_system_process_scattered())
+	_record_metric(results, "system process hot-chunks", bench.benchmark_system_process_hot_chunks())
+	return results

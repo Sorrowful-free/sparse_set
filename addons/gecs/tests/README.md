@@ -19,7 +19,7 @@ Headless (три шкалы 5000 / 15000 / 25000). Нужен autoload `ECS` в 
 & "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --main-scene res://addons/gecs/tests/run_performance_smoke_headless.tscn
 ```
 
-Оба фреймворка подряд (только `iterations=25000`):
+Оба фреймворка подряд (только `iterations=25000`); в конце печатается **Compare summary** с fair/unfair парами:
 
 ```powershell
 & "C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe" --headless --path . --main-scene res://addons/gecs/tests/run_compare_frameworks_headless.tscn
@@ -35,7 +35,10 @@ PGDECS отдельно: `--script res://addons/pgdecs/ecs/tests/run_performance
 - `create_entities batch` / `destroy_entities batch`
 - `query.get_entity_ids`
 - `query.for_each_chunk iterate` (GECS: `QueryBuilder.archetypes()`)
-- `query iterate entities+components` (+ WorkerThreadPool)
+- `query iterate entities+components [slot API]` — PGDECS slow path (handle/slot per entity)
+- `query iterate entities+components FAST [dense_slots+buffers]` — PGDECS fast path (сравнивать с GECS)
+- `query iterate entities+components [column iterate]` — GECS fast path (`archetype.get_column`)
+- WorkerThreadPool варианты (см. compare summary: разная гранулярность задач)
 - `add/remove_component`
 - `command_buffer execute` / `command_buffer coalescing frame`
 - `system change_detection steady`

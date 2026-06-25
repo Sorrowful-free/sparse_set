@@ -1,5 +1,7 @@
 # Safety refactor handoff
 
+> **Архив.** Рефакторинг выполнен; актуальная модель — [DESIGN.md](../DESIGN.md) §0.3 и [FRAMEWORK.md](../FRAMEWORK.md).
+
 ## Выполнено (все 5 батчей)
 
 1. **Ключи архетипов** — `ECSArchetypeKey`, реестр по `PackedInt64Array`, `archetype_id` на сущность; `bit_hash()` не используется как ключ словаря.

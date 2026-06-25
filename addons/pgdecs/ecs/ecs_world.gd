@@ -66,9 +66,9 @@ func _try_install_deferred_visual_registry() -> void:
 		return
 	if _visual_registry != null:
 		return
-	if profile.visual_registry_strategies.is_empty():
+	if profile.visual_registry_strategy == null:
 		return
-	profile.apply_visual_strategies(self, _find_visual_host())
+	profile.apply_visual_strategy(self, _find_visual_host())
 
 func get_ecs_manager() -> ECSManager:
 	return _ecs_manager

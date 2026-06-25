@@ -78,6 +78,53 @@ $aliases = @{
 	"system change_detection hot-chunks OFF" = "system process hot-chunks"
 }
 
+# Новые имена метрик + legacy из старых логов (до пометок slow/fast path).
+$metricAliases = @{
+	"query iterate entities+components [slot API]" = @(
+		"query iterate entities+components [slot API]",
+		"query iterate entities+components"
+	)
+	"query iterate entities+components FAST [dense_slots+buffers]" = @(
+		"query iterate entities+components FAST [dense_slots+buffers]",
+		"query iterate entities+components FAST"
+	)
+	"query iterate entities+components [column iterate]" = @(
+		"query iterate entities+components [column iterate]",
+		"query iterate entities+components"
+	)
+}
+
+function Get-MetricValue {
+	param(
+		[hashtable] $Rows,
+		[string] $Name
+	)
+	if ($metricAliases.ContainsKey($Name)) {
+		foreach ($candidate in $metricAliases[$Name]) {
+			if ($Rows.ContainsKey($candidate)) {
+				return $Rows[$candidate]
+			}
+		}
+	}
+	if ($Rows.ContainsKey($Name)) {
+		return $Rows[$Name]
+	}
+	return [double]::NaN
+}
+
+$fairPairs = @(
+	@{
+		Label = "Fair: PGDECS FAST vs GECS column iterate"
+		Pgdecs = "query iterate entities+components FAST [dense_slots+buffers]"
+		Gecs = "query iterate entities+components [column iterate]"
+	},
+	@{
+		Label = "Unfair: PGDECS slot API vs GECS column iterate"
+		Pgdecs = "query iterate entities+components [slot API]"
+		Gecs = "query iterate entities+components [column iterate]"
+	}
+)
+
 $allNames = [System.Collections.Generic.HashSet[string]]::new()
 foreach ($k in $pgdecs.Keys) { [void]$allNames.Add($k) }
 foreach ($k in $gecs.Keys) { [void]$allNames.Add($k) }
@@ -107,13 +154,34 @@ else {
 }
 
 foreach ($name in ($allNames | Sort-Object)) {
-	$pVal = if ($pgdecs.ContainsKey($name)) { $pgdecs[$name] } else { [double]::NaN }
+	$pVal = Get-MetricValue -Rows $pgdecs -Name $name
 	$gName = if ($aliases.ContainsKey($name)) { $aliases[$name] } else { $name }
-	$gVal = if ($gecs.ContainsKey($gName)) { $gecs[$gName] } elseif ($gecs.ContainsKey($name)) { $gecs[$name] } else { [double]::NaN }
+	$gVal = Get-MetricValue -Rows $gecs -Name $gName
+	if ([double]::IsNaN($gVal)) {
+		$gVal = Get-MetricValue -Rows $gecs -Name $name
+	}
 	if ($Markdown) {
 		Write-Host ("| {0} | {1} | {2} | {3} |" -f $name, (Format-Sec $pVal), (Format-Sec $gVal), (Format-Ratio $pVal $gVal))
 	}
 	else {
 		Write-Host ("{0,-48} {1,10} {2,10} {3,10}" -f $name, (Format-Sec $pVal), (Format-Sec $gVal), (Format-Ratio $pVal $gVal))
 	}
+}
+
+Write-Host ""
+Write-Host "--- Fair / unfair iteration pairs ---"
+foreach ($pair in $fairPairs) {
+	$pVal = Get-MetricValue -Rows $pgdecs -Name $pair.Pgdecs
+	$gVal = Get-MetricValue -Rows $gecs -Name $pair.Gecs
+	$note = if ([double]::IsNaN($pVal) -or [double]::IsNaN($gVal)) {
+		"n/a"
+	} elseif ($pVal -lt $gVal) {
+		"PGDECS {0:F2}x faster" -f ($gVal / $pVal)
+	} elseif ($gVal -lt $pVal) {
+		"GECS {0:F2}x faster" -f ($pVal / $gVal)
+	} else {
+		"tie"
+	}
+	Write-Host ("  {0}" -f $pair.Label)
+	Write-Host ("    PGDECS {0}  |  GECS {1}  ->  {2}" -f (Format-Sec $pVal), (Format-Sec $gVal), $note)
 }

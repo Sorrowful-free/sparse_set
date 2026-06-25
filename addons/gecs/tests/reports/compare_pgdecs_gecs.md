@@ -1,37 +1,51 @@
-# PGDECS vs GECS — median по 5 прогонам (iterations=25000)
+# PGDECS vs GECS — сравнение итерации (iterations=25000)
 
-Условия: Godot 4.7 headless, одна сессия, median из `multirun_pgdecs/` и `multirun_gecs/`.
+## Имена метрик (с 2025-06)
 
-Колонка **speedup** — во сколько раз быстрее PGDECS (PGDECS med ÷ GECS med). Значения < 1 — быстрее GECS.
+| Метрика | Фреймворк | Путь |
+|---|---|---|
+| `query iterate entities+components [slot API]` | PGDECS | Slow: `get_entity_id_at` → `slot_from_handle` → `get_value_at_slot` |
+| `query iterate entities+components FAST [dense_slots+buffers]` | PGDECS | Fast: `get_dense_slots()` + `get_values_buffer()` |
+| `query iterate entities+components [column iterate]` | GECS | Fast: `archetype.get_column()` + индекс `i` |
 
-| Benchmark | PGDECS med | GECS med | speedup (PGDECS) |
-|---|---:|---:|---:|
-| create_entity | 0.279 s | 3.477 s | **12.5×** |
-| destroy_entity | 0.157 s | 1.491 s | **9.5×** |
-| create_entities batch | 0.104 s | 3.967 s | **38.1×** |
-| destroy_entities batch | 0.147 s | 1.204 s | **8.2×** |
-| query.get_entity_ids | 0.081 s | ~0 s* | PGDECS измеримо |
-| query.for_each_chunk iterate | 0.013 s | ~0 s* | ~ |
-| query iterate entities+components | 3.060 s | 2.472 s | GECS **1.24×** |
-| query e+c WorkerThreadPool | 0.017 s | 0.003 s | GECS **5.7×** |
-| query chunks WorkerThreadPool | 0.016 s | 0.004 s | GECS **4.0×** |
-| add/remove_component | 0.131 s | 0.758 s | **5.8×** |
-| command_buffer execute | 0.016 s | 0.039 s | **2.4×** |
-| command_buffer coalescing frame | 0.031 s | 0.264 s | **8.5×** |
-| system steady (no writes) | 0.064 s | 2.464 s | **38.5×** |
-| system scattered writes | 2.221 s† | 2.613 s | PGDECS **1.18×** |
-| system hot-chunks writes | 2.147 s† | 2.533 s | PGDECS **1.18×** |
-| system hot-chunks + change_detection ON | **0.139 s** | 2.533 s | **18.2×** |
+**Честное сравнение hot-path итерации:** PGDECS FAST ↔ GECS column iterate.
 
-\* GECS ниже разрешения `%.3f` — не ноль, просто < 0.0005 s.
+**Нечестное (информативное):** PGDECS slot API ↔ GECS column — GECS почти всегда быстрее, т.к. сравниваются разные API.
 
-† PGDECS `scattered OFF` / `hot-chunks OFF` (полный обход) — аналог GECS `system process scattered/hot-chunks`.
+## WorkerThreadPool
 
-## Выводы
+При однородном мире (25k сущностей, один архетип компонентов):
 
-1. **Структурные операции** (create/destroy/batch/add-remove/command buffer) — PGDECS на порядок быстрее: packed IDs + SoA без `Resource`/`Node`.
-2. **Тяжёлая итерация по компонентам** — GECS немного быстрее на single-thread query; PGDECS отстаёт на WTP-вариантах (overhead group task vs мало архетипов).
-3. **Change detection** — главное преимущество PGDECS: `hot-chunks ON` 0.14 s vs 2.53 s у GECS (полный system pass каждый кадр).
-4. **При размазанных записях** (~2% сущностей) — паритет (~2.2 s vs ~2.6 s), GECS без dirty-skip не проигрывает сильно.
+- PGDECS: ~98 archetype-chunks (256 слотов) → ~98 group tasks на прогон
+- GECS: ~1 archetype → 1 group task
 
-Перегенерировать: `.\compare_frameworks.ps1 -PgdecsDirectory multirun_pgdecs -GecsDirectory multirun_gecs -Markdown`
+Overhead `add_group_task` / `wait_for_group_task_completion` доминирует — GECS выигрывает, это не показатель «лучшего ECS».
+
+## Запуск
+
+```powershell
+& godot --headless --path . --main-scene res://addons/gecs/tests/run_compare_frameworks_headless.tscn
+```
+
+В конце лога — блок `--- Compare summary ---` с fair/unfair парами.
+
+Multirun median:
+
+```powershell
+cd addons/gecs/tests/reports
+.\compare_frameworks.ps1 -PgdecsDirectory multirun_pgdecs -GecsDirectory multirun_gecs -Markdown
+```
+
+Скрипт поддерживает legacy-имена метрик из старых логов (`query iterate entities+components` без суффикса).
+
+## Шаблон таблицы (заполнить после прогона)
+
+| Benchmark | PGDECS | GECS | Примечание |
+|---|---:|---:|---|
+| **FAST vs column (fair)** | | | PGDECS FAST / GECS column |
+| slot API vs column (unfair) | | | не сравнивать как равные |
+| WTP e+c | | | PGDECS ~98 tasks vs GECS 1 |
+| create_entity | | | PGDECS обычно >> быстрее |
+| system hot-chunks ON | | | change_detection |
+
+Перегенерировать median-таблицу: `.\compare_frameworks.ps1 ... -Markdown`

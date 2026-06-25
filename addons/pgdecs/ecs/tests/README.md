@@ -29,7 +29,6 @@ if (-not $godot) { $godot = "godot" }
 - `unit/ecs_entity_ids_pool_test.gd` — пул ID (генерации, реюз, защита от double-free)
 - `unit/ecs_archetype_test.gd` — архетип (add/has/remove, несколько чанков)
 - `unit/ecs_bit_mask_test.gd` — ECSBitMask (set/test/match/hash, bounds-guard)
-- `unit/ecs_sparse_set_test.gd` — ECSSparseSet
 - `unit/ecs_component_factory_test.gd` — ECSComponentFactory
 - `unit/ecs_component_array_test.gd` — компоненты/чанки (add/get/set/remove, батчи, границы)
 - `unit/ecs_manager_test.gd` — создание/удаление сущностей, add/remove компонентов, set/get, батчи
@@ -47,7 +46,7 @@ if (-not $godot) { $godot = "godot" }
 - `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()` и движение сущностей
 - `unit/ecs_world_profile_test.gd` — profile strategies, `reset_world`, повторный apply
 - `unit/ecs_visual_registry_test.gd` — acquire/release, sync, host slots
-- `unit/ecs_visual_registry_strategy_test.gd` — visual strategies, merge, deferred install
+- `unit/ecs_visual_registry_strategy_test.gd` — visual strategy, deferred install
 
 CI: `.github/workflows/ecs-tests.yml` (Godot 4.7 + `run_composer_gates_headless.gd`).
 
@@ -81,8 +80,9 @@ Headless прогоняет три шкалы: **5000 / 15000 / 25000** итер
 - `create_entities batch` / `destroy_entities batch`
 - `query.get_entity_ids`
 - `query.for_each_chunk iterate` (hot path chunk callback)
-- `query iterate entities+components` (+ WorkerThreadPool варианты)
-- `query.for_each_chunk WorkerThreadPool` (`collect_chunks` + group task)
+- `query iterate entities+components [slot API]` — slow path (handle/slot; для command buffer / структурных операций)
+- `query iterate entities+components FAST [dense_slots+buffers]` — fast path (сравнивать с GECS column iterate)
+- WorkerThreadPool варианты (`collect_chunks` + group task; ~N/256 задач у PGDECS vs ~1 у GECS)
 - `add/remove_component`
 - `command_buffer execute` (1000× create)
 - `command_buffer coalescing frame` (шумный deferred-кадр)

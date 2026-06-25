@@ -1,0 +1,54 @@
+Godot Engine v4.7.stable.steam.5b4e0cb0f - https://godotengine.org
+
+=== Framework comparison (iterations=25000) ===
+
+--- ECS Performance (iterations=25000) ---
+  create_entity: 0.230 s
+  destroy_entity: 0.215 s
+  create_entities batch: 0.118 s
+  destroy_entities batch: 0.159 s
+  query.get_entity_ids: 0.080 s
+  query.for_each_chunk iterate: 0.015 s
+  query iterate entities+components [slot API]: 2.966 s
+  query iterate entities+components FAST [dense_slots+buffers]: 0.231 s
+  query iterate entities+components WorkerThreadPool: 0.031 s
+  query.for_each_chunk WorkerThreadPool: 0.030 s
+  add/remove_component: 0.185 s
+  command_buffer execute: 0.013 s
+  command_buffer coalescing frame: 0.037 s
+  system change_detection steady: 0.053 s
+  system change_detection scattered ON: 2.217 s
+  system change_detection scattered OFF: 2.161 s
+  system change_detection hot-chunks ON: 0.130 s
+  system change_detection hot-chunks OFF: 2.075 s
+
+--- GECS Performance (iterations=25000) ---
+  create_entity: 3.340 s
+  destroy_entity: 1.740 s
+  create_entities batch: 4.594 s
+  destroy_entities batch: 1.508 s
+  query.get_entity_ids: 0.000 s
+  query.for_each_chunk iterate: 0.001 s
+  query iterate entities+components [column iterate]: 2.757 s
+  query iterate entities+components WorkerThreadPool: 0.005 s
+  query.for_each_chunk WorkerThreadPool: 0.005 s
+  add/remove_component: 1.066 s
+  command_buffer execute: 0.059 s
+  command_buffer coalescing frame: 0.370 s
+  system change_detection steady: 2.514 s
+  system process scattered: 2.846 s
+  system process hot-chunks: 2.513 s
+
+--- Compare summary (iterations=25000) ---
+  WTP granularity: PGDECS ~98 archetype-chunks, GECS ~1 archetype (homogeneous world)
+
+  Fair: fast-path iteration (PGDECS dense_slots+buffers vs GECS column iterate)
+    PGDECS 0.231 s  |  GECS 2.757 s  →  PGDECS 11.96x faster
+  Unfair: PGDECS slot API vs GECS column iterate (do not compare as equals)
+    PGDECS 2.966 s  |  GECS 2.757 s  →  GECS 1.08x faster
+  WorkerThreadPool e+c (overhead dominates; PGDECS ~98 tasks/run)
+    PGDECS 0.031 s  |  GECS 0.005 s  →  GECS 6.02x faster
+  WorkerThreadPool chunk count only
+    PGDECS 0.030 s  |  GECS 0.005 s  →  GECS 6.10x faster
+
+--- Done ---

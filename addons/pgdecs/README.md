@@ -23,6 +23,21 @@ world.bootstrap(1000)     # profile + DemoMovementStrategy + spawn
 
 Подробнее: [ecs/FRAMEWORK.md](ecs/FRAMEWORK.md#configuration-profile-registry-strategies).
 
+## Минимальный путь (без ECSWorld)
+
+Для прототипа или тестов — без сцены, profile и visual:
+
+```gdscript
+var ecs := ECSManager.new()
+ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+var runner := ECSSystemRunner.new()
+runner.add_system(MyMovementSystem.new(ecs))
+# каждый кадр:
+runner.run(delta)
+```
+
+`ECSWorld` нужен, когда хотите `@export profile`, дочерний `ECSVisualHost`, `_process` и visual sync из коробки.
+
 ## API
 
 **Внешний (удобный):** типизированный `Array[int]`, `PackedInt64Array` создаётся внутри.
