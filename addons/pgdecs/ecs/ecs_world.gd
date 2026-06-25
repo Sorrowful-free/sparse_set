@@ -1,18 +1,21 @@
 extends Node
 class_name ECSWorld
 
-## Мир ECS: менеджер, раннер систем, опциональный visual registry.
+## Мир ECS: менеджер, раннер систем, scheduler по profile, опциональный visual registry.
 ## Запуск через [@export var profile] или [method apply_profile] (один раз).
 
 @export var profile: ECSWorldProfile
 
 var _ecs_manager: ECSManager
 var _system_runner: ECSSystemRunner
+var _system_scheduler: ECSSystemScheduler
 var _visual_registry: ECSVisualRegistry
 var _profile_applied: bool = false
+var _schedule_installed: bool = false
 
 func _ready() -> void:
 	_init_runtime()
+	set_physics_process(true)
 	if profile != null:
 		apply_profile(profile)
 	elif OS.is_debug_build():
@@ -21,19 +24,37 @@ func _ready() -> void:
 func _enter_tree() -> void:
 	_try_install_deferred_visual_registry()
 
+func _physics_process(delta: float) -> void:
+	if _schedule_installed:
+		_system_scheduler.tick_physics(delta)
+
 func _process(delta: float) -> void:
-	_system_runner.run(delta)
+	if _schedule_installed:
+		_system_scheduler.tick_process(delta)
+	elif _system_runner != null:
+		_system_runner.run(delta)
 	if _visual_registry != null:
 		_visual_registry.sync_all(_ecs_manager, delta)
+	if _system_runner != null:
+		_system_runner.flush_manual_command_buffers()
+	if _ecs_manager != null and _ecs_manager.auto_gc_archetypes:
+		_ecs_manager.flush_archetype_gc_if_pending()
 
 func _init_runtime() -> void:
 	if _ecs_manager == null:
 		_ecs_manager = ECSManager.new()
 	if _system_runner == null:
 		_system_runner = ECSSystemRunner.new()
+	if _system_scheduler == null:
+		_system_scheduler = ECSSystemScheduler.new()
 
 func is_profile_applied() -> bool:
 	return _profile_applied
+
+func install_system_schedule(configs: Array[ECSSystemGroupConfig]) -> void:
+	_init_runtime()
+	_system_scheduler.install(configs, _system_runner)
+	_schedule_installed = true
 
 func apply_profile(world_profile: ECSWorldProfile) -> void:
 	if _profile_applied:
@@ -76,6 +97,13 @@ func get_ecs_manager() -> ECSManager:
 func get_system_runner() -> ECSSystemRunner:
 	return _system_runner
 
+func get_system_scheduler() -> ECSSystemScheduler:
+	return _system_scheduler
+
+func run_system_group(group: StringName, delta: float) -> void:
+	if _system_scheduler != null:
+		_system_scheduler.fire_group(group, delta)
+
 func get_visual_registry() -> ECSVisualRegistry:
 	return _visual_registry
 
@@ -88,4 +116,5 @@ func reset_world() -> void:
 	if _system_runner != null:
 		_system_runner.clear()
 	_visual_registry = null
+	_schedule_installed = false
 	_profile_applied = false

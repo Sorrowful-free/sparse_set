@@ -1,5 +1,11 @@
 class_name ECSSystemBase extends RefCounted
 
+enum CommandBufferFlushMode { PER_SYSTEM, PER_GROUP, MANUAL }
+
+var run_group: StringName = ECSSystemRunGroups.DEFAULT
+var enabled: bool = true
+var command_buffer_flush_mode: CommandBufferFlushMode = CommandBufferFlushMode.PER_SYSTEM
+
 var _ecs_manager: ECSManager
 var _command_buffer: ECSCommandBuffer
 

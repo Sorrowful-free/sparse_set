@@ -26,6 +26,7 @@ func test_strategy_install() -> void:
 	world_profile.component_registry_strategy = _make_component_registry_strategy()
 	world_profile.system_strategies = [ECSTestMockSystemStrategy.new()]
 	world.apply_profile(world_profile)
+	assert_true(world.get_system_scheduler().get_physics_groups().has(ECSSystemRunGroups.SIMULATION))
 	var systems: Array[ECSSystemBase] = world.get_system_runner().get_systems()
 	assert_eq(systems.size(), 1)
 	world.get_system_runner().run(0.0)

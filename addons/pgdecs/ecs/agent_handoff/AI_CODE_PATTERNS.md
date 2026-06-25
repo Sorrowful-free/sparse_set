@@ -137,7 +137,7 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 
 ## 4. Command buffer (канон)
 
-Буфер есть у каждой системы: `get_command_buffer()`. **`execute()` вызывает `ECSSystemRunner` после всех `update()`** — в системе вручную `execute()` не вызывать (кроме unit-тестов).
+Буфер есть у каждой системы: `get_command_buffer()`. **`execute()` вызывает `ECSSystemRunner` после `update()` каждой системы** (режим `PER_SYSTEM`, default) — в системе вручную `execute()` не вызывать (кроме unit-тестов).
 
 ```gdscript
 var buf := get_command_buffer()
@@ -160,7 +160,8 @@ buf.destroy_entities([id_a, id_b])
 - Coalescing: create + destroy temp в одном кадре → сущность не появится
 
 **Когда сущность видна в query:**
-- После `runner.run(delta)` (конец кадра), не в середине `process_chunk` того же прохода
+- После `execute()` **предыдущих** систем в том же `run_group` (PER_SYSTEM flush)
+- Не в середине `process_chunk` той же системы до её собственного flush
 
 | Место | API |
 |-------|-----|

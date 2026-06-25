@@ -252,7 +252,7 @@ get_entity_archetype(entity)
 get_archetypes()
 count_live_archetypes()
 reset()                    # уничтожить все сущности, очистить архетипы; компоненты остаются зарегистрированными
-auto_gc_archetypes         # true: GC в конце ECSSystemRunner.run(); false — только вручную
+auto_gc_archetypes         # true: GC в конце кадра ECSWorld._process; false — только вручную
 flush_archetype_gc()       # сбросить отложенный GC (пустые архетипы + component chunks)
 gc_empty_archetypes()      # только eviction пустых архетипов из registry
 is_alive(entity)
@@ -344,8 +344,28 @@ class MySystem extends ECSSystemChunkBase:
 ### ECSSystemRunner
 
 ```gdscript
-runner.add_system(system)
-runner.run(delta)  # update всех систем → execute всех command buffer → flush_archetype_gc (если auto_gc_archetypes)
+runner.add_system(system, run_group)
+runner.run_group(&"simulation", delta)  # update систем группы + PER_SYSTEM flush после каждой
+runner.run(delta)                       # все группы по execution_order из schedule
+runner.flush_manual_command_buffers()   # MANUAL mode
+```
+
+По умолчанию `command_buffer_flush_mode = PER_SYSTEM`: `execute()` буфера **после каждой системы** в `run_group`. GC архетипов — в `ECSWorld._process` (конец кадра), не в раннере.
+
+### Группы и расписание (настройка в игре)
+
+В [`ECSWorldProfile`](config/ecs_world_profile.gd):
+
+- `system_groups: Array[ECSSystemGroupConfig]` — hook (`PHYSICS_PROCESS` / `PROCESS` / `MANUAL`), `hz`, `execution_order`
+- `ECSSystemStrategy.run_group` — в какую фазу попадает система
+
+Пустой `system_groups` → пресет `ECSSystemRunGroups.default_group_configs()` (simulation @ physics, network @ 20 Hz, frame @ process).
+
+[`ECSSystemScheduler`](systems/ecs_system_scheduler.gd) маршрутизирует группы; пример профиля: [`examples/example_world_profile.gd`](examples/example_world_profile.gd).
+
+```gdscript
+world.run_system_group(&"cutscene", delta)  # MANUAL hook
+world.get_system_scheduler().set_group_hz(&"network", 10.0)
 ```
 
 ---
@@ -389,7 +409,7 @@ buf.execute()  # вызывается раннером автоматическ�
 # Дочерний ECSVisualHost со slots — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager` и `ECSSystemRunner`, применяет `profile` в `_ready` (один раз), вызывает `run(delta)` и `visual_registry.sync_all` в `_process`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и visual registry и сбрасывает флаг profile — для reload сцены.
+`ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `visual_registry.sync_all`, `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и visual registry и сбрасывает флаг profile — для reload сцены.
 
 ---
 
@@ -398,12 +418,13 @@ buf.execute()  # вызывается раннером автоматическ�
 | Класс | Роль |
 |-------|------|
 | [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd) | `get_tags()` + `get_components()` → `apply_to(ecs)` (одна на profile) |
-| [`ECSSystemStrategy`](config/ecs_system_strategy.gd) | `@export` + `create_system(ecs, world)` |
+| [`ECSSystemStrategy`](config/ecs_system_strategy.gd) | `@export` + `create_system(ecs, world)`; `run_group` |
 | [`ECSVisualRegistryStrategy`](config/ecs_visual_registry_strategy.gd) | `@export` + `create_registry(ecs, world, host)` |
-| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component strategy + visual/system strategies |
+| [`ECSSystemGroupConfig`](config/ecs_system_group_config.gd) | run_group, hook, hz, execution_order |
+| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component strategy + visual/system strategies + `system_groups` |
 | [`ECSEntityBlueprint`](config/ecs_entity_blueprint.gd) | абстрактный blueprint сущности (игра наследует Resource) |
 
-Порядок `apply_to_world`: component registry strategy → visual registry strategies → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSVisualHost` в visual strategies для `require_slot`.
+Порядок `apply_to_world`: component registry strategy → `install_system_schedule` → system strategies → visual registry strategy (если host готов). `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSVisualHost` в visual strategies для `require_slot`.
 
 Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
 
@@ -485,7 +506,7 @@ profile.visual_registry_strategy = UnitsVisualStrategy.new()
 
 ## Threading и reentrancy
 
-- Один `ECSManager` — **один поток мутаций** (обычно main thread после `ECSSystemRunner.run`).
+- Один `ECSManager` — **один поток мутаций** (main thread; flush после каждой системы в `run_group`).
 - **Не вызывайте** `create_entity`, `destroy_entity`, `add_component`, `remove_component` изнутри `for_each_chunk` / `process_chunk` напрямую — используйте `ECSCommandBuffer`.
 - `ECSManager` и `ECSComponentBaseArray` используют **общие scratch-буферы** (`_work_bitmask`, `_destroy_*`, `_batch_*`); вложенные мутации без command buffer в debug могут вызвать `push_error`.
 - `for_each_chunk` / `begin_chunk_run` переиспользуют `ECSQueryChunk` из пула; `get_chunks()` и `collect_chunks(out, true)` — те же pooled views, не хранить между кадрами. Независимые snapshot: `collect_chunks(out, false)`.

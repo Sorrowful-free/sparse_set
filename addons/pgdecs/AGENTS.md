@@ -12,7 +12,7 @@
 1. Определи режим в `process_chunk` (см. таблицу ниже).
 2. **Системы** — `ECSSystemChunkBase` + `process_chunk`; **не** `for_each_chunk` / Callable в hot path.
 3. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
-4. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner`).
+4. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner` после каждой системы, `PER_SYSTEM`).
 5. Не сохраняй `ECSQueryChunk` между кадрами (`begin_chunk_run` инвалидирует pooled views).
 6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategies`, `absorb()`, visual dispatcher/mirror.
 7. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
@@ -45,10 +45,16 @@
 
 ## Command buffer (кратко)
 
-- `buf.create_entity(...)` → **temp id** (&lt; 0) до конца кадра.
-- Real id и membership в query — после `runner.run(delta)`.
+- `buf.create_entity(...)` → **temp id** (&lt; 0) до `execute()` этой системы.
+- Real id и membership в query — после flush **предыдущих** систем в том же `run_group`.
 - Bootstrap / тесты **вне** `process_chunk`: `ecs.create_entity_packed()` — сразу real id.
 - Перед `destroy_entity`: `visual_registry.release_entity(entity_id, ecs)` если был visual.
+
+## System groups (кратко)
+
+- Группы и расписание — `ECSWorldProfile.system_groups` + `ECSSystemStrategy.run_group`.
+- Дефолт: simulation (`_physics_process`), network (20 Hz `_process`), frame (каждый `_process`).
+- MANUAL: `world.run_system_group(&"name", delta)`.
 
 ---
 

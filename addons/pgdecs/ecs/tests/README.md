@@ -37,7 +37,9 @@ if (-not $godot) { $godot = "godot" }
 - `unit/ecs_query_chunk_test.gd` — ECSQueryChunk (get_component_chunk по chunk_index)
 - `unit/ecs_world_state_test.gd` — валидность состояния мира
 - `unit/ecs_command_buffer_test.gd` — отложенные команды и execute
-- `unit/ecs_system_runner_test.gd` — SystemRunner
+- `unit/ecs_system_runner_test.gd` — SystemRunner, per-system flush
+- `unit/ecs_system_scheduler_test.gd` — ECSSystemScheduler
+- `unit/ecs_system_group_config_test.gd` — group config preset
 - `unit/ecs_system_chunk_base_test.gd` — ECSSystemChunkBase (single-thread + worker pool)
 - `unit/ecs_regression_test.gd` — регрессии (without > max component, stale handle, add/remove)
 - `unit/ecs_archetype_chunk_test.gd` — dense add/remove, swap-remove, slots

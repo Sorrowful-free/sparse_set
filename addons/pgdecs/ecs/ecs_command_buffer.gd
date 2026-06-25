@@ -34,6 +34,9 @@ func _init(ecs_manager: ECSManager) -> void:
 func get_ecs_manager() -> ECSManager:
 	return _ecs_manager
 
+func has_pending_commands() -> bool:
+	return not _commands.is_empty()
+
 func _packed_from_array(component_ids: Array[int]) -> PackedInt64Array:
 	return PackedInt64Array(component_ids)
 

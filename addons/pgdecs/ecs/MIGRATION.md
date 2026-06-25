@@ -36,7 +36,7 @@ ecs.destroy_entities_packed(survivor_ids)
 |---|---|
 | Ключи архетипов | Реестр по `PackedInt64Array` component ids, не по `bit_hash()` |
 | `ECSManager.reset()` | Уничтожает все сущности и архетипы; `register_component` сохраняется |
-| `auto_gc_archetypes` | По умолчанию `true`: GC один раз в конце `ECSSystemRunner.run()` |
+| `auto_gc_archetypes` | По умолчанию `true`: GC один раз в конце кадра `ECSWorld._process` |
 | `flush_archetype_gc()` | Ручной сброс отложенного GC (бенчмарки без раннера) |
 | `get_chunks()` | Pooled views текущего run — **не** кэшировать между вызовами |
 | `for_each_chunk()` | Тот же пул; Callable на границе callback — для скриптов/тестов |

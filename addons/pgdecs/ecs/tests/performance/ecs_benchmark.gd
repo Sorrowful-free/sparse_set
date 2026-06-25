@@ -17,13 +17,15 @@ func _init(ecs: ECSManager, iterations: int = 10000) -> void:
 	_ecs = ecs
 	_iterations = iterations
 
-## Конец кадра как в игре: ECSSystemRunner.run() → flush_archetype_gc_if_pending().
+## Конец кадра как в игре: run() → flush_archetype_gc_if_pending().
 func _flush_deferred_gc_via_runner() -> void:
 	if _gc_runner == null:
 		var noop: _NoOpFrameSystem = _NoOpFrameSystem.new(_ecs)
 		_gc_runner = ECSSystemRunner.new()
 		_gc_runner.add_system(noop)
 	_gc_runner.run(0.0)
+	if _ecs.auto_gc_archetypes:
+		_ecs.flush_archetype_gc_if_pending()
 
 func _time_block(name: String, block: Callable) -> float:
 	var start: int = Time.get_ticks_usec()
