@@ -89,3 +89,46 @@ func test_example_mover_blueprint_with_demo_schema() -> void:
 		ExampleComponentRegistryStrategy.Component.VELOCITY
 	) as ECSComponentFloat32Array
 	assert_eq(vel.get_component(entity_ids[0]), 2.5)
+
+func test_build_default_values_applied_on_spawn() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	var blueprint: _DictBlueprint = _DictBlueprint.new()
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	blueprint.spawn_one(buf)
+	buf.execute()
+	var entity_ids: PackedInt64Array = ECSQueryBuilder.new().with_component(VALUE_ID).build(ecs).get_entity_ids()
+	var comp: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	assert_eq(comp.get_component(entity_ids[0]), 42.0)
+
+func test_apply_defaults_super_keeps_dict_and_extra() -> void:
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(EXTRA_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	var blueprint: _HybridBlueprint = _HybridBlueprint.new()
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	blueprint.spawn_one(buf)
+	buf.execute()
+	var entity_ids: PackedInt64Array = ECSQueryBuilder.new().with_component(VALUE_ID).build(ecs).get_entity_ids()
+	var values: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	var extras: ECSComponentFloat32Array = ecs.get_component_array(EXTRA_ID) as ECSComponentFloat32Array
+	assert_eq(values.get_component(entity_ids[0]), 3.0)
+	assert_eq(extras.get_component(entity_ids[0]), 99.0)
+
+class _DictBlueprint extends ECSEntityBlueprint:
+	func build_component_ids() -> PackedInt64Array:
+		return PackedInt64Array([VALUE_ID])
+
+	func build_default_values() -> Dictionary:
+		return {VALUE_ID: 42.0}
+
+class _HybridBlueprint extends ECSEntityBlueprint:
+	func build_component_ids() -> PackedInt64Array:
+		return PackedInt64Array([VALUE_ID, EXTRA_ID])
+
+	func build_default_values() -> Dictionary:
+		return {VALUE_ID: 3.0}
+
+	func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+		super.apply_defaults(buf, entity_id)
+		buf.set_component_value(entity_id, EXTRA_ID, 99.0)

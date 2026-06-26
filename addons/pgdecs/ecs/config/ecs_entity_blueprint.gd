@@ -15,6 +15,11 @@ var _cached_archetype: PackedInt64Array = PackedInt64Array()
 ## Нормализованный набор component id (без тегов-only если не нужны в архетипе).
 @abstract func build_component_ids() -> PackedInt64Array
 
+## Статические дефолты { component_id: value } для [method apply_defaults].
+## Переопредели для простых констант; для сложной логики — [method apply_defaults].
+func build_default_values() -> Dictionary:
+	return {}
+
 func get_component_ids() -> PackedInt64Array:
 	if _cached_component_ids.is_empty():
 		_cached_component_ids = build_component_ids()
@@ -55,9 +60,12 @@ func apply_instances(buf: ECSCommandBuffer, entity_ids: PackedInt64Array) -> voi
 		if entity_id != 0:
 			apply_instance(buf, entity_id, i)
 
-## Общие дефолты — только [method ECSCommandBuffer.set_component_value].
-func apply_defaults(_buf: ECSCommandBuffer, _entity_id: int) -> void:
-	pass
+## Общие дефолты: [method build_default_values] → [method ECSCommandBuffer.set_component_value].
+## Переопредели для доп. логики; вызови [code]super.apply_defaults[/code] чтобы сохранить dict.
+func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+	var defaults: Dictionary = build_default_values()
+	for component_id: Variant in defaults:
+		buf.set_component_value(entity_id, int(component_id), defaults[component_id])
 
 ## Параметры одного инстанса (index в batch). По умолчанию — [method apply_defaults].
 func apply_instance(buf: ECSCommandBuffer, entity_id: int, _index: int) -> void:

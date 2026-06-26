@@ -446,12 +446,17 @@ func build_component_ids() -> PackedInt64Array:
         MyComponents.NAV_AGENT,
     ])
 
-func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
-    buf.set_component_value(entity_id, MyComponents.HEALTH, 100)
+func build_default_values() -> Dictionary:
+    return { MyComponents.HEALTH: 100 }
+
+# Сложная логика: override apply_defaults, super — для dict из build_default_values
 ```
 
 | Метод | Когда |
 |-------|--------|
+| `build_component_ids()` | состав архетипа (abstract) |
+| `build_default_values()` | статические дефолты `{ component_id: value }` |
+| `apply_defaults(buf, entity_id)` | dict + опционально `super` / кастом |
 | `spawn_one(buf)` | одна сущность; temp id до execute |
 | `spawn_batch(buf, count)` | батч create + `apply_instance` на temp ids в том же буфере |
 | `apply_instance(buf, entity_id, index)` | только `buf.set_component_value` |

@@ -240,11 +240,11 @@ func build_component_ids() -> PackedInt64Array:
         GameComponents.HEALTH,
     ])
 
-func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
-    buf.set_component_value(entity_id, GameComponents.HEALTH, base_health)
+func build_default_values() -> Dictionary:
+    return { GameComponents.HEALTH: base_health }
 
 func apply_instance(buf: ECSCommandBuffer, entity_id: int, _index: int) -> void:
-    apply_defaults(buf, entity_id)
+    super.apply_instance(buf, entity_id, _index)
     buf.set_component_value(entity_id, GameComponents.POSITION, _random_point_in_radius(spawn_radius))
 
 # Толпа: один буфер — create batch + set на каждый temp id

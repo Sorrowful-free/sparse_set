@@ -8,9 +8,7 @@ func build_component_ids() -> PackedInt64Array:
 		ExampleComponentRegistryStrategy.Component.VELOCITY,
 	])
 
-func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
-	buf.set_component_value(
-		entity_id,
-		ExampleComponentRegistryStrategy.Component.VELOCITY,
-		initial_velocity
-	)
+func build_default_values() -> Dictionary:
+	return {
+		ExampleComponentRegistryStrategy.Component.VELOCITY: initial_velocity,
+	}
