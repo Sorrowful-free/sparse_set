@@ -13,7 +13,8 @@ const components: Array[Dictionary] = [
 	{"value_type": "Vector2", "default_value": "Vector2.ZERO", "packed_type": "PackedVector2Array", "part_name":"Vector2"},
 	{"value_type": "Vector3", "default_value": "Vector3.ZERO", "packed_type": "PackedVector3Array", "part_name":"Vector3"},
 	{"value_type": "Vector4", "default_value": "Vector4.ZERO", "packed_type": "PackedVector4Array", "part_name":"Vector4"},
-	{"value_type": "Color", "default_value": "Color.BLACK", "packed_type": "PackedColorArray", "part_name":"Color"}
+	{"value_type": "Color", "default_value": "Color.BLACK", "packed_type": "PackedColorArray", "part_name":"Color"},
+	{"value_type": "String", "default_value": '""', "packed_type": "PackedStringArray", "part_name":"String"}
 ]
 
 func _run() -> void:

@@ -11,6 +11,7 @@ func test_known_types() -> void:
 	assert_not_null(ECSComponentFactory.create_component(TYPE_PACKED_VECTOR3_ARRAY))
 	assert_not_null(ECSComponentFactory.create_component(TYPE_PACKED_VECTOR4_ARRAY))
 	assert_not_null(ECSComponentFactory.create_component(TYPE_PACKED_COLOR_ARRAY))
+	assert_not_null(ECSComponentFactory.create_component(TYPE_PACKED_STRING_ARRAY))
 
 func test_unknown_type_returns_null() -> void:
 	assert_null(ECSComponentFactory.create_component(TYPE_STRING))
