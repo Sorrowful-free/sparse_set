@@ -45,7 +45,8 @@ if (-not $godot) { $godot = "godot" }
 - `unit/ecs_archetype_chunk_test.gd` — dense add/remove, swap-remove, slots
 - `unit/ecs_membership_test.gd` — has_component только через archetype
 - `unit/ecs_dense_iteration_test.gd` — count O(alive), dense vs query ids
-- `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()` и движение сущностей
+- `unit/ecs_entity_blueprint_test.gd` — blueprint spawn, `build_default_values`, `apply_defaults`
+- `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()` и движение (simulation / `_physics_process`)
 - `unit/ecs_world_profile_test.gd` — profile strategies, `reset_world`, повторный apply
 - `unit/ecs_bridge_registry_test.gd` — acquire/release, update, host slots
 - `unit/ecs_bridge_profile_test.gd` — backend strategies, deferred install

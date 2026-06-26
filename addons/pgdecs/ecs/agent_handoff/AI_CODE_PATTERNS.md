@@ -216,8 +216,8 @@ func process_chunk(...):
 use_worker_pool = true
 parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
 
-# ПЛОХО: смешать visual mirror / дублировать handle вне SoA
-# handle/type только в компонентах VISUAL_* + registry.release_entity перед destroy
+# ПЛОХО: смешать bridge mirror / дублировать handle вне SoA
+# handle/type только в BRIDGE_* + orchestrator или registry.release_entity перед destroy
 ```
 
 ---
@@ -298,20 +298,22 @@ buf.execute()
 
 ---
 
-## 8. Visual (редкие сущности)
+## 8. Bridge lifecycle (редкие сущности / LOD)
 
 ```gdscript
-# После execute / когда есть real entity_id:
-var handle := registry.acquire(visual_type, entity_id, ecs)
-types.set_component(entity_id, visual_type)
-handles.set_component(entity_id, handle)
+# Spawn: entity + BRIDGE_TYPE + TAG_BRIDGE_PENDING_ACQUIRE → orchestrator → sync
+buf.add_component(entity_id, TAG_BRIDGE_PENDING_ACQUIRE)
 
 # Destroy:
-registry.release_entity(entity_id, ecs)
-buf.destroy_entity(entity_id)  # или ecs.destroy_entity вне process_chunk
+buf.add_component(entity_id, TAG_BRIDGE_PENDING_RELEASE)
+# orchestrator: release_entity → destroy (flush в той же системе)
+
+# Ручной release без orchestrator:
+world.get_bridge_registry().release_entity(entity_id, ecs)
+buf.destroy_entity(entity_id)
 ```
 
-Slot API на spawn достаточен; chunk-based visual bind в фреймворке **не требуется**.
+Chunk-based bridge bind в фреймворке **не требуется** — только pending tags + orchestrator.
 
 ---
 
@@ -324,6 +326,7 @@ Slot API на spawn достаточен; chunk-based visual bind в фрейм�
 - [ ] Нет ручного `buf.execute()` в production-системах
 - [ ] Нет `get_entity_ids()` в hot loop без причины
 - [ ] `apply_profile` не вызывается дважды в одном lifecycle (demo: `bootstrap` проверяет `is_profile_applied()`)
+- [ ] Demo movement: `DemoMovementSystem` в `run_group=simulation` → тик через `_physics_process` / scheduler, не `_process`
 - [ ] Unit gate: `run_composer_gates_headless.gd` — `failed: 0`
 
 ---
