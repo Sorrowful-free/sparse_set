@@ -67,15 +67,13 @@
 **Файлы:**
 - [`ecs_world.gd`](../ecs_world.gd)
 - [`ecs_world_profile.gd`](../config/ecs_world_profile.gd)
-- [`ecs_bridge_host.gd`](../bridge/ecs_bridge_host.gd)
 - [`ecs_component_registry_strategy.gd`](../config/ecs_component_registry_strategy.gd)
-- [`ecs_bridge_registry_strategy.gd`](../config/ecs_bridge_registry_strategy.gd)
 - [`ecs_system_strategy.gd`](../config/ecs_system_strategy.gd)
 - [`examples/demo_world.gd`](../examples/demo_world.gd)
+- [`examples/example_intent_world_profile.gd`](../examples/example_intent_world_profile.gd)
 - [`tests/unit/ecs_world_profile_test.gd`](../tests/unit/ecs_world_profile_test.gd)
-- [`tests/unit/ecs_bridge_profile_test.gd`](../tests/unit/ecs_bridge_profile_test.gd)
 
-**Тип задач:** `apply_profile` guard (один раз), bridge wiring через backend/sync/orchestrator strategies, debug warnings, примеры.
+**Тип задач:** `apply_profile` guard (один раз), intent/services wiring в strategies, debug warnings, примеры.
 
 **Perf gate:** не требуется.
 

@@ -21,7 +21,7 @@
 - Публичный API (если не указано иное)
 - Файлы вне Scope
 - План-файлы в `.cursor/plans/`
-- Object/registry bridge (`OBJECT_COMPONENTS.md`)
+- Intent pipeline / object registries (`INTENT_PIPELINE.md`, `OBJECT_COMPONENTS.md`)
 
 **Behavioral requirements:**
 - ...

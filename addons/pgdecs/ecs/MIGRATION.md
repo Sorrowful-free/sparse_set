@@ -43,27 +43,46 @@ ecs.destroy_entities_packed(survivor_ids)
 | `begin_chunk_run()` | Предпочтительно в ручной итерации; системы используют через `ECSSystemChunkBase` |
 | `get_entity_archetype()` | Не кэшировать `ECSArchetype` между кадрами после destroy/GC |
 
-## Bridge registry (breaking: Visual → Bridge)
+## 2.0 — Bridge layer removed (breaking)
 
-Удалены `ECSVisual*`, `visual_registry_strategy`, `sync_all`.
+В **PGDECS 2.0** удалён весь bridge-слой. Это осознанный шаг: ядро остаётся SoA + systems + profile; связь с Node/RID/variable data — через **Intent-теги + Resource-реестры** в игровом коде. См. [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+
+### Удалённые классы
+
+| Категория | Классы |
+|-----------|--------|
+| Bridge core | `ECSBridgeHost`, `ECSBridgeBackend`, `ECSBridgeRegistry` |
+| Systems | `ECSBridgeOrchestratorSystem`, `ECSBridgeSyncSystem` |
+| Config | `ECSBridgeRegistryStrategy`, `ECSBridgeBackendStrategy`, `ECSBridgeComponentIds`, `ECSBridgeOrchestratorStrategy`, `ECSBridgeSyncStrategy` |
+| ECSWorld API | `get_bridge_registry()`, `set_bridge_registry()` |
+| ECSWorldProfile | `bridge_registry_strategy`, `apply_to_world(world, bridge_host)` → `apply_to_world(world)` |
+
+### Быстрая замена
 
 ```gdscript
-# было (Visual)
-profile.visual_registry_strategy = UnitsVisualStrategy.new()
-
-# bridge v1 (на profile)
-profile.bridge_component_ids = GameBridgeComponentIds.new()
-profile.bridge_backend_strategies = [UnitsBridgeBackendStrategy.new()]
-
-# стало (bridge registry strategy)
-var bridge := ECSBridgeRegistryStrategy.new()
-bridge.component_ids = GameBridgeComponentIds.new()
-bridge.backend_strategies = [UnitsBridgeBackendStrategy.new()]
-profile.bridge_registry_strategy = bridge
+# было (1.x bridge)
+profile.bridge_registry_strategy = bridge_strategy
 profile.system_strategies = [
     ECSBridgeOrchestratorStrategy.new(),
     ECSBridgeSyncStrategy.new(),
 ]
+
+# стало (2.0) — игровой код
+# Resource-реестры через @export в ECSSystemStrategy (ExampleEcsServices)
+# Intent-теги: INTENT_BIND_*, INTENT_RELEASE, INTENT_DESTROY
+# Системы: bind → sync → release → destroy sweep
+# См. ecs/examples/example_intent_world_profile.gd и INTENT_PIPELINE.md
 ```
 
-Компоненты: `VISUAL_*` → `BRIDGE_*`. Orchestrator не дублирует `component_ids` — читает из `world.get_bridge_registry()`.
+### Таблица: bridge → intent
+
+| 1.x | 2.0 |
+|-----|-----|
+| `BRIDGE_TYPE` + `BRIDGE_HANDLE` | `*_SLOT` (Int32) на домен |
+| `TAG_BRIDGE_PENDING_ACQUIRE` | `INTENT_BIND_*` |
+| `TAG_BRIDGE_PENDING_RELEASE` | `INTENT_RELEASE` |
+| `ECSBridgeOrchestratorSystem` | `ExampleBindIntentSystem` + `ExampleReleaseIntentSystem` |
+| `ECSBridgeSyncSystem` | `ExampleRegistrySyncSystem` (игра) |
+| `bridge_registry_strategy` | `@export services: ExampleEcsServices` |
+
+Историческая заметка: в 1.x до bridge существовали `ECSVisual*` / `visual_registry_strategy` — они были удалены ранее.

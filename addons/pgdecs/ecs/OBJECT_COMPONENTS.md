@@ -1,7 +1,9 @@
-# Объектные компоненты (Node, String, Transform)
+# Объектные компоненты (Node, Transform, Resource)
 
-Ядро PGDECS хранит только **примитивные SoA-типы** (`PackedFloat32Array`, `PackedVector2Array` и т.д.).  
-`Node`, `String`, `Resource`, `Transform` **не входят** в `ECSComponentFactory` и не планируются в ядре.
+Ядро PGDECS хранит **примитивные SoA-типы** (`PackedFloat32Array`, `PackedVector2Array`, `PackedStringArray` и т.д.).  
+`Node`, `Resource`, `Transform3D` как Godot-объекты **не входят** в `ECSComponentFactory`.
+
+**String** — исключение: поддерживается как `TYPE_PACKED_STRING_ARRAY` (`ECSComponentStringArray`) — одна `String` на entity в чанке. Альтернатива для каталогов/дедупа — `int` id + строковый пул вне ECS (ниже).
 
 ## Почему не в ядре
 
@@ -9,85 +11,45 @@
 - Расширение factory под объекты размоет контракт производительности и усложнит codegen.
 - Lifecycle `Node` (дерево сцены, `free()`) не совместим с чистым ECS storage.
 
-## Паттерн: registry bridge (реестр снаружи ECS)
+## Паттерн: slot + Resource-реестр (side-table)
 
-Идея: в ECS хранится **лёгкий идентификатор** (slot / handle), а сами объекты — в side-table.
+Идея: в ECS хранится **лёгкий slot** (`Int32`, `-1` = нет), объекты — в **Resource-реестре** вне ECS. Передача реестра — `@export` в [`ECSSystemStrategy`](config/ecs_system_strategy.gd). Полный lifecycle — [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ```gdscript
-# Пример вне ядра (addons/pgdecs/ecs/examples/object_registry_demo.gd)
+# addons/pgdecs/ecs/examples/object_registry_demo.gd
 
-class_name ECSNodeRegistry extends RefCounted
+class_name ECSNodeRegistry extends Resource
 
-var _nodes: Array[Node] = []
-
-func register(node: Node) -> int:
-    var slot: int = _nodes.size()
-    _nodes.append(node)
-    return slot
-
-func get_node(slot: int) -> Node:
-    if slot < 0 or slot >= _nodes.size():
-        return null
-    return _nodes[slot]
-
-func unregister(slot: int) -> void:
-    if slot >= 0 and slot < _nodes.size():
-        _nodes[slot] = null
+func acquire() -> int: ...
+func release(slot: int) -> void: ...
+func get_node(slot: int) -> Node: ...
 ```
 
-Компонент в ECS — обычный `ECSComponentInt32Array` (или Int64) с `registry_slot`:
+Компонент в ECS:
 
 ```gdscript
-const NODE_SLOT_ID: int = 10
+const NODE_SLOT_ID: int = 20  # TYPE_PACKED_INT32_ARRAY
 
-func spawn_visual(ecs: ECSManager, registry: ECSNodeRegistry, node: Node) -> int:
-    var slot: int = registry.register(node)
-    var entity: int = ecs.create_entity([POSITION_ID, NODE_SLOT_ID])
-    var slots: ECSComponentInt32Array = ecs.get_component_array(NODE_SLOT_ID)
-    slots.set_component(entity, slot)
-    return entity
-
-func destroy_visual(ecs: ECSManager, registry: ECSNodeRegistry, entity: int) -> void:
-    var slots: ECSComponentInt32Array = ecs.get_component_array(NODE_SLOT_ID)
-    var slot: int = slots.get_component(entity)
-    registry.unregister(slot)
-    ecs.destroy_entity(entity)
+# После bind (intent system или spawn):
+slots.set_component(entity, registry.acquire())
 ```
 
 ## String / Transform
 
-- **String** — хранить `int` id в строковом пуле (`Dictionary[int, String]` или packed indices + `PackedStringArray`).
-- **Transform** — разбить на `Vector3` position + `Quaternion` rotation (или `Vector3` + `Vector3` euler) как отдельные примитивные компоненты; не один blob `Transform`.
+- **String (в SoA)** — `ecs.register_component(NAME_ID, TYPE_PACKED_STRING_ARRAY)`; fast-path через `get_values_buffer()` / `set_value_at_slot` как у остальных packed-типов.
+- **String (пул)** — `int` id в строковом пуле (`Dictionary` / `PackedStringArray` снаружи ECS), если нужен дедуп или каталог имён без копий в каждом чанке.
+- **Transform** — `Vector3` + rotation как отдельные примитивные компоненты (или `PackedVector3Array` + угол).
+- **RID** — `Int64` (`get_id()` / `rid_from_int64()` на границе Server API).
 
-## Lifecycle
+## Lifecycle (ответственность игры)
 
-1. При `destroy_entity` — сначала прочитать slot из компонента, очистить реестр, затем `ecs.destroy_entity`.
-2. При удалении `Node` из сцены — подписаться на `tree_exited` и удалить сущность из ECS (или пометить slot invalid).
+1. **Bind** — intent или spawn: slot в SoA.
+2. **Sync** — система читает SoA, пишет в registry / Node / Server.
+3. **Release** — `INTENT_RELEASE` или вручную перед `destroy_entity`: `registry.release(slot)`.
+4. **Destroy** — `destroy_entity` после освобождения slot'ов.
 
-## Статус
+При удалении `Node` из сцены — gateway (`tree_exited` → intent или `destroy_entity`).
 
-Планируется поддержка **только через реестры и примитивные компоненты-индексы**. Ядро ECS не будет расширено под object types.
+## Статус (v2.0)
 
-## Bridge registry
-
-Bridge-слой: [`ECSBridgeHost`](bridge/ecs_bridge_host.gd), [`ECSBridgeBackend`](bridge/ecs_bridge_backend.gd), [`ECSBridgeRegistry`](bridge/ecs_bridge_registry.gd). Подключение: [`ECSBridgeRegistryStrategy`](config/ecs_bridge_registry_strategy.gd) в `ECSWorldProfile` (`component_ids` + `backend_strategies[]`). Sync — [`ECSBridgeSyncStrategy`](config/ecs_bridge_sync_strategy.gd); lifecycle — [`ECSBridgeOrchestratorStrategy`](config/ecs_bridge_orchestrator_strategy.gd).
-
-Примитивные компоненты (регистрируются в игре через [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd)):
-
-| Component | Storage | Смысл |
-|-----------|---------|--------|
-| `BRIDGE_TYPE` | `TYPE_PACKED_INT32_ARRAY` | ключ backend (какой MultiMesh / пул) |
-| `BRIDGE_SUBTYPE` | `TYPE_PACKED_INT32_ARRAY` | вариант внутри type (свой enum на type) |
-| `BRIDGE_HANDLE` | `TYPE_PACKED_INT32_ARRAY` | opaque instance (`-1` = нет) |
-
-Теги: `TAG_BRIDGE`, `TAG_BRIDGE_PENDING_ACQUIRE`, `TAG_BRIDGE_PENDING_RELEASE`.
-
-Lifecycle:
-
-1. **Spawn:** entity + `BRIDGE_TYPE` + `TAG_BRIDGE_PENDING_ACQUIRE` → orchestrator `acquire` → handle в SoA + `TAG_BRIDGE`.
-2. **Sync:** `ECSBridgeSyncSystem` вызывает `backend.update(ecs, delta)` для своего `bridge_type` (частота через `run_group`).
-3. **Destroy:** `TAG_BRIDGE_PENDING_RELEASE` → orchestrator `release_entity` → `destroy_entity` (в той же системе, до flush).
-
-**LOD:** смена Skeletal → VAT → MultiMesh = смена `BRIDGE_TYPE` (другой backend). Release → смена type → pending acquire.
-
-Конкретные backend'ы (MultiMesh, node pool, Limbo) — **реализация в игре**, не в pgdecs.
+Поддержка object types **только** через реестры + slot/intent в игровом коде. Bridge-слой из 1.x **удалён** — см. [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).

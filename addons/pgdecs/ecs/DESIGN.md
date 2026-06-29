@@ -403,6 +403,22 @@ for i in range(chunk.get_entity_count()):
 
 ## Вне скоупа ядра
 
-- **Node, String, Transform** — не в `ECSComponentFactory`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md): паттерн registry bridge (примитивный slot + side-table).
+- **Node, Resource, Transform** — не в `ECSComponentFactory` (reference types / lifecycle сцены). Паттерн: slot (`Int32`) в SoA + Resource side-table — [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+- **String** — в factory как `TYPE_PACKED_STRING_ARRAY` (`ECSComponentStringArray`, одна строка на slot). Для пулов/интернирования длинных каталогов строк — опционально `int` id + реестр снаружи ECS (см. OBJECT_COMPONENTS).
 - PGDECS оптимизирует layout и итерацию в GDScript, не заменяет C++ ECS. См. [PERFORMANCE.md](PERFORMANCE.md).
+
+---
+
+## ADR: PGDECS 2.0 — удаление bridge, intent + Resource registries
+
+**Контекст (1.x):** bridge-слой (`ECSBridgeHost`, `ECSBridgeRegistry`, orchestrator/sync) связывал ECS с Godot через один `BRIDGE_HANDLE` на entity. Это ограничивало сценарии (визуал + звук + nav), усложняло ядро и profile.
+
+**Решение (2.0):**
+
+1. **Ядро** — только SoA, query, systems, command buffer, profile/strategies.
+2. **Внешние данные** — `Int32`/`Int64` slot-компоненты + **Resource-реестры** в игровом коде (`@export` в `ECSSystemStrategy`, напр. `ExampleEcsServices`).
+3. **Lifecycle** — intent marker-теги (`INTENT_BIND_*`, `INTENT_RELEASE`, `INTENT_DESTROY`) и упорядоченные системы: Bind → Sync → Release → DestroySweep.
+4. **Ответственность игры** — release registry slot до/вместе с `destroy_entity`; ядро не чистит side-tables автоматически.
+
+**Последствия:** breaking change; `apply_to_world(world)` без bridge host; примеры в `examples/example_intent_*`. Миграция: [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).
 

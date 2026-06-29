@@ -17,7 +17,7 @@ Data-oriented ECS для Godot 4.x (GDScript). Документ описывае
 11. [Change detection](#change-detection)
 12. [Мир (ECSWorld)](#мир-ecsworld)
 13. [Configuration (profile, registry, strategies)](#configuration-profile-registry-strategies)
-14. [Bridge layer](#bridge-layer-godot--ecs)
+14. [Intent pipeline и внешние данные](#intent-pipeline-и-внешние-данные)
 15. [Threading и reentrancy](#threading-и-reentrancy)
 16. [Структура каталогов](#структура-каталогов)
 17. [См. также](#см-также)
@@ -190,9 +190,10 @@ var chunk: ECSComponentVector2ArrayChunk = query_chunk.get_component_chunk(POSIT
 chunk.get_value_at_slot(slot)
 ```
 
-### Объектные типы (Node, String)
+### Объектные типы (Node, Transform) и String
 
-Не входят в ядро. Паттерн registry + примитивный индекс: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+`Node` / `Resource` — не в ядре; slot + реестр: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).  
+`String` — `TYPE_PACKED_STRING_ARRAY` в factory **или** int id + пул снаружи ECS (см. тот же документ).
 
 ### Tags (marker-компоненты)
 
@@ -406,10 +407,11 @@ buf.execute()  # вызывается раннером автоматическ�
 ```gdscript
 # Нода на сцене
 @export var profile: ECSWorldProfile
-# Дочерний ECSBridgeHost со slots — опционально
 ```
 
-`ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Bridge sync — через `ECSBridgeSyncSystem` в `system_strategies` (не `sync_all`). Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и bridge registry и сбрасывает флаг profile — для reload сцены.
+`ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и сбрасывает флаг profile — для reload сцены.
+
+Внешние данные (Node, RID, variable arrays) — **не в ядре**: intent-теги + Resource-реестры в игровых системах. См. [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ---
 
@@ -419,16 +421,13 @@ buf.execute()  # вызывается раннером автоматическ�
 |-------|------|
 | [`ECSComponentRegistryStrategy`](config/ecs_component_registry_strategy.gd) | `get_tags()` + `get_components()` → `apply_to(ecs)` (одна на profile) |
 | [`ECSSystemStrategy`](config/ecs_system_strategy.gd) | `@export` + `create_system(ecs, world)`; `run_group` |
-| [`ECSBridgeRegistryStrategy`](config/ecs_bridge_registry_strategy.gd) | `component_ids` + `backend_strategies[]` → `apply_to(world, host)` |
-| [`ECSBridgeBackendStrategy`](config/ecs_bridge_backend_strategy.gd) | один `bridge_type` + `create_backend(host, ecs, world)` |
-| [`ECSBridgeComponentIds`](config/ecs_bridge_component_ids.gd) | id компонентов/тегов (внутри registry strategy) |
-| [`ECSBridgeOrchestratorStrategy`](config/ecs_bridge_orchestrator_strategy.gd) | pending acquire/release; ids из registry |
-| [`ECSBridgeSyncStrategy`](config/ecs_bridge_sync_strategy.gd) | один `bridge_type` + `run_group` |
 | [`ECSSystemGroupConfig`](config/ecs_system_group_config.gd) | run_group, hook, hz, execution_order |
-| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component + bridge registry strategies + system strategies + `system_groups` |
+| [`ECSWorldProfile`](config/ecs_world_profile.gd) | component registry strategy + system strategies + `system_groups` |
 | [`ECSEntityBlueprint`](config/ecs_entity_blueprint.gd) | абстрактный blueprint сущности (игра наследует Resource) |
 
-Порядок `apply_to_world`: component registry strategy → bridge registry (если host готов) → `install_system_schedule` → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning). Передаёт опциональный дочерний `ECSBridgeHost` в backend strategies для `require_slot`.
+Порядок `apply_to_world`: component registry strategy → `install_system_schedule` → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning).
+
+Игровые `Resource`-реестры (например `ExampleEcsServices`) передаются через `@export` в `ECSSystemStrategy`, не через profile.
 
 Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
 
@@ -467,53 +466,34 @@ Bootstrap и системы: один буфер на кадр/фазу — crea
 
 ---
 
-## Bridge layer (Godot ↔ ECS)
+## Intent pipeline и внешние данные
 
-| Класс | Роль |
-|-------|------|
-| [`ECSBridgeHost`](bridge/ecs_bridge_host.gd) | якорь bridge-сцены, слоты нод (опционально) |
-| [`ECSBridgeBackend`](bridge/ecs_bridge_backend.gd) | один `bridge_type` (игра реализует) |
-| [`ECSBridgeRegistry`](bridge/ecs_bridge_registry.gd) | acquire / release_entity / маршрутизация backends |
-| [`ECSBridgeOrchestratorSystem`](systems/ecs_bridge_orchestrator_system.gd) | pending acquire/release (+ destroy) |
-| [`ECSBridgeSyncSystem`](systems/ecs_bridge_sync_system.gd) | `backend.update(ecs, delta)` для одного type |
+В **PGDECS 2.0** связь ECS с Godot (Node, RID, nav paths и т.д.) — ответственность игры, не ядра:
 
-Сцена (Host опционален — только если backends нужны ноды сцены):
+| Элемент | Роль |
+|---------|------|
+| `*_SLOT` (Int32) | индекс в Resource-реестре, `-1` = нет привязки |
+| `INTENT_BIND_*` | marker: нужно acquire в registry |
+| `INTENT_RELEASE` | marker: release slot перед destroy |
+| `INTENT_DESTROY` | marker: готово к `destroy_entity` после release |
+| `Resource` registry | side-table вне SoA (`acquire` / `release`) |
+| `ExampleEcsServices` | контейнер `@export` реестров для strategies |
 
-```
-ECSWorld
-└── GameBridgeHost       # slots: { &"units": NodePath("UnitsMultiMesh") }
-    └── UnitsMultiMesh
-```
-
-`ECSWorldProfile.bridge_registry_strategy` — `component_ids` + `backend_strategies[]` (по одной backend strategy на `bridge_type`). Orchestrator читает ids из `world.get_bridge_registry()`. Sync — `ECSBridgeSyncStrategy` в `system_strategies`.
-
-Если `apply_profile` вызван до `add_child(world)` без host, `ECSWorld._enter_tree()` повторно собирает registry после появления дочернего `ECSBridgeHost`.
-
-Игра — backend strategy:
+Порядок систем в кадре (пример): **Bind → Sync → Release → DestroySweep** — см. [`examples/example_intent_world_profile.gd`](examples/example_intent_world_profile.gd).
 
 ```gdscript
-class_name UnitsBridgeBackendStrategy extends ECSBridgeBackendStrategy
+# Strategy с реестром
+class_name ExampleBindIntentStrategy extends ECSSystemStrategy
+@export var services: ExampleEcsServices
+@export var run_group: StringName = &"frame"
 
-@export var slot: StringName = &"units"
-
-func create_backend(host, _ecs, _world) -> ECSBridgeBackend:
-    return UnitsBackend.new(host.require_slot(slot))
+func create_system(ecs: ECSManager, world: ECSWorld) -> ECSSystem:
+    var sys := ExampleBindIntentSystem.new()
+    sys.services = services
+    return sys
 ```
 
-```gdscript
-var bridge_strategy := ECSBridgeRegistryStrategy.new()
-bridge_strategy.component_ids = GameBridgeComponentIds.new()
-bridge_strategy.backend_strategies = [UnitsBridgeBackendStrategy.new()]
-profile.bridge_registry_strategy = bridge_strategy
-profile.system_strategies = [
-    ECSBridgeOrchestratorStrategy.new(),  # run_group=frame
-    ECSBridgeSyncStrategy.new(),          # bridge_type, run_group=frame
-]
-```
-
-Без Host и без `bridge_registry_strategy` — `get_bridge_registry()` вернёт `null`.
-
-Теги: `TAG_BRIDGE`, `TAG_BRIDGE_PENDING_ACQUIRE`, `TAG_BRIDGE_PENDING_RELEASE`. SoA: `BRIDGE_TYPE`, `BRIDGE_HANDLE`, опционально `BRIDGE_SUBTYPE`. Spawn: pending acquire → orchestrator → sync. Death: pending release → orchestrator `release_entity` → destroy (flush в той же системе). LOD: release → смена `BRIDGE_TYPE` → pending acquire. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+Полная спецификация: [INTENT_PIPELINE.md](INTENT_PIPELINE.md), [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md). Миграция с 1.x bridge: [MIGRATION.md](MIGRATION.md#20--bridge-layer-removed-breaking).
 
 ---
 
@@ -533,8 +513,7 @@ profile.system_strategies = [
 addons/pgdecs/ecs/
 ├── ecs_manager.gd
 ├── ecs_world.gd
-├── config/                 # Strategy (component, bridge, system), ECSWorldProfile
-├── bridge/                 # BridgeHost, Backend, Registry
+├── config/                 # Strategy (component, system), ECSWorldProfile
 ├── ecs_command_buffer.gd
 ├── entities/
 ├── components/
@@ -554,7 +533,8 @@ addons/pgdecs/ecs/
 |----------|------------|
 | [DESIGN.md](DESIGN.md) | архитектурные решения, история фаз |
 | [PERFORMANCE.md](PERFORMANCE.md) | оптимизации, бенчмарки, change detection |
-| [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md) | Node/String через registry |
-| [MIGRATION.md](MIGRATION.md) | внешний vs packed API |
+| [INTENT_PIPELINE.md](INTENT_PIPELINE.md) | intent-теги, Resource-реестры, lifecycle (v2.0) |
+| [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md) | Node/String/RID через slot + registry |
+| [MIGRATION.md](MIGRATION.md) | внешний vs packed API; миграция 2.0 |
 | [tests/README.md](tests/README.md) | запуск тестов и perf multirun |
 | [agent_handoff/](agent_handoff/README.md) | шаблоны для Composer / CI gates |

@@ -20,9 +20,10 @@
 | ECSQuery, ECSQueryBuilder | Запросы |
 | ECSSystemBase, ECSSystemRunner | Системы |
 | ECSComponentRegistryStrategy | Схема ECS: `get_tags()`, `get_components()` (одна на profile) |
-| ECSSystemStrategy, ECSBridgeRegistryStrategy, ECSBridgeBackendStrategy, ECSWorldProfile | Профиль мира и стратегии |
-| ECSBridgeHost | Якорь bridge-сцены, слоты нод (опционально) |
-| ECSBridgeBackend, ECSBridgeRegistry | Bridge-слой: backend в игре, registry в фреймворке |
+| ECSSystemStrategy, ECSComponentRegistryStrategy, ECSWorldProfile | Профиль мира и стратегии |
+| `INTENT_*` | Intent-теги (marker): bind / release / destroy |
+| `*_SLOT` | Slot-компонент (Int32): индекс в Resource-реестре, `-1` = нет |
+| `*Registry` (игра) | Resource side-table вне ECS, напр. `ECSNodeRegistry` |
 | ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |

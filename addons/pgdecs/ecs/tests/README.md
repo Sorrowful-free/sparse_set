@@ -48,10 +48,6 @@ if (-not $godot) { $godot = "godot" }
 - `unit/ecs_entity_blueprint_test.gd` — blueprint spawn, `build_default_values`, `apply_defaults`
 - `unit/ecs_world_demo_test.gd` — smoke `ECSDemoWorld.bootstrap()` и движение (simulation / `_physics_process`)
 - `unit/ecs_world_profile_test.gd` — profile strategies, `reset_world`, повторный apply
-- `unit/ecs_bridge_registry_test.gd` — acquire/release, update, host slots
-- `unit/ecs_bridge_profile_test.gd` — backend strategies, deferred install
-- `unit/ecs_bridge_orchestrator_test.gd` — pending acquire/release
-- `unit/ecs_bridge_sync_test.gd` — sync system per bridge_type
 
 CI: `.github/workflows/ecs-tests.yml` (Godot 4.7 + `run_composer_gates_headless.gd`).
 

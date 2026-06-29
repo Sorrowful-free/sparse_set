@@ -3,7 +3,8 @@
 Этот файл **переезжает вместе с аддоном**. Cursor подхватывает `AGENTS.md` в подпапках при работе с файлами внутри `addons/pgdecs/`.
 
 Полные паттерны: [`ecs/agent_handoff/AI_CODE_PATTERNS.md`](ecs/agent_handoff/AI_CODE_PATTERNS.md)  
-Архитектура: [`ecs/FRAMEWORK.md`](ecs/FRAMEWORK.md)
+Архитектура: [`ecs/FRAMEWORK.md`](ecs/FRAMEWORK.md)  
+Intent + реестры: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
 
 ---
 
@@ -14,7 +15,7 @@
 3. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
 4. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner` после каждой системы, `PER_SYSTEM`).
 5. Не сохраняй `ECSQueryChunk` между кадрами (`begin_chunk_run` инвалидирует pooled views).
-6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategy`, `ECSVisual*`, `absorb()`, visual dispatcher/mirror.
+6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategy`, `ECSVisual*`, `ECSBridge*`, `absorb()`.
 7. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
 
 ---
@@ -48,7 +49,7 @@
 - `buf.create_entity(...)` → **temp id** (&lt; 0) до `execute()` этой системы.
 - Real id и membership в query — после flush **предыдущих** систем в том же `run_group`.
 - Bootstrap / тесты **вне** `process_chunk`: `ecs.create_entity_packed()` — сразу real id.
-- Перед `destroy_entity`: `TAG_BRIDGE_PENDING_RELEASE` + orchestrator, или `bridge_registry.release_entity(entity_id, ecs)` вручную.
+- Перед `destroy_entity`: release slot'ов в registry (`INTENT_RELEASE` → release system) или вручную в той же фазе кадра.
 
 ## System groups (кратко)
 
@@ -58,11 +59,11 @@
 
 ---
 
-## Profile / bridge
+## Profile / intent / реестры
 
 - Компоненты: одна `ECSComponentRegistryStrategy` на profile.
-- Bridge: `bridge_registry_strategy` (`component_ids` + `backend_strategies[]`); orchestrator читает ids из `get_bridge_registry()`; `ECSBridgeHost` — слоты.
-- Sync / lifecycle: `ECSBridgeSyncStrategy`, `ECSBridgeOrchestratorStrategy` в `system_strategies`.
+- Реестры: `Resource` (например `ExampleEcsServices`), `@export` в strategies — **не в ядре**.
+- Lifecycle внешних данных: intent-теги + системы bind / sync / release / destroy — см. [`INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md).
 
 ## Entity blueprint
 

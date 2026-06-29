@@ -36,7 +36,7 @@ runner.add_system(MyMovementSystem.new(ecs))
 runner.run(delta)
 ```
 
-`ECSWorld` нужен, когда хотите `@export profile`, дочерний `ECSBridgeHost`, scheduler и bridge sync через `system_strategies`.
+`ECSWorld` нужен, когда хотите `@export profile`, scheduler и системы через `system_strategies`. Внешние данные (Node, пулы) — [INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md), не в ядре.
 
 ## API
 
@@ -79,8 +79,10 @@ buf.destroy_entities_packed(batch_ids)
 - **[FRAMEWORK.md](ecs/FRAMEWORK.md)** — полное руководство по фреймворку (API, системы, query, правило fast-path)
 - [DESIGN.md](ecs/DESIGN.md) — архитектурные решения, чанки, membership
 - [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
-- [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — Node/String через реестры
-- [MIGRATION.md](ecs/MIGRATION.md) — внешний API (`Array[int]`) и hot path (`*_packed`)
+- **[INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md)** — Intent-теги + Resource-реестры (v2.0)
+- **[CHANGELOG.md](ecs/CHANGELOG.md)** — история версий
+- [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — Node/String/RID через slot + реестры
+- [MIGRATION.md](ecs/MIGRATION.md) — внешний API и миграция 2.0
 - [NAMING.md](ecs/NAMING.md) — префиксы и имена классов
 - [agent_handoff/](ecs/agent_handoff/README.md) — шаблоны для Composer (батчи, gates, self-check)
 - [tests/README.md](ecs/tests/README.md) — юнит- и perf-тесты

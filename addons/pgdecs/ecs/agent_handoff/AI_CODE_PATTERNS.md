@@ -216,8 +216,8 @@ func process_chunk(...):
 use_worker_pool = true
 parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
 
-# ПЛОХО: смешать bridge mirror / дублировать handle вне SoA
-# handle/type только в BRIDGE_* + orchestrator или registry.release_entity перед destroy
+# ПЛОХО: дублировать handle/slot вне SoA или забыть release перед destroy
+# slot только в *_SLOT; release через INTENT_RELEASE + release system или вручную в той же фазе
 ```
 
 ---
@@ -281,13 +281,18 @@ world.apply_profile(profile)  # повторный вызов игнорируе
 # Компоненты: одна ECSComponentRegistryStrategy на profile
 profile.component_registry_strategy = MyComponentsStrategy.new()
 
-# Bridge: bridge_registry_strategy (component_ids + backend_strategies внутри)
-var bridge := ECSBridgeRegistryStrategy.new()
-bridge.component_ids = GameBridgeComponentIds.new()
-bridge.backend_strategies = [MyUnitsBridgeBackendStrategy.new()]
-profile.bridge_registry_strategy = bridge
-profile.system_strategies.append(ECSBridgeOrchestratorStrategy.new())
-profile.system_strategies.append(ECSBridgeSyncStrategy.new())
+# Intent pipeline: services Resource + stub/example systems в system_strategies
+var services := ExampleEcsServices.new()
+services.node_registry = MyNodeRegistry.new()
+var bind := ExampleBindIntentStrategy.new()
+bind.services = services
+bind.run_group = &"frame"
+profile.system_strategies.append_array([
+    bind,
+    ExampleRegistrySyncStrategy.new(),
+    ExampleReleaseIntentStrategy.new(),
+    ExampleDestroySweepStrategy.new(),
+])
 
 # Spawn: blueprint через command buffer
 var buf := ECSCommandBuffer.new(world.get_ecs_manager())
@@ -298,22 +303,25 @@ buf.execute()
 
 ---
 
-## 8. Bridge lifecycle (редкие сущности / LOD)
+## 8. Intent lifecycle (внешние данные / LOD)
+
+См. [INTENT_PIPELINE.md](../INTENT_PIPELINE.md).
 
 ```gdscript
-# Spawn: entity + BRIDGE_TYPE + TAG_BRIDGE_PENDING_ACQUIRE → orchestrator → sync
-buf.add_component(entity_id, TAG_BRIDGE_PENDING_ACQUIRE)
+# Spawn: entity + NODE_SLOT (-1) + INTENT_BIND_NODE
+buf.add_component(entity_id, INTENT_BIND_NODE)
 
-# Destroy:
-buf.add_component(entity_id, TAG_BRIDGE_PENDING_RELEASE)
-# orchestrator: release_entity → destroy (flush в той же системе)
+# Destroy: release slot, затем destroy
+buf.add_component(entity_id, INTENT_RELEASE)
+# release system: registry.release(slot); remove INTENT_RELEASE; add INTENT_DESTROY
+# destroy sweep: buf.destroy_entity(entity_id)
 
-# Ручной release без orchestrator:
-world.get_bridge_registry().release_entity(entity_id, ecs)
+# Ручной release (bootstrap / тест):
+services.node_registry.release(slot)
 buf.destroy_entity(entity_id)
 ```
 
-Chunk-based bridge bind в фреймворке **не требуется** — только pending tags + orchestrator.
+Chunk-based bind/sync — в игровых системах (`ECSSystemChunkBase`), не в ядре.
 
 ---
 
@@ -341,5 +349,6 @@ Chunk-based bridge bind в фреймворке **не требуется** — 
 | WTP dispatch | [`ecs_chunk_worker_dispatch.gd`](../systems/ecs_chunk_worker_dispatch.gd) |
 | Command buffer тесты | [`ecs_command_buffer_test.gd`](../tests/unit/ecs_command_buffer_test.gd) |
 | Profile / strategies | [`ecs_world_profile.gd`](../config/ecs_world_profile.gd) |
+| Intent pipeline (пример) | [`example_intent_world_profile.gd`](../examples/example_intent_world_profile.gd), [`INTENT_PIPELINE.md`](../INTENT_PIPELINE.md) |
 | Entity blueprint | [`ecs_entity_blueprint.gd`](../config/ecs_entity_blueprint.gd), [`example_mover_blueprint.gd`](../examples/example_mover_blueprint.gd) |
 | Runner порядок | [`ecs_system_runner.gd`](../systems/ecs_system_runner.gd) |
