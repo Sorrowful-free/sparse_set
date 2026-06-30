@@ -68,10 +68,10 @@ profile.system_strategies = [
 ]
 
 # стало (2.0) — игровой код
-# Resource-реестры через @export в ECSSystemStrategy (ExampleEcsServices)
+# Resource-реестры через @export в ECSSystemStrategy (ExampleEcsDependencies)
 # Intent-теги: INTENT_BIND_*, INTENT_RELEASE, INTENT_DESTROY
 # Системы: bind → sync → release → destroy sweep
-# См. ecs/examples/example_intent_world_profile.gd и INTENT_PIPELINE.md
+# См. ecs/examples/intent/example_intent_world_profile.gd и INTENT_PIPELINE.md
 ```
 
 ### Таблица: bridge → intent
@@ -83,6 +83,6 @@ profile.system_strategies = [
 | `TAG_BRIDGE_PENDING_RELEASE` | `INTENT_RELEASE` |
 | `ECSBridgeOrchestratorSystem` | `ExampleBindIntentSystem` + `ExampleReleaseIntentSystem` |
 | `ECSBridgeSyncSystem` | `ExampleRegistrySyncSystem` (игра) |
-| `bridge_registry_strategy` | `@export services: ExampleEcsServices` |
+| `bridge_registry_strategy` | `@export dependencies: ExampleEcsDependencies` |
 
 Историческая заметка: в 1.x до bridge существовали `ECSVisual*` / `visual_registry_strategy` — они были удалены ранее.

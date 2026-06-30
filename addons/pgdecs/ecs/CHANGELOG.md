@@ -11,7 +11,8 @@
 ### Added
 
 - [INTENT_PIPELINE.md](INTENT_PIPELINE.md) — паттерн Intent-теги + Resource-реестры.
-- Stub examples: bind / sync / release / destroy sweep systems и `example_intent_world_profile.gd`.
+- Stub examples: bind / sync / release / destroy sweep (`examples/intent/`).
+- `ExampleEcsDependencies` (было `ExampleEcsServices`); layout `examples/{demo,schema,intent,dependencies,registries}/`.
 
 ### Migration
 

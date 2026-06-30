@@ -8,7 +8,7 @@
 - [`../../AGENTS.md`](../../AGENTS.md)
 - [`../../.cursor/rules/pgdecs-ecs-codegen.mdc`](../../.cursor/rules/pgdecs-ecs-codegen.mdc)
 
-См. также: [FRAMEWORK.md](../FRAMEWORK.md), [PERFORMANCE.md](../PERFORMANCE.md), пример [`demo_movement_system.gd`](../examples/demo_movement_system.gd).
+См. также: [FRAMEWORK.md](../FRAMEWORK.md), [PERFORMANCE.md](../PERFORMANCE.md), пример [`demo_movement_system.gd`](../examples/demo/demo_movement_system.gd).
 
 ---
 
@@ -268,7 +268,7 @@ health.set_component(entity_id, 50)
 blueprint.spawn_immediate(ecs)  # удалено — только buffer
 ```
 
-Эталон: [`example_mover_blueprint.gd`](../examples/example_mover_blueprint.gd).
+Эталон: [`example_mover_blueprint.gd`](../examples/schema/example_mover_blueprint.gd).
 
 ---
 
@@ -281,11 +281,11 @@ world.apply_profile(profile)  # повторный вызов игнорируе
 # Компоненты: одна ECSComponentRegistryStrategy на profile
 profile.component_registry_strategy = MyComponentsStrategy.new()
 
-# Intent pipeline: services Resource + stub/example systems в system_strategies
-var services := ExampleEcsServices.new()
-services.node_registry = MyNodeRegistry.new()
+# Intent pipeline: dependencies Resource + stub/example systems в system_strategies
+var deps := ExampleEcsDependencies.new()
+deps.node_registry = MyNodeRegistry.new()
 var bind := ExampleBindIntentStrategy.new()
-bind.services = services
+bind.dependencies = deps
 bind.run_group = &"frame"
 profile.system_strategies.append_array([
     bind,
@@ -317,7 +317,7 @@ buf.add_component(entity_id, INTENT_RELEASE)
 # destroy sweep: buf.destroy_entity(entity_id)
 
 # Ручной release (bootstrap / тест):
-services.node_registry.release(slot)
+deps.node_registry.release(slot)
 buf.destroy_entity(entity_id)
 ```
 
@@ -343,12 +343,12 @@ Chunk-based bind/sync — в игровых системах (`ECSSystemChunkBas
 
 | Что | Файл |
 |-----|------|
-| Fast-path движение | [`demo_movement_system.gd`](../examples/demo_movement_system.gd) |
+| Fast-path движение | [`demo_movement_system.gd`](../examples/demo/demo_movement_system.gd) |
 | Chunk base + WTP | [`ecs_system_chunk_base.gd`](../systems/ecs_system_chunk_base.gd) |
 | Query chunk run API | [`ecs_query.gd`](../queries/ecs_query.gd) (`begin_chunk_run`) |
 | WTP dispatch | [`ecs_chunk_worker_dispatch.gd`](../systems/ecs_chunk_worker_dispatch.gd) |
 | Command buffer тесты | [`ecs_command_buffer_test.gd`](../tests/unit/ecs_command_buffer_test.gd) |
 | Profile / strategies | [`ecs_world_profile.gd`](../config/ecs_world_profile.gd) |
-| Intent pipeline (пример) | [`example_intent_world_profile.gd`](../examples/example_intent_world_profile.gd), [`INTENT_PIPELINE.md`](../INTENT_PIPELINE.md) |
-| Entity blueprint | [`ecs_entity_blueprint.gd`](../config/ecs_entity_blueprint.gd), [`example_mover_blueprint.gd`](../examples/example_mover_blueprint.gd) |
+| Intent pipeline (пример) | [`example_intent_world_profile.gd`](../examples/intent/example_intent_world_profile.gd), [`INTENT_PIPELINE.md`](../INTENT_PIPELINE.md) |
+| Entity blueprint | [`ecs_entity_blueprint.gd`](../config/ecs_entity_blueprint.gd), [`example_mover_blueprint.gd`](../examples/schema/example_mover_blueprint.gd) |
 | Runner порядок | [`ecs_system_runner.gd`](../systems/ecs_system_runner.gd) |

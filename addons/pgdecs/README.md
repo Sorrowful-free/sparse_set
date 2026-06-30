@@ -106,4 +106,4 @@ if (-not $godot) { $godot = "godot" }
 
 ## Demo
 
-См. [ecs/examples/demo_world.gd](ecs/examples/demo_world.gd) — bootstrap 1000 сущностей с `DemoMovementStrategy`.
+См. [ecs/examples/demo/demo_world.gd](ecs/examples/demo/demo_world.gd) — bootstrap 1000 сущностей с `DemoMovementStrategy`.

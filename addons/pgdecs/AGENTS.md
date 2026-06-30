@@ -40,7 +40,7 @@ Intent + реестры: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
 | Spawn/destroy, add/remove компонентов | `get_dense_entities()` + `get_command_buffer()` |
 | `use_worker_pool == true` | command buffer **запрещён** |
 
-Эталон fast-path: [`ecs/examples/demo_movement_system.gd`](ecs/examples/demo_movement_system.gd).
+Эталон fast-path: [`ecs/examples/demo/demo_movement_system.gd`](ecs/examples/demo/demo_movement_system.gd).
 
 ---
 
@@ -62,14 +62,14 @@ Intent + реестры: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
 ## Profile / intent / реестры
 
 - Компоненты: одна `ECSComponentRegistryStrategy` на profile.
-- Реестры: `Resource` (например `ExampleEcsServices`), `@export` в strategies — **не в ядре**.
+- Реестры: `Resource` (например `ExampleEcsDependencies`), `@export` в strategies — **не в ядре**.
 - Lifecycle внешних данных: intent-теги + системы bind / sync / release / destroy — см. [`INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md).
 
 ## Entity blueprint
 
 - Наследуй `ECSEntityBlueprint` в игре; `build_component_ids()` — id из твоего enum (int).
 - Spawn и параметры — **только** через `ECSCommandBuffer` (`spawn_batch` / `spawn_one` + `set_component_value`); `execute` — runner или bootstrap-буфер.
-- См. [`ecs/examples/example_mover_blueprint.gd`](ecs/examples/example_mover_blueprint.gd).
+- См. [`ecs/examples/schema/example_mover_blueprint.gd`](ecs/examples/schema/example_mover_blueprint.gd).
 
 ---
 

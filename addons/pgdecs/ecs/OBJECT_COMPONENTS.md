@@ -16,7 +16,7 @@
 Идея: в ECS хранится **лёгкий slot** (`Int32`, `-1` = нет), объекты — в **Resource-реестре** вне ECS. Передача реестра — `@export` в [`ECSSystemStrategy`](config/ecs_system_strategy.gd). Полный lifecycle — [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ```gdscript
-# addons/pgdecs/ecs/examples/object_registry_demo.gd
+# addons/pgdecs/ecs/examples/registries/ecs_node_registry.gd
 
 class_name ECSNodeRegistry extends Resource
 

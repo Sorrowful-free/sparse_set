@@ -39,6 +39,6 @@ alwaysApply: false
 
 ## Эталоны
 
-- Fast-path: `addons/pgdecs/ecs/examples/demo_movement_system.gd`
+- Fast-path: `addons/pgdecs/ecs/examples/demo/demo_movement_system.gd`
 - Buffer: `addons/pgdecs/ecs/tests/unit/ecs_command_buffer_test.gd`
 - Bootstrap: `addons/pgdecs/ecs/config/ecs_world_profile.gd`

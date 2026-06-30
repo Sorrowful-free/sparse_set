@@ -36,7 +36,7 @@
 - [`ecs_code_gen.gd`](../editor/ecs_code_gen.gd)
 - [`editor/templates/`](../editor/templates/)
 - [`components/generated/`](../components/generated/)
-- [`demo_world.gd`](../examples/demo_world.gd)
+- [`demo_world.gd`](../examples/demo/demo_world.gd)
 - [`README.md`](../../README.md)
 
 **Тип задач:** синхронизация шаблонов, перегенерация, примеры.
@@ -69,11 +69,11 @@
 - [`ecs_world_profile.gd`](../config/ecs_world_profile.gd)
 - [`ecs_component_registry_strategy.gd`](../config/ecs_component_registry_strategy.gd)
 - [`ecs_system_strategy.gd`](../config/ecs_system_strategy.gd)
-- [`examples/demo_world.gd`](../examples/demo_world.gd)
-- [`examples/example_intent_world_profile.gd`](../examples/example_intent_world_profile.gd)
+- [`examples/demo/demo_world.gd`](../examples/demo/demo_world.gd)
+- [`examples/intent/example_intent_world_profile.gd`](../examples/intent/example_intent_world_profile.gd)
 - [`tests/unit/ecs_world_profile_test.gd`](../tests/unit/ecs_world_profile_test.gd)
 
-**Тип задач:** `apply_profile` guard (один раз), intent/services wiring в strategies, debug warnings, примеры.
+**Тип задач:** `apply_profile` guard (один раз), intent/dependencies wiring в strategies, debug warnings, примеры.
 
 **Perf gate:** не требуется.
 

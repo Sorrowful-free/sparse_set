@@ -416,9 +416,9 @@ for i in range(chunk.get_entity_count()):
 **Решение (2.0):**
 
 1. **Ядро** — только SoA, query, systems, command buffer, profile/strategies.
-2. **Внешние данные** — `Int32`/`Int64` slot-компоненты + **Resource-реестры** в игровом коде (`@export` в `ECSSystemStrategy`, напр. `ExampleEcsServices`).
+2. **Внешние данные** — `Int32`/`Int64` slot-компоненты + **Resource-реестры** в игровом коде (`@export` в `ECSSystemStrategy`, напр. `ExampleEcsDependencies`).
 3. **Lifecycle** — intent marker-теги (`INTENT_BIND_*`, `INTENT_RELEASE`, `INTENT_DESTROY`) и упорядоченные системы: Bind → Sync → Release → DestroySweep.
 4. **Ответственность игры** — release registry slot до/вместе с `destroy_entity`; ядро не чистит side-tables автоматически.
 
-**Последствия:** breaking change; `apply_to_world(world)` без bridge host; примеры в `examples/example_intent_*`. Миграция: [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).
+**Последствия:** breaking change; `apply_to_world(world)` без bridge host; примеры в `examples/intent/`. Миграция: [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).
 

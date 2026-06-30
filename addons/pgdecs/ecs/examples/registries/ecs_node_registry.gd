@@ -1,7 +1,7 @@
 class_name ECSNodeRegistry extends Resource
 
 ## Side-table для Node: в ECS хранится int slot.
-## См. [OBJECT_COMPONENTS.md](../OBJECT_COMPONENTS.md) и [INTENT_PIPELINE.md](../INTENT_PIPELINE.md).
+## См. [OBJECT_COMPONENTS.md](../../OBJECT_COMPONENTS.md) и [INTENT_PIPELINE.md](../../INTENT_PIPELINE.md).
 
 var _nodes: Array = []
 var _free: Array[int] = []

@@ -1,9 +1,9 @@
 class_name ExampleRegistrySyncSystem extends ECSSystemChunkBase
 
-var _services: ExampleEcsServices
+var _dependencies: ExampleEcsDependencies
 
-func _init(ecs: ECSManager, services: ExampleEcsServices) -> void:
-	_services = services
+func _init(ecs: ECSManager, dependencies: ExampleEcsDependencies) -> void:
+	_dependencies = dependencies
 	super(ecs)
 
 func _build_query() -> ECSQuery:
@@ -13,7 +13,7 @@ func _build_query() -> ECSQuery:
 		.build(get_ecs_manager())
 
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
-	if _services == null or _services.node_registry == null:
+	if _dependencies == null or _dependencies.node_registry == null:
 		return
 	var slot_chunk: ECSComponentInt32ArrayChunk = chunk.get_component_chunk(
 		ExampleIntentIds.NODE_SLOT
@@ -30,7 +30,7 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 		var slot: int = slot_buf[slots[i]]
 		if slot < 0:
 			continue
-		var node: Node = _services.node_registry.get_node(slot)
+		var node: Node = _dependencies.node_registry.get_node(slot)
 		if node == null:
 			continue
 		# Stub: игра пишет global_position / transform из pos_buf[slots[i]]

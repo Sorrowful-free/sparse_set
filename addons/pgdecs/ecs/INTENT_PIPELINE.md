@@ -22,25 +22,25 @@
 
 ## Resource-реестры
 
-Контейнер сервисов (пример [`example_ecs_services.gd`](examples/example_ecs_services.gd)):
+Контейнер зависимостей (пример [`example_ecs_dependencies.gd`](examples/dependencies/example_ecs_dependencies.gd)):
 
 ```gdscript
-class_name GameEcsServices extends Resource
+class_name GameEcsDependencies extends Resource
 
 @export var node_registry: ECSNodeRegistry
 @export var nav_path_registry: NavPathRegistry  # игра
 ```
 
-Strategy инжектит реестр в систему:
+Strategy инжектит зависимости в систему:
 
 ```gdscript
-@export var services: ExampleEcsServices
+@export var dependencies: ExampleEcsDependencies
 
 func create_system(ecs: ECSManager, _world: ECSWorld = null) -> ECSSystemBase:
-    return ExampleBindIntentSystem.new(ecs, services)
+    return ExampleBindIntentSystem.new(ecs, dependencies)
 ```
 
-Базовый реестр: [`object_registry_demo.gd`](examples/object_registry_demo.gd) (`ECSNodeRegistry` extends `Resource`).
+Базовый реестр: [`ecs_node_registry.gd`](examples/registries/ecs_node_registry.gd) (`ECSNodeRegistry` extends `Resource`).
 
 ---
 
@@ -52,7 +52,7 @@ func create_system(ecs: ECSManager, _world: ECSWorld = null) -> ECSSystemBase:
 | `INTENT_RELEASE` | Освободить все slot'ы entity перед destroy |
 | `INTENT_DESTROY` | Финальная метка: entity можно удалить из ECS |
 
-Intent — **tags** (`register_tag`), без SoA-значения. Константы: [`example_intent_ids.gd`](examples/example_intent_ids.gd).
+Intent — **tags** (`register_tag`), без SoA-значения. Константы: [`example_intent_ids.gd`](examples/schema/example_intent_ids.gd).
 
 Данные после bind остаются в **slot-компонентах** (`NODE_SLOT`, `PATH_SLOT`, …) — `TYPE_PACKED_INT32_ARRAY`, `-1` = нет.
 
@@ -79,7 +79,7 @@ flowchart LR
 | **ReleaseIntentSystem** | `INTENT_RELEASE` | `registry.release(slot)` → slot = -1 → снять intent |
 | **DestroySweepSystem** | `INTENT_DESTROY` | `destroy_entity` (после release) |
 
-Порядок: **порядок `system_strategies` в profile** (все в `run_group = frame`). Пример: [`example_intent_world_profile.gd`](examples/example_intent_world_profile.gd).
+Порядок: **порядок `system_strategies` в profile** (все в `run_group = frame`). Пример: [`example_intent_world_profile.gd`](examples/intent/example_intent_world_profile.gd).
 
 ### Simulation → intent
 
@@ -132,7 +132,7 @@ for entity_id in query.get_entity_ids():
 | `TAG_BRIDGE_PENDING_RELEASE` | `INTENT_RELEASE` |
 | `ECSBridgeOrchestratorSystem` | `ExampleBindIntentSystem` + `ExampleReleaseIntentSystem` |
 | `ECSBridgeSyncSystem` | `ExampleRegistrySyncSystem` (игра) |
-| `bridge_registry_strategy` | `@export services: GameEcsServices` в strategies |
+| `bridge_registry_strategy` | `@export dependencies: GameEcsDependencies` в strategies |
 
 ---
 
@@ -140,4 +140,4 @@ for entity_id in query.get_entity_ids():
 
 Batch structural events (`on_entities_destroyed`) — возможное расширение. Сейчас достаточно **intent + query**; см. обсуждение в ADR в [DESIGN.md](DESIGN.md).
 
-Stub-примеры: [`examples/`](examples/) (`example_*_intent_*`).
+Stub-примеры: [`examples/intent/`](examples/intent/).

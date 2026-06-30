@@ -68,7 +68,7 @@ var arch := world.get_ecs_manager().prepare_archetype([
 world.get_ecs_manager().create_entities_packed(100, arch)
 ```
 
-Демо без сцены: [`examples/demo_world.gd`](examples/demo_world.gd).
+Демо без сцены: [`examples/demo/demo_world.gd`](examples/demo/demo_world.gd).
 
 ---
 
@@ -362,7 +362,7 @@ runner.flush_manual_command_buffers()   # MANUAL mode
 
 Пустой `system_groups` → пресет `ECSSystemRunGroups.default_group_configs()` (simulation @ physics, network @ 20 Hz, frame @ process).
 
-[`ECSSystemScheduler`](systems/ecs_system_scheduler.gd) маршрутизирует группы; пример профиля: [`examples/example_world_profile.gd`](examples/example_world_profile.gd).
+[`ECSSystemScheduler`](systems/ecs_system_scheduler.gd) маршрутизирует группы; пример профиля: [`examples/schema/example_world_profile.gd`](examples/schema/example_world_profile.gd).
 
 ```gdscript
 world.run_system_group(&"cutscene", delta)  # MANUAL hook
@@ -427,7 +427,7 @@ buf.execute()  # вызывается раннером автоматическ�
 
 Порядок `apply_to_world`: component registry strategy → `install_system_schedule` → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning).
 
-Игровые `Resource`-реестры (например `ExampleEcsServices`) передаются через `@export` в `ECSSystemStrategy`, не через profile.
+Игровые `Resource`-реестры (например `ExampleEcsDependencies`) передаются через `@export` в `ECSSystemStrategy`, не через profile.
 
 Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
 
@@ -462,7 +462,7 @@ func build_default_values() -> Dictionary:
 
 Bootstrap и системы: один буфер на кадр/фазу — create + set, затем `execute()` (runner или вручную).
 
-Пример: [`examples/example_mover_blueprint.gd`](examples/example_mover_blueprint.gd).
+Пример: [`examples/schema/example_mover_blueprint.gd`](examples/schema/example_mover_blueprint.gd).
 
 ---
 
@@ -477,20 +477,16 @@ Bootstrap и системы: один буфер на кадр/фазу — crea
 | `INTENT_RELEASE` | marker: release slot перед destroy |
 | `INTENT_DESTROY` | marker: готово к `destroy_entity` после release |
 | `Resource` registry | side-table вне SoA (`acquire` / `release`) |
-| `ExampleEcsServices` | контейнер `@export` реестров для strategies |
+| `ExampleEcsDependencies` | контейнер `@export` реестров для strategies |
 
-Порядок систем в кадре (пример): **Bind → Sync → Release → DestroySweep** — см. [`examples/example_intent_world_profile.gd`](examples/example_intent_world_profile.gd).
+Порядок систем в кадре (пример): **Bind → Sync → Release → DestroySweep** — см. [`examples/intent/example_intent_world_profile.gd`](examples/intent/example_intent_world_profile.gd).
 
 ```gdscript
-# Strategy с реестром
 class_name ExampleBindIntentStrategy extends ECSSystemStrategy
-@export var services: ExampleEcsServices
-@export var run_group: StringName = &"frame"
+@export var dependencies: ExampleEcsDependencies
 
-func create_system(ecs: ECSManager, world: ECSWorld) -> ECSSystem:
-    var sys := ExampleBindIntentSystem.new()
-    sys.services = services
-    return sys
+func create_system(ecs: ECSManager, _world: ECSWorld = null) -> ECSSystemBase:
+    return ExampleBindIntentSystem.new(ecs, dependencies)
 ```
 
 Полная спецификация: [INTENT_PIPELINE.md](INTENT_PIPELINE.md), [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md). Миграция с 1.x bridge: [MIGRATION.md](MIGRATION.md#20--bridge-layer-removed-breaking).
@@ -509,6 +505,8 @@ func create_system(ecs: ECSManager, world: ECSWorld) -> ECSSystem:
 
 ## Структура каталогов
 
+### Ядро (`addons/pgdecs/ecs/`)
+
 ```
 addons/pgdecs/ecs/
 ├── ecs_manager.gd
@@ -519,8 +517,34 @@ addons/pgdecs/ecs/
 ├── components/
 ├── queries/
 ├── systems/
-├── examples/
+├── examples/               # эталоны (см. ниже)
+├── editor/                 # codegen
 └── tests/
+```
+
+### Примеры (`examples/`)
+
+```
+examples/
+├── demo/                   # runnable: demo_world, movement
+├── schema/                 # registry ids, profiles, blueprints
+├── intent/                 # bind → sync → release → destroy sweep
+├── dependencies/           # ExampleEcsDependencies
+└── registries/             # ECSNodeRegistry и др. side-tables
+```
+
+### Игра (рекомендуемый layout)
+
+```
+scripts/ecs/                # или game/ecs/
+├── bootstrap/              # ECSWorld node, scheduler hooks
+├── config/                 # GameEcsComponentRegistry, GameEcsWorldProfile
+├── dependencies/           # GameEcsDependencies (.tres)
+├── registries/             # side-tables вне SoA
+├── blueprints/
+├── systems/
+├── strategies/
+└── <feature_modules>/      # lod/, navigation/, …
 ```
 
 Именование классов: [NAMING.md](NAMING.md).

@@ -24,6 +24,7 @@
 | `INTENT_*` | Intent-теги (marker): bind / release / destroy |
 | `*_SLOT` | Slot-компонент (Int32): индекс в Resource-реестре, `-1` = нет |
 | `*Registry` (игра) | Resource side-table вне ECS, напр. `ECSNodeRegistry` |
+| `*EcsDependencies` (игра) | Resource-контейнер реестров для strategies (`ExampleEcsDependencies`) |
 | ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |

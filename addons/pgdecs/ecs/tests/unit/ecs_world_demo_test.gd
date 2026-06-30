@@ -1,7 +1,7 @@
 extends GutTest
 class_name ECSWorldDemoTest
 
-const _DEMO_WORLD = preload("res://addons/pgdecs/ecs/examples/demo_world.gd")
+const _DEMO_WORLD = preload("res://addons/pgdecs/ecs/examples/demo/demo_world.gd")
 
 const POSITION_ID: int = 1
 const VELOCITY_ID: int = 2

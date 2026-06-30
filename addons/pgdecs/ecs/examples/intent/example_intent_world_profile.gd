@@ -2,9 +2,9 @@ extends ECSWorldProfile
 class_name ExampleIntentWorldProfile
 
 ## Пример profile: intent pipeline в run_group=frame (порядок strategies = порядок систем).
-## Назначьте [member services] в inspector (subresource ExampleEcsServices + ECSNodeRegistry).
+## Назначьте [member dependencies] в inspector (subresource ExampleEcsDependencies + ECSNodeRegistry).
 
-@export var services: ExampleEcsServices
+@export var dependencies: ExampleEcsDependencies
 
 func _init() -> void:
 	system_groups = ECSSystemRunGroups.default_group_configs()
@@ -14,15 +14,15 @@ func _init() -> void:
 func _setup_intent_strategies() -> void:
 	var bind := ExampleBindIntentStrategy.new()
 	bind.run_group = ECSSystemRunGroups.FRAME
-	bind.services = services
+	bind.dependencies = dependencies
 
 	var sync := ExampleRegistrySyncStrategy.new()
 	sync.run_group = ECSSystemRunGroups.FRAME
-	sync.services = services
+	sync.dependencies = dependencies
 
 	var release := ExampleReleaseIntentStrategy.new()
 	release.run_group = ECSSystemRunGroups.FRAME
-	release.services = services
+	release.dependencies = dependencies
 
 	var sweep := ExampleDestroySweepStrategy.new()
 	sweep.run_group = ECSSystemRunGroups.FRAME
