@@ -19,8 +19,9 @@ jobs:
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
         with:
-          version: 4.7.stable
-          include-templates: true
+          version: 4.7.0
+          use-dotnet: false
+          include-templates: false
 
       - name: Import project
         run: godot --headless --path . --import
