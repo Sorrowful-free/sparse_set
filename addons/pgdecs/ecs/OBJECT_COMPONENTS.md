@@ -34,6 +34,17 @@ const NODE_SLOT_ID: int = 20  # TYPE_PACKED_INT32_ARRAY
 slots.set_component(entity, registry.acquire())
 ```
 
+### Slot-based vs handle-based реестр
+
+Оба варианта — side-table вне SoA; различается **ключ** в реестре и API:
+
+| Модель | Ключ в ECS | Типичный API реестра | Когда |
+|--------|------------|----------------------|--------|
+| **Slot-based** | `Int32` slot (`-1` = пусто) | `acquire()` / `release(slot)` / `get_node(slot)` | Пул нод/RID, эталон в `examples/registries/` |
+| **Handle-based** | entity id или wire-id в компоненте | `get_or_register(key)` / `unregister(key)` | Сеть, привязка к внешнему id, LOD grids |
+
+В SoA всё равно только примитив; «handle» — это значение компонента, по которому реестр находит объект. Имена методов в игре могут отличаться от примеров аддона — контракт один: **bind → sync → release до destroy**.
+
 ## String / Transform
 
 - **String (в SoA)** — `ecs.register_component(NAME_ID, TYPE_PACKED_STRING_ARRAY)`; fast-path через `get_values_buffer()` / `set_value_at_slot` как у остальных packed-типов.

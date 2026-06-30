@@ -76,7 +76,7 @@ buf.destroy_entities_packed(batch_ids)
 
 ## Документация
 
-- **[FRAMEWORK.md](ecs/FRAMEWORK.md)** — полное руководство по фреймворку (API, системы, query, правило fast-path)
+- **[FRAMEWORK.md](ecs/FRAMEWORK.md)** — полное руководство (API, системы, query); секции [структура каталогов](ecs/FRAMEWORK.md#структура-каталогов) и [layout модуля в игре](ecs/FRAMEWORK.md#layout-модуля-в-игре)
 - [DESIGN.md](ecs/DESIGN.md) — архитектурные решения, чанки, membership
 - [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
 - **[INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md)** — Intent-теги + Resource-реестры (v2.0)

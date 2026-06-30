@@ -40,7 +40,9 @@ func create_system(ecs: ECSManager, _world: ECSWorld = null) -> ECSSystemBase:
     return ExampleBindIntentSystem.new(ecs, dependencies)
 ```
 
-Базовый реестр: [`ecs_node_registry.gd`](examples/registries/ecs_node_registry.gd) (`ECSNodeRegistry` extends `Resource`).
+**Profile (игра):** [`example_intent_world_profile.gd`](examples/intent/example_intent_world_profile.gd) держит `@export var dependencies` на наследнике `ECSWorldProfile` и пробрасывает в strategies в `_init()` — это wiring для inspector, не часть ядра `ECSWorldProfile`.
+
+Базовый реестр: [`ecs_node_registry.gd`](examples/registries/ecs_node_registry.gd) (`ECSNodeRegistry`, slot-based API).
 
 ---
 

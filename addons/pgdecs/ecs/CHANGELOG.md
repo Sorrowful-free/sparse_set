@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.2]
+
+### Changed
+
+- `ExampleEcsServices` → `ExampleEcsDependencies`; поле `services` → `dependencies` в intent-примерах и strategies.
+- Примеры: layout `examples/{demo,schema,intent,dependencies,registries}/`; `object_registry_demo.gd` → `registries/ecs_node_registry.gd`.
+
+### Documentation
+
+- FRAMEWORK: малый vs модульный layout игры (`R_<Module>Dependencies`), profile как wiring hub.
+- NAMING: мостик `ExampleEcsDependencies` / `GameEcsDependencies` / `R_*Dependencies`.
+- OBJECT_COMPONENTS: slot-based vs handle-based реестры.
+- README, AGENTS, INTENT_PIPELINE, AI_CODE_PATTERNS — синхронизация терминологии.
+
 ## [2.0.0]
 
 ### Removed (breaking)
@@ -12,7 +26,6 @@
 
 - [INTENT_PIPELINE.md](INTENT_PIPELINE.md) — паттерн Intent-теги + Resource-реестры.
 - Stub examples: bind / sync / release / destroy sweep (`examples/intent/`).
-- `ExampleEcsDependencies` (было `ExampleEcsServices`); layout `examples/{demo,schema,intent,dependencies,registries}/`.
 
 ### Migration
 

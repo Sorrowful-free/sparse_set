@@ -24,7 +24,7 @@
 | `INTENT_*` | Intent-теги (marker): bind / release / destroy |
 | `*_SLOT` | Slot-компонент (Int32): индекс в Resource-реестре, `-1` = нет |
 | `*Registry` (игра) | Resource side-table вне ECS, напр. `ECSNodeRegistry` |
-| `*EcsDependencies` (игра) | Resource-контейнер реестров для strategies (`ExampleEcsDependencies`) |
+| `*EcsDependencies` | Resource-контейнер реестров для strategies (см. ниже) |
 | ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponentFactory | Фабрика компонентов |
@@ -37,6 +37,22 @@
 - `archetype.gd` → `ecs_archetype.gd`, `query.gd` → `ecs_query.gd`, …
 - `component_byte_array.gd` → `ecs_component_byte_array.gd`, …
 - Кодогенератор создаёт файлы `ecs_component_<type>_array.gd` и `ecs_component_<type>_chunk_array.gd`.
+
+---
+
+## Зависимости и реестры в игре
+
+Один паттерн — разные имена по слою:
+
+| Слой | class_name | Пример |
+|------|------------|--------|
+| Эталон аддона | `ExampleEcsDependencies` | `examples/dependencies/` |
+| Игра (общий bag) | `GameEcsDependencies` | `scripts/ecs/dependencies/` |
+| Игра (модуль) | `R_<Module>Dependencies` | `R_LodDependencies`, `R_NetworkDependencies` |
+
+`ExampleEcsDependencies` и `GameEcsDependencies` — те же идеи: `extends Resource`, `@export` на реестры/settings, инжект в `ECSSystemStrategy.dependencies`. В доменных модулях принят префикс **`R_`** (Godot Resource) и **один bag на модуль**, не один глобальный на весь ECS.
+
+Реестры (`*Registry`) — side-table; API может быть slot-based (`acquire` / `release`) или handle-based (`get_or_register` / `unregister` по wire-id) — см. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ---
 

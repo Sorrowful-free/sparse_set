@@ -427,7 +427,9 @@ buf.execute()  # вызывается раннером автоматическ�
 
 Порядок `apply_to_world`: component registry strategy → `install_system_schedule` → system strategies. `ECSWorld.apply_profile` вызывается **один раз**; повторный вызов игнорируется (debug warning).
 
-Игровые `Resource`-реестры (например `ExampleEcsDependencies`) передаются через `@export` в `ECSSystemStrategy`, не через profile.
+**Зависимости и ядро:** [`ECSWorldProfile`](config/ecs_world_profile.gd) **не знает** про `dependencies` — это поле только в **игровом** наследнике profile (удобство inspector + один subresource на сцену). В runtime зависимости попадают в системы через `@export` в [`ECSSystemStrategy`](config/ecs_system_strategy.gd) (напрямую или проброс из `GameEcsWorldProfile._init()`).
+
+Игровые `Resource`-реестры живут вне SoA; контейнер — `ExampleEcsDependencies` / `GameEcsDependencies` / `R_<Module>Dependencies` (см. [NAMING.md](NAMING.md)).
 
 Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
 
@@ -533,21 +535,58 @@ examples/
 └── registries/             # ECSNodeRegistry и др. side-tables
 ```
 
+В `intent/` **systems и strategies в одной папке** — сжато для наглядности аддона. В игре держите [`systems/`](#layout-модуля-в-игре) и `strategies/` раздельно.
+
 ### Игра (рекомендуемый layout)
 
+**Малый проект** — плоский корень `scripts/ecs/`:
+
 ```
-scripts/ecs/                # или game/ecs/
-├── bootstrap/              # ECSWorld node, scheduler hooks
+scripts/ecs/
+├── bootstrap/
 ├── config/                 # GameEcsComponentRegistry, GameEcsWorldProfile
-├── dependencies/           # GameEcsDependencies (.tres)
-├── registries/             # side-tables вне SoA
+├── dependencies/           # один GameEcsDependencies (.tres)
+├── registries/
 ├── blueprints/
 ├── systems/
-├── strategies/
-└── <feature_modules>/      # lod/, navigation/, …
+└── strategies/
 ```
 
-Именование классов: [NAMING.md](NAMING.md).
+**Крупный / доменный проект** — feature-модули; `dependencies`, `systems`, `strategies` **внутри модуля**, не на корне:
+
+```
+scripts/ecs/
+├── bootstrap/
+├── config/                 # общий GameEcsWorldProfile, shared component registry
+├── common/                 # shared utils, ids
+├── lod/
+│   ├── dependencies/       # R_LodDependencies
+│   ├── registries/         # опционально, только для lod
+│   ├── systems/
+│   └── strategies/
+├── navigation/
+│   ├── dependencies/       # R_NavigationDependencies
+│   ├── systems/
+│   └── strategies/
+└── tests/
+```
+
+#### Layout модуля в игре
+
+Каждый домен (`lod/`, `navigation/`, …) повторяет один шаблон:
+
+| Папка | Содержимое |
+|-------|------------|
+| `dependencies/` | `R_<Module>Dependencies` — bag реестров и settings для strategies модуля |
+| `registries/` | side-tables, если не shared на корне |
+| `systems/` | `ECSSystemChunkBase` / `ECSSystemBase` |
+| `strategies/` | `ECSSystemStrategy`, `@export var dependencies: R_<Module>Dependencies` |
+
+Корневой `scripts/ecs/dependencies/` — только если один общий `GameEcsDependencies` на весь мир. Иначе — **один bag на модуль** (`lod_dependencies` на profile пробрасывается в lod-strategies).
+
+**Profile как wiring hub (игра):** наследник `ECSWorldProfile` может держать `@export var lod_dependencies: R_LodDependencies` и в `_init()` / `_setup_strategies()` присваивать `strategy.dependencies = lod_dependencies`. Ядро PGDECS этого не требует и не объявляет — это слой игры.
+
+Именование контейнеров: [NAMING.md](NAMING.md#зависимости-и-реестры-в-игре).
 
 ---
 

@@ -274,6 +274,8 @@ blueprint.spawn_immediate(ecs)  # удалено — только buffer
 
 ## 7. Bootstrap мира (не путать с spawn)
 
+Игровой layout (модули `lod/`, `navigation/` с `R_*Dependencies`): [FRAMEWORK.md § структура каталогов](../FRAMEWORK.md#структура-каталогов).
+
 ```gdscript
 # Profile — один раз
 world.apply_profile(profile)  # повторный вызов игнорируется
@@ -287,6 +289,7 @@ deps.node_registry = MyNodeRegistry.new()
 var bind := ExampleBindIntentStrategy.new()
 bind.dependencies = deps
 bind.run_group = &"frame"
+# Альтернатива: @export dependencies на GameEcsWorldProfile → проброс в strategies в _init()
 profile.system_strategies.append_array([
     bind,
     ExampleRegistrySyncStrategy.new(),

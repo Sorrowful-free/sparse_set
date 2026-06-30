@@ -62,8 +62,10 @@ Intent + реестры: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
 ## Profile / intent / реестры
 
 - Компоненты: одна `ECSComponentRegistryStrategy` на profile.
-- Реестры: `Resource` (например `ExampleEcsDependencies`), `@export` в strategies — **не в ядре**.
-- Lifecycle внешних данных: intent-теги + системы bind / sync / release / destroy — см. [`INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md).
+- Реестры: `Resource` вне SoA; контейнер `ExampleEcsDependencies` / в игре `GameEcsDependencies` или `R_<Module>Dependencies`.
+- В **систему** зависимости приходят через `@export` в strategy; **игровой** наследник profile может держать subresource и пробросить в strategies (ядро `ECSWorldProfile` полей dependencies не имеет).
+- Lifecycle: intent-теги + bind / sync / release / destroy — [`INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md).
+- Layout игры: [`FRAMEWORK.md` § структура каталогов](ecs/FRAMEWORK.md#структура-каталогов).
 
 ## Entity blueprint
 

@@ -2,7 +2,8 @@ extends ECSWorldProfile
 class_name ExampleIntentWorldProfile
 
 ## Пример profile: intent pipeline в run_group=frame (порядок strategies = порядок систем).
-## Назначьте [member dependencies] в inspector (subresource ExampleEcsDependencies + ECSNodeRegistry).
+## [member dependencies] на profile — wiring для inspector (игровой слой); ядро ECSWorldProfile этого не объявляет.
+## Назначьте subresource ExampleEcsDependencies + ECSNodeRegistry в inspector.
 
 @export var dependencies: ExampleEcsDependencies
 
