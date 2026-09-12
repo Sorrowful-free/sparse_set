@@ -42,7 +42,7 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 & godot --headless --path . --main-scene res://addons/gecs/tests/run_compare_frameworks_headless.tscn
 ```
 
-В конце лога — `--- Compare summary ---`. Имена метрик: [`addons/gecs/tests/compare_metric_names.gd`](../../gecs/tests/compare_metric_names.gd).
+В конце лога — `--- Compare summary ---`. Имена метрик — общий контракт `addons/gecs/tests/compare_metric_names.gd`; в pgdecs они продублированы в [`tests/performance/ecs_benchmark.gd`](tests/performance/ecs_benchmark.gd), чтобы перф-тесты парсились без аддона gecs.
 
 | Пара | Честно? | Типично (25k, одна сессия) |
 |------|---------|----------------------------|
@@ -54,7 +54,7 @@ PGDECS оптимизирует **layout данных и итерацию** в G
 
 **Для агентов:** не сравнивать PGDECS slot API с GECS column как «кто лучше ECS»; fair-пара — FAST vs column. WTP GECS выигрывает на лёгкой работе из‑за overhead group tasks, не из‑за layout.
 
-Сводка и multirun: [`addons/gecs/tests/reports/compare_pgdecs_gecs.md`](../../gecs/tests/reports/compare_pgdecs_gecs.md).
+Сводка и multirun: [`addons/gecs/tests/reports/compare_pgdecs_gecs.md`](../../gecs/tests/reports/compare_pgdecs_gecs.md) (требует аддон gecs).
 
 ## Рекомендации hot path
 

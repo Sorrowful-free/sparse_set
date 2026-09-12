@@ -1,7 +1,14 @@
 extends RefCounted
 class_name ECSBenchmark
 
-const _MetricNames := preload("res://addons/gecs/tests/compare_metric_names.gd")
+## Имена метрик для side-by-side сравнения PGDECS vs GECS.
+## Общий контракт — `addons/gecs/tests/compare_metric_names.gd` (class_name CompareMetricNames),
+## но здесь они продублированы локально: pgdecs должен парситься и работать без аддона gecs.
+## При изменении имён в gecs — синхронизировать здесь.
+const METRIC_QUERY_E_C_SLOT := "query iterate entities+components [slot API]"
+const METRIC_QUERY_E_C_FAST := "query iterate entities+components FAST [dense_slots+buffers]"
+const METRIC_QUERY_E_C_WTP := "query iterate entities+components WorkerThreadPool"
+const METRIC_QUERY_CHUNKS_WTP := "query.for_each_chunk WorkerThreadPool"
 
 const POSITION_ID: int = 1
 const HEALTH_ID: int = 2
@@ -581,7 +588,7 @@ func run_all() -> Dictionary:
 	bench = ECSBenchmark.new(ecs_fresh, _iterations)
 	_record_metric(
 		results,
-		_MetricNames.QUERY_E_C_SLOT,
+		METRIC_QUERY_E_C_SLOT,
 		bench.benchmark_query_iterate_entities_with_components()
 	)
 
@@ -589,7 +596,7 @@ func run_all() -> Dictionary:
 	bench = ECSBenchmark.new(ecs_fresh, _iterations)
 	_record_metric(
 		results,
-		_MetricNames.QUERY_E_C_FAST,
+		METRIC_QUERY_E_C_FAST,
 		bench.benchmark_query_iterate_entities_with_components_fast()
 	)
 
@@ -597,7 +604,7 @@ func run_all() -> Dictionary:
 	bench = ECSBenchmark.new(ecs_fresh, _iterations)
 	_record_metric(
 		results,
-		_MetricNames.QUERY_E_C_WTP,
+		METRIC_QUERY_E_C_WTP,
 		bench.benchmark_query_iterate_entities_with_components_worker_pool()
 	)
 
@@ -605,7 +612,7 @@ func run_all() -> Dictionary:
 	bench = ECSBenchmark.new(ecs_fresh, _iterations)
 	_record_metric(
 		results,
-		_MetricNames.QUERY_CHUNKS_WTP,
+		METRIC_QUERY_CHUNKS_WTP,
 		bench.benchmark_query_worker_pool()
 	)
 
