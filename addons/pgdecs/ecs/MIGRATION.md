@@ -2,6 +2,46 @@
 
 Этот документ покрывает API создания сущностей в `ECSManager`.
 
+## 2.1 — Тип компонента: enum вместо Variant.Type (breaking)
+
+`register_component` и `ECSComponentRegistryStrategy.get_components()` используют `ECSComponent.Type` вместо `Variant.Type`.
+
+```gdscript
+# было
+ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+
+# стало
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+```
+
+| Было (Variant.Type) | Стало (ECSComponent.Type) |
+|---------------------|----------------------------------|
+| `TYPE_PACKED_BYTE_ARRAY` | `PACKED_BYTE` |
+| `TYPE_PACKED_INT32_ARRAY` | `PACKED_INT32` |
+| `TYPE_PACKED_INT64_ARRAY` | `PACKED_INT64` |
+| `TYPE_PACKED_FLOAT32_ARRAY` | `PACKED_FLOAT32` |
+| `TYPE_PACKED_FLOAT64_ARRAY` | `PACKED_FLOAT64` |
+| `TYPE_PACKED_VECTOR2_ARRAY` | `PACKED_VECTOR2` |
+| `TYPE_PACKED_VECTOR3_ARRAY` | `PACKED_VECTOR3` |
+| `TYPE_PACKED_VECTOR4_ARRAY` | `PACKED_VECTOR4` |
+| `TYPE_PACKED_COLOR_ARRAY` | `PACKED_COLOR` |
+| `TYPE_PACKED_STRING_ARRAY` | `PACKED_STRING` |
+| `TYPE_OBJECT` / `TYPE_ARRAY` (generic Object) | `OBJECT` |
+
+Новые типы (строгие хранилища `Array[T]`): `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D`, `TRANSFORM3D`, `VECTOR2I`, `VECTOR3I`, `VECTOR4I`, `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED`. См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+
+`get_components()`:
+
+```gdscript
+# было
+func get_components() -> Dictionary[int, int]:
+	return { Component.POSITION: TYPE_PACKED_VECTOR2_ARRAY }
+
+# стало
+func get_components() -> Dictionary[int, ECSComponent.Type]:
+	return { Component.POSITION: ECSComponent.Type.PACKED_VECTOR2 }
+```
+
 ## Текущая модель (два слоя)
 
 | Слой | Методы | Когда |

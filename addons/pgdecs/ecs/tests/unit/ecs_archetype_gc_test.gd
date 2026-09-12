@@ -7,9 +7,9 @@ const TAG_ID: int = 3
 
 func _make_ecs() -> ECSManager:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
+	ecs.register_component(TAG_ID, ECSComponent.Type.PACKED_INT32)
 	return ecs
 
 func test_destroy_all_evicts_archetypes_after_flush() -> void:
@@ -95,7 +95,7 @@ func test_flush_skips_without_structural_dirty() -> void:
 
 func test_partial_destroy_flushes_orphan_component_chunk() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(257, PackedInt64Array([POSITION_ID]))
 	var lone_high_chunk_entity: int = ids[256]
 	var pos: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
@@ -132,7 +132,7 @@ func test_churn_gc_cycles_do_not_leak_archetypes() -> void:
 
 func test_flush_gc_evicts_multiple_orphan_chunks_without_error() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(600, PackedInt64Array([POSITION_ID]))
 	ecs.destroy_entities_packed(ids)
 	ecs.flush_archetype_gc()

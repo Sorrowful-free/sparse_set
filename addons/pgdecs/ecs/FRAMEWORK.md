@@ -40,7 +40,7 @@ profile.apply_to_world() → каждый кадр: systems.update() → command
 
 ```gdscript
 var ecs := ECSManager.new()
-ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 var runner := ECSSystemRunner.new()
 runner.add_system(MySystem.new(ecs))
 runner.run(delta)  # каждый кадр
@@ -170,10 +170,10 @@ ECSEntityIdsUtils.chunk_index_from_handle(handle)
 ### Регистрация
 
 ```gdscript
-ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 ```
 
-Поддерживаемые типы (codegen): Byte, Int32, Int64, Float32, Float64, Vector2, Vector3, Vector4, Color. См. [`editor/ecs_code_gen.gd`](editor/ecs_code_gen.gd).
+Типы хранилищ — enum `ECSComponent.Type` (`PACKED_*`, строгие value/reference через `Array[T]`, generic `OBJECT`). Список генерируемых классов: [`editor/ecs_code_gen.gd`](editor/ecs_code_gen.gd); полная таблица — [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ### Два уровня API
 
@@ -190,17 +190,19 @@ var chunk: ECSComponentVector2ArrayChunk = query_chunk.get_component_chunk(POSIT
 chunk.get_value_at_slot(slot)
 ```
 
-### Объектные типы (Node, Transform) и String
+### Строгие и объектные типы
 
-`Node` / `Resource` — не в ядре; slot + реестр: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).  
-`String` — `TYPE_PACKED_STRING_ARRAY` в factory **или** int id + пул снаружи ECS (см. тот же документ).
+- `String` — `ECSComponent.Type.PACKED_STRING` **или** int id + пул снаружи ECS.
+- Value-типы без packed-буфера — `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D`/`TRANSFORM3D`, `VECTOR2I`/`VECTOR3I`/`VECTOR4I` (буфер `Array[T]`).
+- Reference-типы напрямую в ECS — `OBJECT`, `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED` (буфер `Array[T]`, default `null`); значения по ссылке, для копии — `duplicate(true)`.
+- `Node` / `Resource` со сложным lifecycle — slot + реестр. Подробнее: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ### Tags (marker-компоненты)
 
 Tag — component id **без SoA-хранилища**: членство только в bitmask архетипа. Для фильтрации в query и `has_component`, когда не нужно значение.
 
 ```gdscript
-ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 ecs.register_tag(ENEMY_TAG_ID)
 
 var e: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, ENEMY_TAG_ID]))
@@ -238,7 +240,7 @@ create_entities / create_entities_packed
 destroy_entity / destroy_entities_packed
 
 # Компоненты
-register_component(id, Variant.Type)
+register_component(id, ECSComponent.Type)
 register_tag(id)
 is_tag(component_id) -> bool
 has_component(entity, component_id)
@@ -411,7 +413,7 @@ buf.execute()  # вызывается раннером автоматическ�
 
 `ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и сбрасывает флаг profile — для reload сцены.
 
-Внешние данные (Node, RID, variable arrays) — **не в ядре**: intent-теги + Resource-реестры в игровых системах. См. [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+Внешние данные со сложным lifecycle (Node в сцене, RID, variable arrays) — через intent-теги + Resource-реестры в игровых системах. Ссылочные значения можно хранить и напрямую (`NODE`/`RESOURCE`/…): см. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ---
 

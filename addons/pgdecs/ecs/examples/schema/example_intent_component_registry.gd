@@ -14,8 +14,8 @@ func get_tags() -> Array[int]:
 		ExampleIntentIds.INTENT_DESTROY,
 	]
 
-func get_components() -> Dictionary[int, int]:
+func get_components() -> Dictionary[int, ECSComponent.Type]:
 	return {
-		Component.POSITION: TYPE_PACKED_VECTOR2_ARRAY,
-		Component.NODE_SLOT: TYPE_PACKED_INT32_ARRAY,
+		Component.POSITION: ECSComponent.Type.PACKED_VECTOR2,
+		Component.NODE_SLOT: ECSComponent.Type.PACKED_INT32,
 	}

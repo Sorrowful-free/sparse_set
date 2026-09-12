@@ -56,7 +56,7 @@ func create_system(ecs: ECSManager, _world: ECSWorld = null) -> ECSSystemBase:
 
 Intent — **tags** (`register_tag`), без SoA-значения. Константы: [`example_intent_ids.gd`](examples/schema/example_intent_ids.gd).
 
-Данные после bind остаются в **slot-компонентах** (`NODE_SLOT`, `PATH_SLOT`, …) — `TYPE_PACKED_INT32_ARRAY`, `-1` = нет.
+Данные после bind остаются в **slot-компонентах** (`NODE_SLOT`, `PATH_SLOT`, …) — `ECSComponent.Type.PACKED_INT32`, `-1` = нет.
 
 ---
 

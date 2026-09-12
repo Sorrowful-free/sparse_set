@@ -34,14 +34,14 @@ func _time_block(name: String, block: Callable) -> float:
 	return (end - start) / 1_000_000.0
 
 func benchmark_create_entity() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	return _time_block("create_entity x %d" % _iterations, func():
 		for i in range(_iterations):
 			var eid: int = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	)
 
 func benchmark_destroy_entity() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var ids: PackedInt64Array = PackedInt64Array()
 	for i in range(_iterations):
 		ids.append(_ecs.create_entity_packed(PackedInt64Array([POSITION_ID])))
@@ -52,7 +52,7 @@ func benchmark_destroy_entity() -> float:
 	)
 
 func benchmark_create_entities_batch() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var batches: int = maxi(1, _iterations / 100)
 	var total: int = batches * 100
 	return _time_block("create_entities(100) x %d = %d entities" % [batches, total], func():
@@ -61,7 +61,7 @@ func benchmark_create_entities_batch() -> float:
 	)
 
 func benchmark_destroy_entities_batch() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var batch_size: int = 100
 	var batches: int = maxi(1, _iterations / 100)
 	var all_ids: PackedInt64Array = PackedInt64Array()
@@ -75,8 +75,8 @@ func benchmark_destroy_entities_batch() -> float:
 	)
 
 func benchmark_query_get_entity_ids() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	for i in range(_iterations):
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
@@ -88,8 +88,8 @@ func benchmark_query_get_entity_ids() -> float:
 
 ## Итерация по чанкам на главном потоке: for_each_chunk (alloc-free hot path).
 func benchmark_query_iterate_chunks() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	for i in range(_iterations):
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
@@ -105,8 +105,8 @@ func benchmark_query_iterate_chunks() -> float:
 ## Итерация по сущностям с чтением всех компонентов: get_chunks() + для каждого чанка get_component_chunk()
 ## и обход по слотам с чтением position и health (SoA-стиль, как в реальной системе).
 func benchmark_query_iterate_entities_with_components() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	for i in range(_iterations):
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
@@ -132,8 +132,8 @@ func benchmark_query_iterate_entities_with_components() -> float:
 
 ## То же, что iterate_entities_with_components, но через get_dense_slots() + get_values_buffer() (без per-element вызовов).
 func benchmark_query_iterate_entities_with_components_fast() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	for i in range(_iterations):
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
@@ -294,8 +294,8 @@ static func _run_wtp_chunk_count_dispatch(
 			ECSChunkWorkerDispatch.run_chunks(worker_chunks, settings, process_chunk)
 
 func _prepare_e_c_query() -> ECSQuery:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	for i in range(_iterations):
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	return ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(_ecs)
@@ -386,8 +386,8 @@ func benchmark_query_worker_pool_main_fallback() -> float:
 	)
 
 func benchmark_add_remove_component() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var eid: int = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var runs: int = min(_iterations, 5000)
 	return _time_block("add_component + remove_component x %d" % runs, func():
@@ -398,7 +398,7 @@ func benchmark_add_remove_component() -> float:
 	)
 
 func benchmark_command_buffer_execute() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(_ecs)
 	var cids: PackedInt64Array = PackedInt64Array([POSITION_ID])
 	var batch: int = 1000
@@ -409,8 +409,8 @@ func benchmark_command_buffer_execute() -> float:
 	)
 
 func benchmark_command_buffer_coalescing_frame() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var cycles: int = maxi(1, _iterations / 25)
 	var pos_only: PackedInt64Array = PackedInt64Array([POSITION_ID])
 	var survivors: PackedInt64Array = PackedInt64Array()
@@ -468,8 +468,8 @@ class _HeavyReadChunkSystem extends ECSSystemChunkBase:
 			acc += pos.x + pos.y + float(health_chunk.get_value_at_slot(slot))
 
 func benchmark_system_change_detection() -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	for i in range(_iterations):
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var system: _ChangeDetectChunkSystem = _ChangeDetectChunkSystem.new(_ecs)
@@ -483,8 +483,8 @@ func benchmark_system_change_detection() -> float:
 
 ## ~2% сущностей в случайных чанках (размазанные изменения); read-only heavy process_chunk.
 func benchmark_system_change_detection_sparse_scattered(use_change_detection: bool) -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = PackedInt64Array()
 	ids.resize(_iterations)
 	for i in range(_iterations):
@@ -510,8 +510,8 @@ func benchmark_system_change_detection_sparse_scattered(use_change_detection: bo
 
 ## 1–2 «горячих» чанка за кадр (локальная активность); типичный игровой паттерн.
 func benchmark_system_change_detection_hot_chunks(use_change_detection: bool) -> float:
-	_ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	_ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	_ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	_ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = PackedInt64Array()
 	ids.resize(_iterations)
 	for i in range(_iterations):

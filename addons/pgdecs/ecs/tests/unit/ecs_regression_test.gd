@@ -7,14 +7,14 @@ const FORBIDDEN_ID: int = 99
 
 func test_query_without_larger_than_archetype_does_not_crash() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).without_component(FORBIDDEN_ID).build(ecs)
 	assert_eq(query.get_entity_ids().size(), 1)
 
 func test_stale_handle_after_reuse() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var entity_a: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	ecs.destroy_entity(entity_a)
 	ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
@@ -22,8 +22,8 @@ func test_stale_handle_after_reuse() -> void:
 
 func test_add_remove_preserves_other_component_values() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var entity_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
 	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
@@ -35,7 +35,7 @@ func test_add_remove_preserves_other_component_values() -> void:
 
 func test_stale_slot_not_counted_as_member() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_INT32)
 	var entity_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var pos: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
 	pos.set_component(entity_id, 99)

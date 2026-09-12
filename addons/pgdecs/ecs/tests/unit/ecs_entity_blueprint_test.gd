@@ -14,7 +14,7 @@ class _TestBlueprint extends ECSEntityBlueprint:
 
 func test_spawn_batch_applies_per_index() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var blueprint: _IndexBlueprint = _IndexBlueprint.new()
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var temp_ids: PackedInt64Array = blueprint.spawn_batch(buf, 4)
@@ -37,7 +37,7 @@ class _IndexBlueprint extends ECSEntityBlueprint:
 
 func test_spawn_one_applies_defaults() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var blueprint: _TestBlueprint = _TestBlueprint.new()
 	blueprint.velocity_default = 7.5
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
@@ -53,8 +53,8 @@ func test_spawn_one_applies_defaults() -> void:
 
 func test_get_archetype_caches_normalized_ids() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	ecs.register_component(EXTRA_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
+	ecs.register_component(EXTRA_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var blueprint: _TestBlueprint = _TestBlueprint.new()
 	var first: PackedInt64Array = blueprint.get_archetype(ecs)
 	var second: PackedInt64Array = blueprint.get_archetype(ecs)
@@ -64,7 +64,7 @@ func test_get_archetype_caches_normalized_ids() -> void:
 
 func test_spawn_one_returns_temp_id() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var blueprint: _TestBlueprint = _TestBlueprint.new()
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var temp_id: int = blueprint.spawn_one(buf)
@@ -92,7 +92,7 @@ func test_example_mover_blueprint_with_demo_schema() -> void:
 
 func test_build_default_values_applied_on_spawn() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var blueprint: _DictBlueprint = _DictBlueprint.new()
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	blueprint.spawn_one(buf)
@@ -103,8 +103,8 @@ func test_build_default_values_applied_on_spawn() -> void:
 
 func test_apply_defaults_super_keeps_dict_and_extra() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
-	ecs.register_component(EXTRA_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
+	ecs.register_component(EXTRA_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var blueprint: _HybridBlueprint = _HybridBlueprint.new()
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	blueprint.spawn_one(buf)

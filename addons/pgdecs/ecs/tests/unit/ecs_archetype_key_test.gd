@@ -19,9 +19,9 @@ func test_distinct_archetypes_with_same_bit_hash() -> void:
 	const HEALTH_ID: int = 2
 	const TAG_ID: int = 3
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
+	ecs.register_component(TAG_ID, ECSComponent.Type.PACKED_INT32)
 	var mask_ab: ECSBitMask = ECSBitMask.new(4)
 	mask_ab.bit_set(POSITION_ID, true)
 	mask_ab.bit_set(HEALTH_ID, true)

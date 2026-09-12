@@ -27,7 +27,8 @@
 | `*EcsDependencies` | Resource-контейнер реестров для strategies (см. ниже) |
 | ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
-| ECSComponentFactory | Фабрика компонентов |
+| ECSComponent | enum `Type` — типы хранилищ компонентов (packed / value / reference) |
+| ECSComponentFactory | Фабрика компонентов (по `ECSComponent.Type`) |
 | ECSComponentBaseArray, ECSComponentBaseArrayChunk | Базовые классы компонентов |
 | ECSComponentByteArray, ECSComponentVector2Array, … | Сгенерированные компоненты |
 

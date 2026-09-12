@@ -1,15 +1,77 @@
-# Объектные компоненты (Node, Transform, Resource)
+# Компоненты: хранилища, типы и объектные компоненты
 
-Ядро PGDECS хранит **примитивные SoA-типы** (`PackedFloat32Array`, `PackedVector2Array`, `PackedStringArray` и т.д.).  
-`Node`, `Resource`, `Transform3D` как Godot-объекты **не входят** в `ECSComponentFactory`.
+Ядро PGDECS хранит значения в SoA-чанках. Тип хранилища выбирается при регистрации через enum `ECSComponent.Type` — собственный enum вместо `Variant.Type`.
 
-**String** — исключение: поддерживается как `TYPE_PACKED_STRING_ARRAY` (`ECSComponentStringArray`) — одна `String` на entity в чанке. Альтернатива для каталогов/дедупа — `int` id + строковый пул вне ECS (ниже).
+```gdscript
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+```
 
-## Почему не в ядре
+Зачем свой enum, а не `Variant.Type`:
 
-- Godot-объекты — reference types, GC, не ложатся в плотный SoA без indirection.
-- Расширение factory под объекты размоет контракт производительности и усложнит codegen.
-- Lifecycle `Node` (дерево сцены, `free()`) не совместим с чистым ECS storage.
+- **Object-подтипы.** `Node`, `Node2D`, `Node3D`, `Resource`, `PackedScene`, `RefCounted` в `Variant.Type` все равны `TYPE_OBJECT` — их нельзя было различить.
+- **Value-типы без `Packed*Array`.** `AABB`, `Rect2`, `Quaternion`, `Basis`, `Transform2D/3D`, `Vector2i/3i/4i` не имеют packed-буфера; они хранятся в типизированном `Array[T]`.
+- Список типов расширяется нами, а не версией Godot.
+
+## Группы типов
+
+| Группа | Буфер | Default | Примеры |
+|--------|-------|---------|---------|
+| packed | `Packed*Array` | значение (`0`, `Vector2.ZERO`, …) | `PACKED_BYTE`, `PACKED_VECTOR2`, `PACKED_COLOR`, `PACKED_STRING` |
+| value | `Array[T]` | значение (`AABB()`, `…IDENTITY`) | `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D/3D`, `VECTOR2I/3I/4I` |
+| reference | `Array[T]` | `null` | `OBJECT`, `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED` |
+
+Полная таблица:
+
+| enum | Класс | Буфер | Default |
+|------|-------|-------|---------|
+| `PACKED_BYTE` | `ECSComponentByteArray` | `PackedByteArray` | `0` |
+| `PACKED_INT32` | `ECSComponentInt32Array` | `PackedInt32Array` | `0` |
+| `PACKED_INT64` | `ECSComponentInt64Array` | `PackedInt64Array` | `0` |
+| `PACKED_FLOAT32` | `ECSComponentFloat32Array` | `PackedFloat32Array` | `0.0` |
+| `PACKED_FLOAT64` | `ECSComponentFloat64Array` | `PackedFloat64Array` | `0.0` |
+| `PACKED_VECTOR2` | `ECSComponentVector2Array` | `PackedVector2Array` | `Vector2.ZERO` |
+| `PACKED_VECTOR3` | `ECSComponentVector3Array` | `PackedVector3Array` | `Vector3.ZERO` |
+| `PACKED_VECTOR4` | `ECSComponentVector4Array` | `PackedVector4Array` | `Vector4.ZERO` |
+| `PACKED_COLOR` | `ECSComponentColorArray` | `PackedColorArray` | `Color.BLACK` |
+| `PACKED_STRING` | `ECSComponentStringArray` | `PackedStringArray` | `""` |
+| `AABB` | `ECSComponentAABBArray` | `Array[AABB]` | `AABB()` |
+| `RECT2` | `ECSComponentRect2Array` | `Array[Rect2]` | `Rect2()` |
+| `QUATERNION` | `ECSComponentQuaternionArray` | `Array[Quaternion]` | `Quaternion.IDENTITY` |
+| `BASIS` | `ECSComponentBasisArray` | `Array[Basis]` | `Basis.IDENTITY` |
+| `TRANSFORM2D` | `ECSComponentTransform2DArray` | `Array[Transform2D]` | `Transform2D.IDENTITY` |
+| `TRANSFORM3D` | `ECSComponentTransform3DArray` | `Array[Transform3D]` | `Transform3D.IDENTITY` |
+| `VECTOR2I` | `ECSComponentVector2iArray` | `Array[Vector2i]` | `Vector2i.ZERO` |
+| `VECTOR3I` | `ECSComponentVector3iArray` | `Array[Vector3i]` | `Vector3i.ZERO` |
+| `VECTOR4I` | `ECSComponentVector4iArray` | `Array[Vector4i]` | `Vector4i.ZERO` |
+| `OBJECT` | `ECSComponentObjectArray` | `Array` | `null` |
+| `NODE` | `ECSComponentNodeArray` | `Array[Node]` | `null` |
+| `NODE2D` | `ECSComponentNode2DArray` | `Array[Node2D]` | `null` |
+| `NODE3D` | `ECSComponentNode3DArray` | `Array[Node3D]` | `null` |
+| `RESOURCE` | `ECSComponentResourceArray` | `Array[Resource]` | `null` |
+| `PACKED_SCENE` | `ECSComponentPackedSceneArray` | `Array[PackedScene]` | `null` |
+| `REF_COUNTED` | `ECSComponentRefCountedArray` | `Array[RefCounted]` | `null` |
+
+Строгие типы (`Array[T]`) задают тип и в API (`add_component(entity, value: T)`), и в самом хранилище. `OBJECT` — generic-хранилище «любой `Object`» (буфер untyped `Array`, API типизирован `Object`); для конкретных подтипов используйте `NODE`, `RESOURCE`, `PACKED_SCENE` и т.д.
+
+```gdscript
+ecs.register_component(NODE_ID, ECSComponent.Type.NODE2D)      # Array[Node2D]
+ecs.register_component(MESH_ID, ECSComponent.Type.RESOURCE)    # Array[Resource]
+ecs.register_component(XFORM_ID, ECSComponent.Type.TRANSFORM3D) # Array[Transform3D]
+```
+
+## Семантика reference-типов
+
+- Значения `OBJECT` / `NODE` / `NODE2D` / `NODE3D` / `RESOURCE` / `PACKED_SCENE` / `REF_COUNTED` хранятся **по ссылке**: `get_component` / `get_value_at_slot` / `get_values_buffer` возвращают ту же ссылку, что лежит в чанке, а `set_component` сохраняет переданную ссылку без копирования. Мутация результата меняет значение компонента у сущности.
+- **Нужна независимая копия — дублируйте явно:** глубокая — `value.duplicate(true)`, поверхностная — `value.duplicate()`.
+- `null` — валидное «пустое» значение; членство компонента определяется архетипом / `has_component`, отдельного флага наличия нет.
+- value-типы (`AABB`, `Transform3D`, …) — value-семантика, как у `Vector2`: возвращается копия.
+
+## Производительность
+
+- packed-буферы (`Packed*Array`) — плотный SoA, лучший вариант для горячих данных.
+- `Array[T]` (value и reference) менее плотный: значения боксятся, есть indirection и GC-давление для объектов; fast-path по `get_values_buffer()` почти не даёт выигрыша.
+- Для `AABB` / `Rect2` / `Quaternion` / `Basis` / `Transform*` / `Vector*i` packed-вариантов в Godot нет, поэтому `Array[T]` — лучший доступный вариант.
+- Для объектов со сложным lifecycle (`Node` в дереве сцены) по-прежнему предпочтителен slot + реестр (ниже).
 
 ## Паттерн: slot + Resource-реестр (side-table)
 
@@ -28,7 +90,7 @@ func get_node(slot: int) -> Node: ...
 Компонент в ECS:
 
 ```gdscript
-const NODE_SLOT_ID: int = 20  # TYPE_PACKED_INT32_ARRAY
+const NODE_SLOT_ID: int = 20  # ECSComponent.Type.PACKED_INT32
 
 # После bind (intent system или spawn):
 slots.set_component(entity, registry.acquire())
@@ -43,24 +105,25 @@ slots.set_component(entity, registry.acquire())
 | **Slot-based** | `Int32` slot (`-1` = пусто) | `acquire()` / `release(slot)` / `get_node(slot)` | Пул нод/RID, эталон в `examples/registries/` |
 | **Handle-based** | entity id или wire-id в компоненте | `get_or_register(key)` / `unregister(key)` | Сеть, привязка к внешнему id, LOD grids |
 
-В SoA всё равно только примитив; «handle» — это значение компонента, по которому реестр находит объект. Имена методов в игре могут отличаться от примеров аддона — контракт один: **bind → sync → release до destroy**.
+Для ссылочных компонентов (`NODE`, `RESOURCE`) «handle» — это само значение компонента, по которому система находит объект. Имена методов в игре могут отличаться от примеров аддона — контракт один: **bind → sync → release до destroy**.
 
-## String / Transform
+## String / Transform / RID
 
-- **String (в SoA)** — `ecs.register_component(NAME_ID, TYPE_PACKED_STRING_ARRAY)`; fast-path через `get_values_buffer()` / `set_value_at_slot` как у остальных packed-типов.
+- **String (в SoA)** — `ecs.register_component(NAME_ID, ECSComponent.Type.PACKED_STRING)`; fast-path через `get_values_buffer()` / `set_value_at_slot` как у остальных packed-типов.
 - **String (пул)** — `int` id в строковом пуле (`Dictionary` / `PackedStringArray` снаружи ECS), если нужен дедуп или каталог имён без копий в каждом чанке.
-- **Transform** — `Vector3` + rotation как отдельные примитивные компоненты (или `PackedVector3Array` + угол).
+- **Transform** — `ECSComponent.Type.TRANSFORM2D` / `TRANSFORM3D` (буфер `Array[Transform2D/3D]`) или `PACKED_VECTOR3` + угол, если нужна плотная упаковка.
 - **RID** — `Int64` (`get_id()` / `rid_from_int64()` на границе Server API).
 
 ## Lifecycle (ответственность игры)
 
-1. **Bind** — intent или spawn: slot в SoA.
+1. **Bind** — intent или spawn: slot/ссылка в компоненте.
 2. **Sync** — система читает SoA, пишет в registry / Node / Server.
 3. **Release** — `INTENT_RELEASE` или вручную перед `destroy_entity`: `registry.release(slot)`.
-4. **Destroy** — `destroy_entity` после освобождения slot'ов.
+4. **Destroy** — `destroy_entity` после освобождения ссылок.
 
-При удалении `Node` из сцены — gateway (`tree_exited` → intent или `destroy_entity`).
+При удалении `Node` из сцены — gateway (`tree_exited` → intent или `destroy_entity`). ECS **не освобождает** `Node`/`Resource` автоматически: за lifecycle отвечает игра.
 
-## Статус (v2.0)
+## Статус
 
-Поддержка object types **только** через реестры + slot/intent в игровом коде. Bridge-слой из 1.x **удалён** — см. [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).
+- Хранилища выбираются через `ECSComponent.Type`: packed, строгие value/reference (`Array[T]`) и generic `OBJECT`.
+- Объекты со сложным lifecycle (`Node`) — через slot + реестр и intent в игровом коде. Bridge-слой из 1.x **удалён** — см. [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).

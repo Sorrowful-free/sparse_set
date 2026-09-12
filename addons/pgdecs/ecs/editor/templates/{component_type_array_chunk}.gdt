@@ -6,7 +6,7 @@ var _components_values: {packed_type}
 
 func _init() -> void:
 	super()
-	_components_values = {packed_type}()
+	_components_values = {buffer_init}
 	_components_values.resize(ECSEntityIdsUtils.CHUNK_SIZE)
 	_components_values.fill({default_value})
 

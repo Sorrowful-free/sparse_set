@@ -7,8 +7,8 @@ const MANA_ID: int = 3
 
 func test_get_component_chunk_by_index() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var entity_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var chunks: Array[ECSQueryChunk] = query.get_chunks()
@@ -25,7 +25,7 @@ func test_get_component_chunk_by_index() -> void:
 
 func test_empty_chunk_returns_null() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var empty_chunk: ECSArchetypeChunk = ECSArchetypeChunk.new()
 	var query_chunk: ECSQueryChunk = ECSQueryChunk.new(empty_chunk, ecs, 0)
 	assert_eq(query_chunk.get_entity_count(), 0)
@@ -61,9 +61,9 @@ func test_fast_path_matches_legacy_after_removes_with_holes() -> void:
 
 func test_fast_path_excludes_other_archetype_on_shared_position_buffer() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	ecs.register_component(MANA_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
+	ecs.register_component(MANA_ID, ECSComponent.Type.PACKED_INT32)
 	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
 	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
 	var mana: ECSComponentInt32Array = ecs.get_component_array(MANA_ID) as ECSComponentInt32Array
@@ -86,9 +86,9 @@ func test_fast_path_excludes_other_archetype_on_shared_position_buffer() -> void
 
 func test_fast_path_matches_legacy_three_components() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	ecs.register_component(MANA_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
+	ecs.register_component(MANA_ID, ECSComponent.Type.PACKED_INT32)
 	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
 	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
 	var mana: ECSComponentInt32Array = ecs.get_component_array(MANA_ID) as ECSComponentInt32Array
@@ -105,8 +105,8 @@ func test_fast_path_matches_legacy_three_components() -> void:
 
 func _setup_pos_health_ecs() -> ECSManager:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	return ecs
 
 func _assert_chunk_fast_matches_legacy(chunk: ECSQueryChunk, position_id: int, health_id: int) -> void:

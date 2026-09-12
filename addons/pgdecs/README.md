@@ -29,7 +29,7 @@ world.bootstrap(1000)     # profile + DemoMovementStrategy + spawn
 
 ```gdscript
 var ecs := ECSManager.new()
-ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 var runner := ECSSystemRunner.new()
 runner.add_system(MyMovementSystem.new(ecs))
 # каждый кадр:
@@ -81,7 +81,7 @@ buf.destroy_entities_packed(batch_ids)
 - [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
 - **[INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md)** — Intent-теги + Resource-реестры (v2.0)
 - **[CHANGELOG.md](ecs/CHANGELOG.md)** — история версий
-- [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — Node/String/RID через slot + реестры
+- [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — типы хранилищ, строгие value/reference-компоненты, Node/String/RID
 - [MIGRATION.md](ecs/MIGRATION.md) — внешний API и миграция 2.0
 - [NAMING.md](ecs/NAMING.md) — префиксы и имена классов
 - [agent_handoff/](ecs/agent_handoff/README.md) — шаблоны для Composer (батчи, gates, self-check)

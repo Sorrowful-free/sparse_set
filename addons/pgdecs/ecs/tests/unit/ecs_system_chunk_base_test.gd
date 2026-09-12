@@ -25,7 +25,7 @@ class _SumChunkSystem extends ECSSystemChunkBase:
 
 func test_process_chunk_single_thread() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.update(0.016)
@@ -34,7 +34,7 @@ func test_process_chunk_single_thread() -> void:
 
 func test_process_chunk_worker_pool_matches_single_thread() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(600, PackedInt64Array([VALUE_ID]))
 	var single: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	single.update(0.016)
@@ -46,7 +46,7 @@ func test_process_chunk_worker_pool_matches_single_thread() -> void:
 
 func test_auto_worker_pool_falls_back_to_main_for_small_world() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.use_worker_pool = true
@@ -58,7 +58,7 @@ func test_auto_worker_pool_falls_back_to_main_for_small_world() -> void:
 
 func test_force_worker_pool_runs_for_single_chunk() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.use_worker_pool = true
@@ -69,7 +69,7 @@ func test_force_worker_pool_runs_for_single_chunk() -> void:
 
 func test_change_detection_skips_unchanged() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.change_detection = true
@@ -80,7 +80,7 @@ func test_change_detection_skips_unchanged() -> void:
 
 func test_change_detection_reprocesses_after_structural() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.change_detection = true
@@ -92,7 +92,7 @@ func test_change_detection_reprocesses_after_structural() -> void:
 
 func test_change_detection_reprocesses_after_value_write() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(3, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.change_detection = true
@@ -105,7 +105,7 @@ func test_change_detection_reprocesses_after_value_write() -> void:
 
 func test_change_detection_worker_pool_parity() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.create_entities_packed(600, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.change_detection = true
@@ -118,7 +118,7 @@ func test_change_detection_worker_pool_parity() -> void:
 
 func test_change_detection_prunes_stale_chunk_seen() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(VALUE_ID, TYPE_PACKED_FLOAT32_ARRAY)
+	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(300, PackedInt64Array([VALUE_ID]))
 	var system: _SumChunkSystem = _SumChunkSystem.new(ecs)
 	system.change_detection = true

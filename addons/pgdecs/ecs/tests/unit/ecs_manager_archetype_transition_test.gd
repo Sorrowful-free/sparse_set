@@ -7,8 +7,8 @@ const TAG_ID: int = 3
 
 func test_create_entity_normalizes_unsorted_and_duplicate_ids() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var e1: int = ecs.create_entity_packed(PackedInt64Array([HEALTH_ID, POSITION_ID, HEALTH_ID]))
 	var e2: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	assert_true(ecs.has_component(e1, POSITION_ID))
@@ -21,8 +21,8 @@ func test_create_entity_normalizes_unsorted_and_duplicate_ids() -> void:
 
 func test_add_remove_reuses_archetype_via_transition_cache() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var e_a: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var e_b: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	ecs.add_component(e_a, HEALTH_ID)
@@ -39,8 +39,8 @@ func test_add_remove_reuses_archetype_via_transition_cache() -> void:
 
 func test_add_component_idempotent_for_same_archetype() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var before: ECSArchetype = ecs.get_entity_archetype(eid)
 	ecs.add_component(eid, HEALTH_ID)
@@ -49,8 +49,8 @@ func test_add_component_idempotent_for_same_archetype() -> void:
 
 func test_precache_with_unsorted_ids_matches_create() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(TAG_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.precache_archetype_packed(PackedInt64Array([TAG_ID, POSITION_ID, TAG_ID]))
 	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, TAG_ID]))
 	assert_true(ecs.has_component(eid, POSITION_ID))

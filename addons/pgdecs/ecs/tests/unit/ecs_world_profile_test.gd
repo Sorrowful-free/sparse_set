@@ -9,7 +9,7 @@ const POSITION_ID: int = 1
 
 func _make_component_registry_strategy() -> ECSComponentRegistryStrategy:
 	var strategy := _MOCK_COMPONENT_REGISTRY.new()
-	strategy.components_to_register = {POSITION_ID: TYPE_PACKED_VECTOR2_ARRAY}
+	strategy.components_to_register = {POSITION_ID: ECSComponent.Type.PACKED_VECTOR2}
 	return strategy
 
 func test_registry_apply() -> void:

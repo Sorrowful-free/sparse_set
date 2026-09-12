@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.1.0]
+
+### Added
+
+- `ECSComponent.Type` — собственный enum типов хранилищ вместо `Variant.Type`; различает Object-подтипы и value-типы без `Packed*Array`.
+- Строготипизированные компоненты: `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D`, `TRANSFORM3D`, `VECTOR2I`, `VECTOR3I`, `VECTOR4I` (буфер `Array[T]`); `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED` (буфер `Array[T]`, default `null`); generic `OBJECT`.
+- Codegen: конфигурации новых типов и инициализация буфера через `{buffer_init}` (`Packed*Array()` для packed, `[]` для `Array[T]`).
+
+### Changed (breaking)
+
+- `ECSManager.register_component(id, component_type)` принимает `ECSComponent.Type`, а не `Variant.Type`.
+- `ECSComponentRegistryStrategy.get_components()` → `Dictionary[int, ECSComponent.Type]`.
+
+### Documentation
+
+- OBJECT_COMPONENTS: таблица всех типов хранилищ, семантика по ссылке и `duplicate(true)`, производительность `Array[T]`.
+- MIGRATION: раздел 2.1.
+
 ## [2.0.2]
 
 ### Changed

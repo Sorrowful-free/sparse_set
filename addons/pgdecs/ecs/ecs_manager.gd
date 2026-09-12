@@ -370,7 +370,7 @@ func _ensure_entity_mapping_capacity(entity_index: int) -> void:
 	if entity_index >= _entities_to_archetypes.size():
 		_entities_to_archetypes.resize(entity_index + 1)
 
-func register_component(component_id: int, component_type: Variant.Type) -> void:
+func register_component(component_id: int, component_type: ECSComponent.Type) -> void:
 	if _components.has(component_id):
 		push_error("ECSManager: component %d already registered" % component_id)
 		return

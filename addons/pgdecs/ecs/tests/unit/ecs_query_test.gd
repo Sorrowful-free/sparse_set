@@ -7,8 +7,8 @@ const TAG_ID: int = 3
 
 func test_query_match_all() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var with_pos: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var with_both: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
@@ -17,8 +17,8 @@ func test_query_match_all() -> void:
 
 func test_query_without() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(TAG_ID, ECSComponent.Type.PACKED_INT32)
 	var only_pos: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var pos_and_tag: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, TAG_ID]))
 	var q: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).without_component(TAG_ID).build(ecs)
@@ -27,8 +27,8 @@ func test_query_without() -> void:
 
 func test_get_entity_ids() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var tmp = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var e2: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var e3: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
@@ -41,8 +41,8 @@ func test_get_entity_ids() -> void:
 ## get_chunks() возвращает те же сущности, что и get_entity_ids(); итерация по чанкам даёт тот же набор.
 func test_get_chunks_same_entities_as_get_entity_ids() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var e2: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var e3: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
@@ -61,8 +61,8 @@ func test_get_chunks_same_entities_as_get_entity_ids() -> void:
 ## Итерация строго по чанкам: get_entity_count() и get_entity_id_at() согласованы.
 func test_get_chunks_iterate_by_chunk() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var created: PackedInt64Array = ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var chunks: Array[ECSQueryChunk] = query.get_chunks()
@@ -79,8 +79,8 @@ func test_get_chunks_iterate_by_chunk() -> void:
 
 func test_for_each_chunk_matches_get_chunks() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var from_foreach: PackedInt64Array = PackedInt64Array()
@@ -102,8 +102,8 @@ func test_for_each_chunk_matches_get_chunks() -> void:
 
 func test_collect_chunks_matches_get_chunks() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var collected: Array[ECSQueryChunk] = []
@@ -115,8 +115,8 @@ func test_collect_chunks_matches_get_chunks() -> void:
 
 func test_get_chunks_snapshots_do_not_alias() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entities_packed(3, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var independent: Array[ECSQueryChunk] = []
@@ -134,8 +134,8 @@ func test_get_chunks_snapshots_do_not_alias() -> void:
 
 func test_begin_chunk_run_matches_for_each_chunk() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entities_packed(12, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var from_foreach: PackedInt64Array = PackedInt64Array()
@@ -157,8 +157,8 @@ func test_begin_chunk_run_matches_for_each_chunk() -> void:
 
 func test_collect_chunks_reuses_pool_after_warmup() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entities_packed(300, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var warmup: Array[ECSQueryChunk] = []
@@ -170,16 +170,16 @@ func test_collect_chunks_reuses_pool_after_warmup() -> void:
 
 func test_get_component_ids_returns_query_components() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.create_entities_packed(1, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	assert_eq(query.get_component_ids(), PackedInt64Array([POSITION_ID, HEALTH_ID]))
 
 func test_query_chunk_exposes_versions() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(2, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(ecs)
 	var snap: Dictionary = {"struct": -1, "value": -1}
@@ -205,9 +205,9 @@ func test_query_chunk_exposes_versions() -> void:
 
 func test_query_builder_deduplicates_and_sorts_component_ids() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
+	ecs.register_component(TAG_ID, ECSComponent.Type.PACKED_INT32)
 	var matched: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var filtered: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID, TAG_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new() \
@@ -225,9 +225,9 @@ func test_query_builder_deduplicates_and_sorts_component_ids() -> void:
 
 func test_query_builder_with_components_batch() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
-	ecs.register_component(TAG_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
+	ecs.register_component(TAG_ID, ECSComponent.Type.PACKED_INT32)
 	var matched: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var filtered: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID, TAG_ID]))
 	var query: ECSQuery = ECSQueryBuilder.new() \

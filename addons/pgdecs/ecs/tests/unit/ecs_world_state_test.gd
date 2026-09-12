@@ -32,8 +32,8 @@ func _assert_query_ids(query: ECSQuery, expected: Array[int]) -> void:
 
 func test_three_components_queries_return_correct_entities() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.register_tag(TAG_ID)
 
 	var e_pos_only: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
@@ -73,8 +73,8 @@ func test_three_components_queries_return_correct_entities() -> void:
 
 func test_queries_after_destroy() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 
 	var e1: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var e2: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
@@ -95,8 +95,8 @@ func test_queries_after_destroy() -> void:
 
 func test_queries_after_add_remove_component() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 
 	var e: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	var q_pos: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
@@ -116,8 +116,8 @@ func test_queries_after_add_remove_component() -> void:
 
 func test_batch_destroy_queries_stay_valid() -> void:
 	var ecs: ECSManager = ECSManager.new()
-	ecs.register_component(POSITION_ID, TYPE_PACKED_VECTOR2_ARRAY)
-	ecs.register_component(HEALTH_ID, TYPE_PACKED_INT32_ARRAY)
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 
 	var ids_both: PackedInt64Array = ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var e_pos_only: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
