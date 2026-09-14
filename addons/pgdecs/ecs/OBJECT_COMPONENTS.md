@@ -29,27 +29,29 @@ ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 | `PACKED_INT32` | `ECSComponentPackedInt32Array` | `PackedInt32Array` | `0` |
 | `PACKED_FLOAT64` | `ECSComponentPackedFloat64Array` | `PackedFloat64Array` | `0.0` |
 | `PACKED_FLOAT32` | `ECSComponentPackedFloat32Array` | `PackedFloat32Array` | `0.0` |
+| `PACKED_STRING` | `ECSComponentPackedStringArray` | `PackedStringArray` | `""` |
+| `PACKED_COLOR` | `ECSComponentPackedColorArray` | `PackedColorArray` | `Color.BLACK` |
 | `PACKED_VECTOR2` | `ECSComponentPackedVector2Array` | `PackedVector2Array` | `Vector2.ZERO` |
 | `PACKED_VECTOR3` | `ECSComponentPackedVector3Array` | `PackedVector3Array` | `Vector3.ZERO` |
 | `PACKED_VECTOR4` | `ECSComponentPackedVector4Array` | `PackedVector4Array` | `Vector4.ZERO` |
-| `PACKED_COLOR` | `ECSComponentPackedColorArray` | `PackedColorArray` | `Color.BLACK` |
-| `PACKED_STRING` | `ECSComponentPackedStringArray` | `PackedStringArray` | `""` |
 | `BOOL` | `ECSComponentBoolArray` | `Array[bool]` | `false` |
 | `INT` | `ECSComponentIntArray` | `Array[int]` | `0` |
 | `FLOAT` | `ECSComponentFloatArray` | `Array[float]` | `0.0` |
 | `AABB` | `ECSComponentAABBArray` | `Array[AABB]` | `AABB()` |
 | `RECT2` | `ECSComponentRect2Array` | `Array[Rect2]` | `Rect2()` |
+| `RECT2I` | `ECSComponentRect2iArray` | `Array[Rect2i]` | `Rect2i()` |
 | `BASIS` | `ECSComponentBasisArray` | `Array[Basis]` | `Basis.IDENTITY` |
 | `PLANE` | `ECSComponentPlaneArray` | `Array[Plane]` | `Plane()` |
+| `PROJECTION` | `ECSComponentProjectionArray` | `Array[Projection]` | `Projection()` |
 | `TRANSFORM2D` | `ECSComponentTransform2DArray` | `Array[Transform2D]` | `Transform2D.IDENTITY` |
 | `TRANSFORM3D` | `ECSComponentTransform3DArray` | `Array[Transform3D]` | `Transform3D.IDENTITY` |
 | `QUATERNION` | `ECSComponentQuaternionArray` | `Array[Quaternion]` | `Quaternion.IDENTITY` |
 | `VECTOR2` | `ECSComponentVector2Array` | `Array[Vector2]` | `Vector2.ZERO` |
 | `VECTOR2I` | `ECSComponentVector2iArray` | `Array[Vector2i]` | `Vector2i.ZERO` |
-| `VECTOR3I` | `ECSComponentVector3iArray` | `Array[Vector3i]` | `Vector3i.ZERO` |
 | `VECTOR3` | `ECSComponentVector3Array` | `Array[Vector3]` | `Vector3.ZERO` |
-| `VECTOR4I` | `ECSComponentVector4iArray` | `Array[Vector4i]` | `Vector4i.ZERO` |
+| `VECTOR3I` | `ECSComponentVector3iArray` | `Array[Vector3i]` | `Vector3i.ZERO` |
 | `VECTOR4` | `ECSComponentVector4Array` | `Array[Vector4]` | `Vector4.ZERO` |
+| `VECTOR4I` | `ECSComponentVector4iArray` | `Array[Vector4i]` | `Vector4i.ZERO` |
 | `COLOR` | `ECSComponentColorArray` | `Array[Color]` | `Color.BLACK` |
 | `STRINGNAME` | `ECSComponentStringNameArray` | `Array[StringName]` | `&""` |
 | `STRING` | `ECSComponentStringArray` | `Array[String]` | `""` |
@@ -62,8 +64,34 @@ ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 | `NODE3D` | `ECSComponentNode3DArray` | `Array[Node3D]` | `null` |
 | `OBJECT` | `ECSComponentObjectArray` | `Array` | `null` |
 | `REFCOUNTED` | `ECSComponentRefCountedArray` | `Array[RefCounted]` | `null` |
+| `TWEEN` | `ECSComponentTweenArray` | `Array[Tween]` | `null` |
+| `ANIMATION_PLAYER` | `ECSComponentAnimationPlayerArray` | `Array[AnimationPlayer]` | `null` |
+| `ANIMATION_TREE` | `ECSComponentAnimationTreeArray` | `Array[AnimationTree]` | `null` |
+| `MESH_INSTANCE_2D` | `ECSComponentMeshInstance2DArray` | `Array[MeshInstance2D]` | `null` |
+| `MESH_INSTANCE_3D` | `ECSComponentMeshInstance3DArray` | `Array[MeshInstance3D]` | `null` |
+| `MULTI_MESH_INSTANCE_2D` | `ECSComponentMultiMeshInstance2DArray` | `Array[MultiMeshInstance2D]` | `null` |
+| `MULTI_MESH_INSTANCE_3D` | `ECSComponentMultiMeshInstance3DArray` | `Array[MultiMeshInstance3D]` | `null` |
+| `RIGID_BODY_2D` | `ECSComponentRigidBody2DArray` | `Array[RigidBody2D]` | `null` |
+| `RIGID_BODY_3D` | `ECSComponentRigidBody3DArray` | `Array[RigidBody3D]` | `null` |
+| `CHARACTER_BODY_2D` | `ECSComponentCharacterBody2DArray` | `Array[CharacterBody2D]` | `null` |
+| `CHARACTER_BODY_3D` | `ECSComponentCharacterBody3DArray` | `Array[CharacterBody3D]` | `null` |
+| `STATIC_BODY_2D` | `ECSComponentStaticBody2DArray` | `Array[StaticBody2D]` | `null` |
+| `STATIC_BODY_3D` | `ECSComponentStaticBody3DArray` | `Array[StaticBody3D]` | `null` |
+| `AREA_2D` | `ECSComponentArea2DArray` | `Array[Area2D]` | `null` |
+| `AREA_3D` | `ECSComponentArea3DArray` | `Array[Area3D]` | `null` |
+| `COLLISION_SHAPE_2D` | `ECSComponentCollisionShape2DArray` | `Array[CollisionShape2D]` | `null` |
+| `COLLISION_SHAPE_3D` | `ECSComponentCollisionShape3DArray` | `Array[CollisionShape3D]` | `null` |
+| `COLLISION_POLYGON_2D` | `ECSComponentCollisionPolygon2DArray` | `Array[CollisionPolygon2D]` | `null` |
+| `COLLISION_POLYGON_3D` | `ECSComponentCollisionPolygon3DArray` | `Array[CollisionPolygon3D]` | `null` |
+| `SHAPE_2D` | `ECSComponentShape2DArray` | `Array[Shape2D]` | `null` |
+| `SHAPE_3D` | `ECSComponentShape3DArray` | `Array[Shape3D]` | `null` |
+| `NAVIGATION_AGENT_2D` | `ECSComponentNavigationAgent2DArray` | `Array[NavigationAgent2D]` | `null` |
+| `NAVIGATION_AGENT_3D` | `ECSComponentNavigationAgent3DArray` | `Array[NavigationAgent3D]` | `null` |
+| `TIMER` | `ECSComponentTimerArray` | `Array[Timer]` | `null` |
 
-Строгие типы (`Array[T]`) задают тип и в API (`add_component(entity, value: T)`), и в самом хранилище. `PACKED_*` — плотные `Packed*Array`-буферы; `OBJECT` — generic-хранилище «любой `Object`» (буфер untyped `Array`, API типизирован `Object`); для конкретных подтипов используйте `NODE`, `RESOURCE`, `PACKED_SCENE` и т.д.
+Строгие типы (`Array[T]`) задают тип и в API (`add_component(entity, value: T)`), и в самом хранилище. `PACKED_*` — плотные `Packed*Array`-буферы; `OBJECT` — generic-хранилище «любой `Object`» (буфер untyped `Array`, API типизирован `Object`).
+
+Типизированные Node/RefCounted-подтипы (`TWEEN`, `ANIMATION_PLAYER`, `MESH_INSTANCE_*`, `MULTI_MESH_INSTANCE_*`, `RIGID_BODY_*`, `CHARACTER_BODY_*`, `AREA_*`, `NAVIGATION_AGENT_*`, `TIMER`) — это **типизация, а не новые возможности**: `NODE`/`OBJECT`/`RESOURCE` уже принимают любой подкласс, а отдельный тип даёт `Array[T]` вместо `Array[Node]` — доступ без `as`-каста. Добавляй только то, что системы читают на каждую сущность каждый кадр.
 
 ```gdscript
 ecs.register_component(NODE_ID, ECSComponent.Type.NODE2D)      # Array[Node2D]

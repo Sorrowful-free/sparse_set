@@ -1,66 +1,110 @@
 extends RefCounted
 class_name ECSComponent
 
-## Тип хранилища компонента. Собственный enum вместо Variant.Type:
-## различает Object-подтипы (Node, Node2D, Resource, …), которые в Variant.Type
-## все равны TYPE_OBJECT, и позволяет хранить value-типы без Packed*Array
-## в типизированных Array[T].
+## Тип хранилища компонента для [ECSComponentFactory] и [method ECSManager.register_component].
 ##
-## Порядок групп соответствует списку кодогенерации (editor/ecs_code_gen.gd).
+## Собственный enum вместо [enum Variant.Type]:
+## - Object-подтипы (Node, Node2D, Resource, …) в `Variant.Type` неразличимы — все `TYPE_OBJECT`;
+## - value-типы без `Packed*Array` хранятся в типизированных `Array[T]` (Rect2i, Projection, …);
+## - список типов расширяется аддоном, а не версией Godot.
+##
+## Буфер чанка:
+## - `PACKED_*` → `Packed*Array`: плотный SoA, скаляр на slot — лучший вариант для hot path;
+## - остальные → типизированный `Array[T]`: значение value-типа либо ссылка (default `null`);
+## - `OBJECT` → untyped `Array`, API типизирован `Object` (принимает любой Object).
+##
+## Reference-типы (`OBJECT`, `RESOURCE`, `NODE`, …) хранят ссылку: `get_*` возвращает тот же
+## объект, `set_*` не копирует. Нужна независимая копия — `duplicate(true)`.
+## Подробности и таблица буферов: OBJECT_COMPONENTS.md.
+##
+## Порядок групп — канонический: список кодогенерации (editor/ecs_code_gen.gd) идёт в том же порядке.
 enum Type {
-	# packed-буферы (Packed*Array)
+	# --- packed-буферы (Packed*Array) ---
 	PACKED_BYTE,
 	PACKED_INT64,
 	PACKED_INT32,
 	PACKED_FLOAT64,
 	PACKED_FLOAT32,
+	PACKED_STRING,
+	PACKED_COLOR,
 	PACKED_VECTOR2,
 	PACKED_VECTOR3,
 	PACKED_VECTOR4,
-	PACKED_COLOR,
-	PACKED_STRING,
 
-	# примитивы, буфер Array[T]
+	# --- примитивы (Array[T]) ---
 	BOOL,
 	INT,
 	FLOAT,
 
-	# built-in value-типы, буфер Array[T]
+	# --- built-in value-типы (Array[T], value-семантика: get возвращает копию) ---
 	AABB,
 	RECT2,
+	RECT2I,
 	BASIS,
 	PLANE,
+	PROJECTION,
 	TRANSFORM2D,
 	TRANSFORM3D,
-
 	QUATERNION,
+	# вектора и цвет
 	VECTOR2,
 	VECTOR2I,
-	VECTOR3I,
 	VECTOR3,
-	VECTOR4I,
+	VECTOR3I,
 	VECTOR4,
+	VECTOR4I,
 	COLOR,
-
-	# строковые value-типы, буфер Array[T]
+	# строки и пути
 	STRINGNAME,
 	STRING,
 	NODEPATH,
-
-	# прочие value-типы, буфер Array[T]
+	# прочие built-in
 	RID,
 
-	# reference-типы, буфер Array[T], default null
+	# --- reference-типы (Array[T], default null; значение — ссылка, не копия) ---
+	# ресурсы
 	RESOURCE,
 	PACKED_SCENE,
-
+	# ноды (NODE принимает любые подклассы Node — отдельные типы ниже нужны только
+	# для типизированного доступа без `as`-каста)
 	NODE,
 	NODE2D,
 	NODE3D,
-
-	# generic Object (untyped Array), default null
-	OBJECT,
+	# generic-фоллбэки
+	OBJECT,      # untyped Array, API типизирован Object — любой Object
 	REFCOUNTED,
+
+	# --- частые подтипы: `Array[T]` вместо `Array[Node]` (типизация, не новые возможности) ---
+	# анимация
+	TWEEN,             # RefCounted, не Node
+	ANIMATION_PLAYER,  # Node
+	ANIMATION_TREE,    # Node (AnimationMixer)
+	# рендер
+	MESH_INSTANCE_2D,
+	MESH_INSTANCE_3D,
+	MULTI_MESH_INSTANCE_2D,  # инстансинг тысяч объектов
+	MULTI_MESH_INSTANCE_3D,
+	# физика
+	RIGID_BODY_2D,
+	RIGID_BODY_3D,
+	CHARACTER_BODY_2D,
+	CHARACTER_BODY_3D,
+	STATIC_BODY_2D,
+	STATIC_BODY_3D,
+	AREA_2D,
+	AREA_3D,
+	# шейпы: CollisionShape*/CollisionPolygon* — Node; Shape2D/3D — Resource-база
+	COLLISION_SHAPE_2D,
+	COLLISION_SHAPE_3D,
+	COLLISION_POLYGON_2D,
+	COLLISION_POLYGON_3D,
+	SHAPE_2D,
+	SHAPE_3D,
+	# навигация
+	NAVIGATION_AGENT_2D,
+	NAVIGATION_AGENT_3D,
+	# прочее
+	TIMER,
 }
 
 ## snake_case-слаг для папок/файлов сгенерированных компонентов.

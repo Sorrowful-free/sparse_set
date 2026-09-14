@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.3.1]
+
+### Added
+
+- Физика — тела: `STATIC_BODY_2D` / `_3D` (набор тел теперь полный: Rigid / Character / Static / Area).
+- Физика — шейпы: `COLLISION_SHAPE_2D` / `_3D`, `COLLISION_POLYGON_2D` / `_3D` (Node) и `SHAPE_2D` / `SHAPE_3D` (Resource-база — один тип на все конкретные формы: `BoxShape3D`, `SphereShape3D`, `CircleShape2D`, …). Всего 64 типа (было 56).
+- Цикл: после обновления перегенерировать компоненты — появятся 8 новых пар файлов.
+
+### Documentation
+
+- OBJECT_COMPONENTS: таблица расширена до 64 типов.
+
+## [2.3.0]
+
+### Added
+
+- Новые типы хранилищ (enum + фабрика + codegen): `RECT2I`, `PROJECTION`, `TWEEN`, `ANIMATION_PLAYER`, `ANIMATION_TREE`, `MESH_INSTANCE_2D`/`_3D`, `MULTI_MESH_INSTANCE_2D`/`_3D`, `RIGID_BODY_2D`/`_3D`, `CHARACTER_BODY_2D`/`_3D`, `AREA_2D`/`_3D`, `NAVIGATION_AGENT_2D`/`_3D`, `TIMER`. Всего 56 типов (было 38).
+- Цикл: после обновления нужно перегенерировать компоненты — появятся 18 новых пар файлов.
+
+### Changed
+
+- Порядок групп в `ECSComponent.Type` сделан каноническим: список кодогенерации (`ecs_code_gen.gd` и `run_codegen_headless.gd`) идёт в том же порядке.
+
+### Documentation
+
+- OBJECT_COMPONENTS: таблица расширена до 56 типов; пояснение, что типизированные Node/RefCounted-подтипы — только типизация (`NODE` покрывает любые подклассы), а не новые возможности.
+
 ## [2.2.1]
 
 ### Changed
