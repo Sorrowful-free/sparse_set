@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.2.1]
+
+### Changed
+
+- Codegen: папки/файлы сгенерированных компонентов — snake_case (`generated/packedvector4/` → `generated/packed_vector4/`, `ecs_component_packed_vector4_array.gd`; также `nodepath` → `node_path`, `stringname` → `string_name`, `packedscene` → `packed_scene`, `refcounted` → `ref_counted`). Имена классов (`ECSComponentPackedVector4Array`) **не меняются** — только пути.
+
+## [2.2.0]
+
+### Added
+
+- Новые строготипизированные хранилища `Array[T]`: `BOOL`, `INT`, `FLOAT`, `PLANE`, `VECTOR2`, `VECTOR3`, `VECTOR4`, `COLOR`, `STRINGNAME`, `STRING`, `NODEPATH`, `RID` — в `ECSComponent.Type`, `ECSComponentFactory` и codegen. Всего 38 типов хранилищ.
+- `ECSComponent.Type`: порядок групп повторяет список кодогенерации; `Object` остаётся generic (untyped `Array`).
+
+### Changed (breaking)
+
+- Сгенерированные классы packed-компонентов переименованы: `ECSComponent<X>Array` → `ECSComponentPacked<X>Array` (Byte, Int32, Int64, Float32, Float64, Vector2, Vector3, Vector4, Color, String) и их `…ArrayChunk`. Имена `ECSComponentVector2/3/4Array`, `ECSComponentColorArray`, `ECSComponentStringArray` теперь закреплены за непакованными `Array[T]`-типами.
+- Codegen: ключ конфигурации `packed_type` → `array_type` (тип буфера: `Packed*Array` или `Array[T]`); шаблон чанка `{packed_type}` → `{array_type}`.
+
+### Fixed
+
+- Codegen defaults: `NodePath` `@""` → `^""` (синтаксис Godot 4; `@""` — Godot 3), `StringName` `""` → `&""`.
+
+### Documentation
+
+- OBJECT_COMPONENTS: полная таблица 38 типов (packed / value / reference), пометка о дублях packed ↔ `Array[T]`, RID, `StringName`/`NodePath`.
+- MIGRATION: раздел 2.2 (переименование классов, новые типы, `array_type`).
+- FRAMEWORK / DESIGN: списки типов приведены к текущим.
+
+### Migration
+
+См. [MIGRATION.md](MIGRATION.md#22--packed-компоненты-переименование-классов--новые-типы-breaking).
+
 ## [2.1.1]
 
 ### Fixed

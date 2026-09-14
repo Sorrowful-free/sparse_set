@@ -189,7 +189,7 @@ func test_query_chunk_exposes_versions() -> void:
 	)
 	assert_gt(snap["struct"], -1)
 	assert_gt(snap["value"], -1)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	pos.set_component(ids[0], Vector2(9.0, 9.0))
 	var snap2: Dictionary = {"value": -1}
 	query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:

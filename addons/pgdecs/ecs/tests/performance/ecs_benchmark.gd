@@ -126,8 +126,8 @@ func benchmark_query_iterate_entities_with_components() -> float:
 				var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(HEALTH_ID)
 				if pos_chunk == null || health_chunk == null:
 					return
-				var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
-				var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
+				var pos_typed: ECSComponentPackedVector2ArrayChunk = pos_chunk as ECSComponentPackedVector2ArrayChunk
+				var health_typed: ECSComponentPackedInt32ArrayChunk = health_chunk as ECSComponentPackedInt32ArrayChunk
 				for i in range(chunk.get_entity_count()):
 					var eid: int = chunk.get_entity_id_at(i)
 					var slot: int = ECSEntityIdsUtils.slot_from_handle(eid)
@@ -155,8 +155,8 @@ func benchmark_query_iterate_entities_with_components_fast() -> float:
 					return
 				var slots: PackedInt32Array = chunk.get_dense_slots()
 				var count: int = chunk.get_entity_count()
-				var pos_buf: PackedVector2Array = (pos_chunk as ECSComponentVector2ArrayChunk).get_values_buffer()
-				var health_buf: PackedInt32Array = (health_chunk as ECSComponentInt32ArrayChunk).get_values_buffer()
+				var pos_buf: PackedVector2Array = (pos_chunk as ECSComponentPackedVector2ArrayChunk).get_values_buffer()
+				var health_buf: PackedInt32Array = (health_chunk as ECSComponentPackedInt32ArrayChunk).get_values_buffer()
 				for i in range(count):
 					var slot: int = slots[i]
 					var pos: Vector2 = pos_buf[slot]
@@ -179,8 +179,8 @@ static func _sum_chunk_entities_with_components(
 	if pos_chunk == null || health_chunk == null:
 		results[idx] = 0.0
 		return
-	var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
-	var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
+	var pos_typed: ECSComponentPackedVector2ArrayChunk = pos_chunk as ECSComponentPackedVector2ArrayChunk
+	var health_typed: ECSComponentPackedInt32ArrayChunk = health_chunk as ECSComponentPackedInt32ArrayChunk
 	var acc: float = 0.0
 	for i in range(chunk.get_entity_count()):
 		var eid: int = chunk.get_entity_id_at(i)
@@ -227,8 +227,8 @@ static func _sum_chunk_entities_with_components_acc(
 	var health_chunk: ECSComponentBaseArrayChunk = chunk.get_component_chunk(health_id)
 	if pos_chunk == null || health_chunk == null:
 		return 0.0
-	var pos_typed: ECSComponentVector2ArrayChunk = pos_chunk as ECSComponentVector2ArrayChunk
-	var health_typed: ECSComponentInt32ArrayChunk = health_chunk as ECSComponentInt32ArrayChunk
+	var pos_typed: ECSComponentPackedVector2ArrayChunk = pos_chunk as ECSComponentPackedVector2ArrayChunk
+	var health_typed: ECSComponentPackedInt32ArrayChunk = health_chunk as ECSComponentPackedInt32ArrayChunk
 	var acc: float = 0.0
 	for i in range(chunk.get_entity_count()):
 		var eid: int = chunk.get_entity_id_at(i)
@@ -463,8 +463,8 @@ class _HeavyReadChunkSystem extends ECSSystemChunkBase:
 
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 		processed_chunks += 1
-		var pos_chunk: ECSComponentVector2ArrayChunk = chunk.get_component_chunk(_POSITION_ID) as ECSComponentVector2ArrayChunk
-		var health_chunk: ECSComponentInt32ArrayChunk = chunk.get_component_chunk(_HEALTH_ID) as ECSComponentInt32ArrayChunk
+		var pos_chunk: ECSComponentPackedVector2ArrayChunk = chunk.get_component_chunk(_POSITION_ID) as ECSComponentPackedVector2ArrayChunk
+		var health_chunk: ECSComponentPackedInt32ArrayChunk = chunk.get_component_chunk(_HEALTH_ID) as ECSComponentPackedInt32ArrayChunk
 		if pos_chunk == null || health_chunk == null:
 			return
 		var count: int = chunk.get_entity_count()
@@ -496,7 +496,7 @@ func benchmark_system_change_detection_sparse_scattered(use_change_detection: bo
 	ids.resize(_iterations)
 	for i in range(_iterations):
 		ids[i] = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
-	var pos: ECSComponentVector2Array = _ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = _ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	var system: _HeavyReadChunkSystem = _HeavyReadChunkSystem.new(_ecs)
 	system.change_detection = use_change_detection
 	var touches_per_frame: int = maxi(1, _iterations / 50)
@@ -523,7 +523,7 @@ func benchmark_system_change_detection_hot_chunks(use_change_detection: bool) ->
 	ids.resize(_iterations)
 	for i in range(_iterations):
 		ids[i] = _ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
-	var pos: ECSComponentVector2Array = _ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = _ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	var system: _HeavyReadChunkSystem = _HeavyReadChunkSystem.new(_ecs)
 	system.change_detection = use_change_detection
 	var chunk_size: int = ECSEntityIdsUtils.CHUNK_SIZE

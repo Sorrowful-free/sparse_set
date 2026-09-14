@@ -159,7 +159,7 @@ class MySystem extends ECSSystemChunkBase:
 
 ```gdscript
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
-    var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
+    var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentPackedVector2ArrayChunk
     var slots := chunk.get_dense_slots()
     var buf := pos_chunk.get_values_buffer()
     for i in range(chunk.get_entity_count()):
@@ -173,7 +173,7 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 
 ```gdscript
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
-    var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
+    var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentPackedVector2ArrayChunk
     var dense := chunk.get_dense_entities()
     for i in range(chunk.get_entity_count()):
         var handle := dense[i]

@@ -30,7 +30,7 @@
 | ECSComponent | enum `Type` — типы хранилищ компонентов (packed / value / reference) |
 | ECSComponentFactory | Фабрика компонентов (по `ECSComponent.Type`) |
 | ECSComponentBaseArray, ECSComponentBaseArrayChunk | Базовые классы компонентов |
-| ECSComponentByteArray, ECSComponentVector2Array, … | Сгенерированные компоненты |
+| ECSComponentPackedByteArray, ECSComponentPackedVector2Array, … | Сгенерированные компоненты |
 
 Тесты: EntityIdsUtilsTest, ArchetypeTest, QueryTest и т.д. (имена сьютов без префикса ECS).
 
@@ -89,8 +89,8 @@ ComponentBaseArray, ComponentBaseArrayChunk, ComponentVector2Array и т.д. —
 
 - ComponentBaseArray → ECSComponentBaseArray  
 - ComponentBaseArrayChunk → ECSComponentBaseArrayChunk  
-- ComponentByteArray → ECSComponentByteArray  
-- ComponentVector2Array → ECSComponentVector2Array  
+- ComponentByteArray → ECSComponentPackedByteArray  
+- ComponentVector2Array → ECSComponentPackedVector2Array  
 - … все сгенерированные типы.
 
 **Плюсы:** единообразие, в списке классов все ECS-типы под одним префиксом.  

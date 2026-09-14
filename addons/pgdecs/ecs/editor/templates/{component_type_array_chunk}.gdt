@@ -2,7 +2,7 @@
 
 class_name {component_array_chunk_type} extends ECSComponentBaseArrayChunk
 
-var _components_values: {packed_type}
+var _components_values: {array_type}
 
 func _init() -> void:
 	super()
@@ -39,7 +39,7 @@ func get_component(entity_id: int) -> {value_type}:
 func get_value_at_slot(slot_index: int) -> {value_type}:
 	return _components_values[slot_index]
 
-func get_values_buffer() -> {packed_type}:
+func get_values_buffer() -> {array_type}:
 	return _components_values
 
 func set_value_at_slot(slot_index: int, component_value: {value_type}) -> void:

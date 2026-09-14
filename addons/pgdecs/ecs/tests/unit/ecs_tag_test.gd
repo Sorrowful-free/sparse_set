@@ -40,7 +40,7 @@ func test_add_remove_tag_preserves_data() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	ecs.register_tag(ENEMY_TAG_ID)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	pos.set_component(eid, Vector2(3.0, 4.0))
 	ecs.add_component(eid, ENEMY_TAG_ID)

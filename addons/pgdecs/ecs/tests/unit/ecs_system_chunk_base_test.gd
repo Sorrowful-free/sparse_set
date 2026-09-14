@@ -12,7 +12,7 @@ class _SumChunkSystem extends ECSSystemChunkBase:
 
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 		processed_chunks += 1
-		var comp_chunk = chunk.get_component_chunk(VALUE_ID) as ECSComponentFloat32ArrayChunk
+		var comp_chunk = chunk.get_component_chunk(VALUE_ID) as ECSComponentPackedFloat32ArrayChunk
 		if comp_chunk == null:
 			return
 		var count: int = chunk.get_entity_count()
@@ -98,7 +98,7 @@ func test_change_detection_reprocesses_after_value_write() -> void:
 	system.change_detection = true
 	system.update(0.016)
 	var after_first: int = system.processed_chunks
-	var comp: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	var comp: ECSComponentPackedFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentPackedFloat32Array
 	comp.set_component(ids[0], 42.0)
 	system.update(0.016)
 	assert_gt(system.processed_chunks, after_first)

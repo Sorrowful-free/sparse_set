@@ -2,11 +2,11 @@
 
 class_name ECSComponentVector3ArrayChunk extends ECSComponentBaseArrayChunk
 
-var _components_values: PackedVector3Array
+var _components_values: Array[Vector3]
 
 func _init() -> void:
 	super()
-	_components_values = PackedVector3Array()
+	_components_values = []
 	_components_values.resize(ECSEntityIdsUtils.CHUNK_SIZE)
 	_components_values.fill(Vector3.ZERO)
 
@@ -39,7 +39,7 @@ func get_component(entity_id: int) -> Vector3:
 func get_value_at_slot(slot_index: int) -> Vector3:
 	return _components_values[slot_index]
 
-func get_values_buffer() -> PackedVector3Array:
+func get_values_buffer() -> Array[Vector3]:
 	return _components_values
 
 func set_value_at_slot(slot_index: int, component_value: Vector3) -> void:

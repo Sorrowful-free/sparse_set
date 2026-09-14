@@ -98,7 +98,7 @@ func test_partial_destroy_flushes_orphan_component_chunk() -> void:
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(257, PackedInt64Array([POSITION_ID]))
 	var lone_high_chunk_entity: int = ids[256]
-	var pos: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
+	var pos: ECSComponentPackedInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedInt32Array
 	var high_chunk_index: int = ECSEntityIdsUtils.chunk_index_from_handle(lone_high_chunk_entity)
 	assert_gt(pos.size_chunks(), 1)
 	ecs.destroy_entity(lone_high_chunk_entity)
@@ -137,5 +137,5 @@ func test_flush_gc_evicts_multiple_orphan_chunks_without_error() -> void:
 	ecs.destroy_entities_packed(ids)
 	ecs.flush_archetype_gc()
 	assert_eq(ecs.count_registered_archetypes(), 0)
-	var pos: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
+	var pos: ECSComponentPackedInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedInt32Array
 	assert_eq(pos.size_chunks(), 0)

@@ -15,12 +15,12 @@ func _build_query() -> ECSQuery:
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 	if _dependencies == null or _dependencies.node_registry == null:
 		return
-	var slot_chunk: ECSComponentInt32ArrayChunk = chunk.get_component_chunk(
+	var slot_chunk: ECSComponentPackedInt32ArrayChunk = chunk.get_component_chunk(
 		ExampleIntentIds.NODE_SLOT
-	) as ECSComponentInt32ArrayChunk
-	var pos_chunk: ECSComponentVector2ArrayChunk = chunk.get_component_chunk(
+	) as ECSComponentPackedInt32ArrayChunk
+	var pos_chunk: ECSComponentPackedVector2ArrayChunk = chunk.get_component_chunk(
 		ExampleIntentComponentRegistryStrategy.Component.POSITION
-	) as ECSComponentVector2ArrayChunk
+	) as ECSComponentPackedVector2ArrayChunk
 	if slot_chunk == null or pos_chunk == null:
 		return
 	var slots: PackedInt32Array = chunk.get_dense_slots()

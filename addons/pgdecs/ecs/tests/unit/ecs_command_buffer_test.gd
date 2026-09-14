@@ -31,7 +31,7 @@ func test_create_then_set_in_same_frame_before_execute() -> void:
 	buf.execute()
 	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
 	assert_eq(ids.size(), 1)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	assert_eq(pos.get_component(ids[0]), Vector2(1.0, 2.0))
 
 func test_set_on_temp_skipped_after_create_destroy_coalesce() -> void:
@@ -54,7 +54,7 @@ func test_coalesce_set_component_last_wins() -> void:
 	buf.set_component_value(temp_id, POSITION_ID, Vector2(3.0, 4.0))
 	buf.execute()
 	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	assert_eq(pos.get_component(ids[0]), Vector2(3.0, 4.0))
 
 func test_create_then_use_in_same_frame() -> void:
@@ -65,7 +65,7 @@ func test_create_then_use_in_same_frame() -> void:
 	buf.execute()
 	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
 	assert_eq(ids.size(), 1)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	pos.set_component(ids[0], Vector2(1.0, 2.0))
 	assert_eq(pos.get_component(ids[0]), Vector2(1.0, 2.0))
 

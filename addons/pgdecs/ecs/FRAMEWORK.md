@@ -179,21 +179,21 @@ ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 
 | Уровень | Класс | Когда |
 |---------|-------|-------|
-| Мир / сущность | `ECSComponentVector2Array` | `set_component(entity_id, value)` из gameplay вне hot loop |
-| Чанк / slot | `ECSComponentVector2ArrayChunk` | системы: `get_value_at_slot`, `set_value_at_slot`, `get_values_buffer()` |
+| Мир / сущность | `ECSComponentPackedVector2Array` | `set_component(entity_id, value)` из gameplay вне hot loop |
+| Чанк / slot | `ECSComponentPackedVector2ArrayChunk` | системы: `get_value_at_slot`, `set_value_at_slot`, `get_values_buffer()` |
 
 ```gdscript
-var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 pos.set_component(entity_id, Vector2(10, 20))
 
-var chunk: ECSComponentVector2ArrayChunk = query_chunk.get_component_chunk(POSITION_ID)
+var chunk: ECSComponentPackedVector2ArrayChunk = query_chunk.get_component_chunk(POSITION_ID)
 chunk.get_value_at_slot(slot)
 ```
 
 ### Строгие и объектные типы
 
-- `String` — `ECSComponent.Type.PACKED_STRING` **или** int id + пул снаружи ECS.
-- Value-типы без packed-буфера — `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D`/`TRANSFORM3D`, `VECTOR2I`/`VECTOR3I`/`VECTOR4I` (буфер `Array[T]`).
+- Value-типы через `Array[T]` — `BOOL`, `INT`, `FLOAT`, `AABB`, `RECT2`, `BASIS`, `PLANE`, `TRANSFORM2D`/`TRANSFORM3D`, `QUATERNION`, `VECTOR2`/`VECTOR3`/`VECTOR4`, `VECTOR2I`/`VECTOR3I`/`VECTOR4I`, `COLOR`, `STRINGNAME`, `STRING`, `NODEPATH`, `RID`.
+- У части типов есть и packed, и `Array[T]` вариант (`PACKED_VECTOR2` ↔ `VECTOR2`, `PACKED_COLOR` ↔ `COLOR`, `PACKED_STRING` ↔ `STRING`, `PACKED_INT32` ↔ `INT`, …). Для горячих данных — `PACKED_*`; строки-пулы — `int` id снаружи ECS.
 - Reference-типы напрямую в ECS — `OBJECT`, `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED` (буфер `Array[T]`, default `null`); значения по ссылке, для копии — `duplicate(true)`.
 - `Node` / `Resource` со сложным lifecycle — slot + реестр. Подробнее: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 

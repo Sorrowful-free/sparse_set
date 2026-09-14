@@ -84,8 +84,8 @@ parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.AUTO
 
 ```gdscript
 func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
-	var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
-	var vel_chunk := chunk.get_component_chunk(VELOCITY_ID) as ECSComponentFloat32ArrayChunk
+	var pos_chunk := chunk.get_component_chunk(POSITION_ID) as ECSComponentPackedVector2ArrayChunk
+	var vel_chunk := chunk.get_component_chunk(VELOCITY_ID) as ECSComponentPackedFloat32ArrayChunk
 	if pos_chunk == null or vel_chunk == null:
 		return
 
@@ -115,7 +115,7 @@ func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
 
 ```gdscript
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
-	var health_chunk := chunk.get_component_chunk(HEALTH_ID) as ECSComponentInt32ArrayChunk
+	var health_chunk := chunk.get_component_chunk(HEALTH_ID) as ECSComponentPackedInt32ArrayChunk
 	if health_chunk == null:
 		return
 

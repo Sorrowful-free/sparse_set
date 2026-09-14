@@ -33,7 +33,7 @@ func test_add_remove_component() -> void:
 func test_set_get_component() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	var eid: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	pos.set_component(eid, Vector2(10.0, 20.0))
 	assert_eq(pos.get_component(eid), Vector2(10.0, 20.0))

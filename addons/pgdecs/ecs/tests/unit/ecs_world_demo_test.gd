@@ -20,7 +20,7 @@ func test_demo_world_moves_entities() -> void:
 	var world: ECSDemoWorld = add_child_autofree(_DEMO_WORLD.new())
 	world.bootstrap(10, 10.0)
 	var ecs: ECSManager = world.get_ecs_manager()
-	var positions: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID)
+	var positions: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID)
 	var entity_ids: PackedInt64Array = ECSQueryBuilder.new()\
 		.with_component(POSITION_ID)\
 		.with_component(VELOCITY_ID)\

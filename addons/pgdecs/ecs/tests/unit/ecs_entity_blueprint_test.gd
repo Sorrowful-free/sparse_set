@@ -22,7 +22,7 @@ func test_spawn_batch_applies_per_index() -> void:
 	for temp_id in temp_ids:
 		assert_lt(temp_id, 0)
 	buf.execute()
-	var comp: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	var comp: ECSComponentPackedFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentPackedFloat32Array
 	var entity_ids: PackedInt64Array = ECSQueryBuilder.new().with_component(VALUE_ID).build(ecs).get_entity_ids()
 	assert_eq(entity_ids.size(), 4)
 	for i in range(entity_ids.size()):
@@ -48,7 +48,7 @@ func test_spawn_one_applies_defaults() -> void:
 	var entity_ids: PackedInt64Array = query.get_entity_ids()
 	assert_eq(entity_ids.size(), 1)
 	assert_true(ecs.is_alive(entity_ids[0]))
-	var comp: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	var comp: ECSComponentPackedFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentPackedFloat32Array
 	assert_eq(comp.get_component(entity_ids[0]), 7.5)
 
 func test_get_archetype_caches_normalized_ids() -> void:
@@ -85,9 +85,9 @@ func test_example_mover_blueprint_with_demo_schema() -> void:
 		ExampleComponentRegistryStrategy.Component.VELOCITY
 	).build(ecs).get_entity_ids()
 	assert_eq(entity_ids.size(), 1)
-	var vel: ECSComponentFloat32Array = ecs.get_component_array(
+	var vel: ECSComponentPackedFloat32Array = ecs.get_component_array(
 		ExampleComponentRegistryStrategy.Component.VELOCITY
-	) as ECSComponentFloat32Array
+	) as ECSComponentPackedFloat32Array
 	assert_eq(vel.get_component(entity_ids[0]), 2.5)
 
 func test_build_default_values_applied_on_spawn() -> void:
@@ -98,7 +98,7 @@ func test_build_default_values_applied_on_spawn() -> void:
 	blueprint.spawn_one(buf)
 	buf.execute()
 	var entity_ids: PackedInt64Array = ECSQueryBuilder.new().with_component(VALUE_ID).build(ecs).get_entity_ids()
-	var comp: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
+	var comp: ECSComponentPackedFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentPackedFloat32Array
 	assert_eq(comp.get_component(entity_ids[0]), 42.0)
 
 func test_apply_defaults_super_keeps_dict_and_extra() -> void:
@@ -110,8 +110,8 @@ func test_apply_defaults_super_keeps_dict_and_extra() -> void:
 	blueprint.spawn_one(buf)
 	buf.execute()
 	var entity_ids: PackedInt64Array = ECSQueryBuilder.new().with_component(VALUE_ID).build(ecs).get_entity_ids()
-	var values: ECSComponentFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentFloat32Array
-	var extras: ECSComponentFloat32Array = ecs.get_component_array(EXTRA_ID) as ECSComponentFloat32Array
+	var values: ECSComponentPackedFloat32Array = ecs.get_component_array(VALUE_ID) as ECSComponentPackedFloat32Array
+	var extras: ECSComponentPackedFloat32Array = ecs.get_component_array(EXTRA_ID) as ECSComponentPackedFloat32Array
 	assert_eq(values.get_component(entity_ids[0]), 3.0)
 	assert_eq(extras.get_component(entity_ids[0]), 99.0)
 

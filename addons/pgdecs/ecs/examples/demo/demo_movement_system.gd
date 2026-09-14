@@ -13,12 +13,12 @@ func _build_query() -> ECSQuery:
 		.build(get_ecs_manager())
 
 func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
-	var pos_chunk: ECSComponentVector2ArrayChunk = chunk.get_component_chunk(
+	var pos_chunk: ECSComponentPackedVector2ArrayChunk = chunk.get_component_chunk(
 		ExampleComponentRegistryStrategy.Component.POSITION
-	) as ECSComponentVector2ArrayChunk
-	var vel_chunk: ECSComponentFloat32ArrayChunk = chunk.get_component_chunk(
+	) as ECSComponentPackedVector2ArrayChunk
+	var vel_chunk: ECSComponentPackedFloat32ArrayChunk = chunk.get_component_chunk(
 		ExampleComponentRegistryStrategy.Component.VELOCITY
-	) as ECSComponentFloat32ArrayChunk
+	) as ECSComponentPackedFloat32ArrayChunk
 	if pos_chunk == null or vel_chunk == null:
 		return
 	var slots: PackedInt32Array = chunk.get_dense_slots()

@@ -14,7 +14,7 @@ func update(_delta: float) -> void:
 	if _dependencies == null or _dependencies.node_registry == null:
 		return
 	var ecs: ECSManager = get_ecs_manager()
-	var slots: ECSComponentInt32Array = ecs.get_component_array(ExampleIntentIds.NODE_SLOT)
+	var slots: ECSComponentPackedInt32Array = ecs.get_component_array(ExampleIntentIds.NODE_SLOT)
 	if slots == null:
 		return
 	var cb: ECSCommandBuffer = get_command_buffer()

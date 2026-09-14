@@ -14,8 +14,8 @@ func test_get_component_chunk_by_index() -> void:
 	var chunks: Array[ECSQueryChunk] = query.get_chunks()
 	assert_gt(chunks.size(), 0)
 	var chunk: ECSQueryChunk = chunks[0]
-	var pos_chunk = chunk.get_component_chunk(POSITION_ID) as ECSComponentVector2ArrayChunk
-	var health_chunk = chunk.get_component_chunk(HEALTH_ID) as ECSComponentInt32ArrayChunk
+	var pos_chunk = chunk.get_component_chunk(POSITION_ID) as ECSComponentPackedVector2ArrayChunk
+	var health_chunk = chunk.get_component_chunk(HEALTH_ID) as ECSComponentPackedInt32ArrayChunk
 	assert_not_null(pos_chunk)
 	assert_not_null(health_chunk)
 	pos_chunk.set_component(entity_id, Vector2(7.0, 8.0))
@@ -33,8 +33,8 @@ func test_empty_chunk_returns_null() -> void:
 
 func test_fast_path_matches_legacy_two_components() -> void:
 	var ecs: ECSManager = _setup_pos_health_ecs()
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
-	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var health: ECSComponentPackedInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentPackedInt32Array
 	var ids: PackedInt64Array = ecs.create_entities_packed(5, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	for i in ids.size():
 		pos.set_component(ids[i], Vector2(float(i + 1), float(i + 2)))
@@ -45,8 +45,8 @@ func test_fast_path_matches_legacy_two_components() -> void:
 
 func test_fast_path_matches_legacy_after_removes_with_holes() -> void:
 	var ecs: ECSManager = _setup_pos_health_ecs()
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
-	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var health: ECSComponentPackedInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentPackedInt32Array
 	var ids: PackedInt64Array = ecs.create_entities_packed(8, PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	for i in ids.size():
 		pos.set_component(ids[i], Vector2(float(i), float(i * 2)))
@@ -64,9 +64,9 @@ func test_fast_path_excludes_other_archetype_on_shared_position_buffer() -> void
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.register_component(MANA_ID, ECSComponent.Type.PACKED_INT32)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
-	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
-	var mana: ECSComponentInt32Array = ecs.get_component_array(MANA_ID) as ECSComponentInt32Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var health: ECSComponentPackedInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentPackedInt32Array
+	var mana: ECSComponentPackedInt32Array = ecs.get_component_array(MANA_ID) as ECSComponentPackedInt32Array
 	var with_health: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var with_mana: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID, MANA_ID]))
 	pos.set_component(with_health, Vector2(1.0, 2.0))
@@ -89,9 +89,9 @@ func test_fast_path_matches_legacy_three_components() -> void:
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	ecs.register_component(HEALTH_ID, ECSComponent.Type.PACKED_INT32)
 	ecs.register_component(MANA_ID, ECSComponent.Type.PACKED_INT32)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
-	var health: ECSComponentInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentInt32Array
-	var mana: ECSComponentInt32Array = ecs.get_component_array(MANA_ID) as ECSComponentInt32Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var health: ECSComponentPackedInt32Array = ecs.get_component_array(HEALTH_ID) as ECSComponentPackedInt32Array
+	var mana: ECSComponentPackedInt32Array = ecs.get_component_array(MANA_ID) as ECSComponentPackedInt32Array
 	var ids: PackedInt64Array = ecs.create_entities_packed(4, PackedInt64Array([POSITION_ID, HEALTH_ID, MANA_ID]))
 	for i in ids.size():
 		pos.set_component(ids[i], Vector2(float(i), 1.0))
@@ -128,8 +128,8 @@ func _assert_chunk_fast_matches_legacy_three(
 
 func _collect_legacy_component_values(chunk: ECSQueryChunk, position_id: int, health_id: int) -> Dictionary:
 	var result: Dictionary = {}
-	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentVector2ArrayChunk
-	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentInt32ArrayChunk
+	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentPackedVector2ArrayChunk
+	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentPackedInt32ArrayChunk
 	if pos_chunk == null or health_chunk == null:
 		return result
 	var count: int = chunk.get_entity_count()
@@ -144,8 +144,8 @@ func _collect_legacy_component_values(chunk: ECSQueryChunk, position_id: int, he
 
 func _collect_fast_component_values(chunk: ECSQueryChunk, position_id: int, health_id: int) -> Dictionary:
 	var result: Dictionary = {}
-	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentVector2ArrayChunk
-	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentInt32ArrayChunk
+	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentPackedVector2ArrayChunk
+	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentPackedInt32ArrayChunk
 	if pos_chunk == null or health_chunk == null:
 		return result
 	var slots: PackedInt32Array = chunk.get_dense_slots()
@@ -168,9 +168,9 @@ func _collect_legacy_component_values_three(
 	mana_id: int
 ) -> Dictionary:
 	var result: Dictionary = {}
-	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentVector2ArrayChunk
-	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentInt32ArrayChunk
-	var mana_chunk = chunk.get_component_chunk(mana_id) as ECSComponentInt32ArrayChunk
+	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentPackedVector2ArrayChunk
+	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentPackedInt32ArrayChunk
+	var mana_chunk = chunk.get_component_chunk(mana_id) as ECSComponentPackedInt32ArrayChunk
 	if pos_chunk == null or health_chunk == null or mana_chunk == null:
 		return result
 	var count: int = chunk.get_entity_count()
@@ -191,9 +191,9 @@ func _collect_fast_component_values_three(
 	mana_id: int
 ) -> Dictionary:
 	var result: Dictionary = {}
-	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentVector2ArrayChunk
-	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentInt32ArrayChunk
-	var mana_chunk = chunk.get_component_chunk(mana_id) as ECSComponentInt32ArrayChunk
+	var pos_chunk = chunk.get_component_chunk(position_id) as ECSComponentPackedVector2ArrayChunk
+	var health_chunk = chunk.get_component_chunk(health_id) as ECSComponentPackedInt32ArrayChunk
+	var mana_chunk = chunk.get_component_chunk(mana_id) as ECSComponentPackedInt32ArrayChunk
 	if pos_chunk == null or health_chunk == null or mana_chunk == null:
 		return result
 	var slots: PackedInt32Array = chunk.get_dense_slots()

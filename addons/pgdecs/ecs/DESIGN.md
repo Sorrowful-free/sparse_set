@@ -404,8 +404,8 @@ for i in range(chunk.get_entity_count()):
 ## Вне скоупа ядра
 
 - **Node, Resource** со сложным lifecycle — slot (`Int32`) в SoA + Resource side-table; при этом строгие ссылочные хранилища (`NODE` / `NODE2D` / `NODE3D` / `RESOURCE` / `PACKED_SCENE` / `REF_COUNTED`) и generic `OBJECT` доступны напрямую. Паттерн: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
-- **Строгие value-типы без Packed*Array** — `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D`, `TRANSFORM3D`, `VECTOR2I`, `VECTOR3I`, `VECTOR4I` через типизированный `Array[T]`; enum `ECSComponent.Type` заменяет `Variant.Type` (различает Object-подтипы). См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
-- **String** — в factory как `ECSComponent.Type.PACKED_STRING` (`ECSComponentStringArray`, одна строка на slot). Для пулов/интернирования длинных каталогов строк — опционально `int` id + реестр снаружи ECS (см. OBJECT_COMPONENTS).
+- **Строгие value-типы** — через типизированный `Array[T]` (`BOOL`, `INT`, `FLOAT`, `AABB`, `Rect2`, `Basis`, `Plane`, `Transform2D/3D`, `Quaternion`, `Vector2/3/4`, `Vector2i/3i/4i`, `Color`, `String`, `StringName`, `NodePath`, `RID`); у части есть packed-дубль. Enum `ECSComponent.Type` заменяет `Variant.Type` (различает Object-подтипы). См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+- **String** — в factory как `ECSComponent.Type.PACKED_STRING` (`ECSComponentPackedStringArray`, одна строка на slot). Для пулов/интернирования длинных каталогов строк — опционально `int` id + реестр снаружи ECS (см. OBJECT_COMPONENTS).
 - PGDECS оптимизирует layout и итерацию в GDScript, не заменяет C++ ECS. См. [PERFORMANCE.md](PERFORMANCE.md).
 
 ---

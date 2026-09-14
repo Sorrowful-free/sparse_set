@@ -17,41 +17,53 @@ ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 | Группа | Буфер | Default | Примеры |
 |--------|-------|---------|---------|
 | packed | `Packed*Array` | значение (`0`, `Vector2.ZERO`, …) | `PACKED_BYTE`, `PACKED_VECTOR2`, `PACKED_COLOR`, `PACKED_STRING` |
-| value | `Array[T]` | значение (`AABB()`, `…IDENTITY`) | `AABB`, `RECT2`, `QUATERNION`, `BASIS`, `TRANSFORM2D/3D`, `VECTOR2I/3I/4I` |
+| value | `Array[T]` | значение (`false`, `AABB()`, `…IDENTITY`) | `BOOL`, `INT`, `FLOAT`, `AABB`, `VECTOR2`, `COLOR`, `STRING`, `STRINGNAME`, `NODEPATH`, `RID` |
 | reference | `Array[T]` | `null` | `OBJECT`, `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED` |
 
 Полная таблица:
 
 | enum | Класс | Буфер | Default |
 |------|-------|-------|---------|
-| `PACKED_BYTE` | `ECSComponentByteArray` | `PackedByteArray` | `0` |
-| `PACKED_INT32` | `ECSComponentInt32Array` | `PackedInt32Array` | `0` |
-| `PACKED_INT64` | `ECSComponentInt64Array` | `PackedInt64Array` | `0` |
-| `PACKED_FLOAT32` | `ECSComponentFloat32Array` | `PackedFloat32Array` | `0.0` |
-| `PACKED_FLOAT64` | `ECSComponentFloat64Array` | `PackedFloat64Array` | `0.0` |
-| `PACKED_VECTOR2` | `ECSComponentVector2Array` | `PackedVector2Array` | `Vector2.ZERO` |
-| `PACKED_VECTOR3` | `ECSComponentVector3Array` | `PackedVector3Array` | `Vector3.ZERO` |
-| `PACKED_VECTOR4` | `ECSComponentVector4Array` | `PackedVector4Array` | `Vector4.ZERO` |
-| `PACKED_COLOR` | `ECSComponentColorArray` | `PackedColorArray` | `Color.BLACK` |
-| `PACKED_STRING` | `ECSComponentStringArray` | `PackedStringArray` | `""` |
+| `PACKED_BYTE` | `ECSComponentPackedByteArray` | `PackedByteArray` | `0` |
+| `PACKED_INT64` | `ECSComponentPackedInt64Array` | `PackedInt64Array` | `0` |
+| `PACKED_INT32` | `ECSComponentPackedInt32Array` | `PackedInt32Array` | `0` |
+| `PACKED_FLOAT64` | `ECSComponentPackedFloat64Array` | `PackedFloat64Array` | `0.0` |
+| `PACKED_FLOAT32` | `ECSComponentPackedFloat32Array` | `PackedFloat32Array` | `0.0` |
+| `PACKED_VECTOR2` | `ECSComponentPackedVector2Array` | `PackedVector2Array` | `Vector2.ZERO` |
+| `PACKED_VECTOR3` | `ECSComponentPackedVector3Array` | `PackedVector3Array` | `Vector3.ZERO` |
+| `PACKED_VECTOR4` | `ECSComponentPackedVector4Array` | `PackedVector4Array` | `Vector4.ZERO` |
+| `PACKED_COLOR` | `ECSComponentPackedColorArray` | `PackedColorArray` | `Color.BLACK` |
+| `PACKED_STRING` | `ECSComponentPackedStringArray` | `PackedStringArray` | `""` |
+| `BOOL` | `ECSComponentBoolArray` | `Array[bool]` | `false` |
+| `INT` | `ECSComponentIntArray` | `Array[int]` | `0` |
+| `FLOAT` | `ECSComponentFloatArray` | `Array[float]` | `0.0` |
 | `AABB` | `ECSComponentAABBArray` | `Array[AABB]` | `AABB()` |
 | `RECT2` | `ECSComponentRect2Array` | `Array[Rect2]` | `Rect2()` |
-| `QUATERNION` | `ECSComponentQuaternionArray` | `Array[Quaternion]` | `Quaternion.IDENTITY` |
 | `BASIS` | `ECSComponentBasisArray` | `Array[Basis]` | `Basis.IDENTITY` |
+| `PLANE` | `ECSComponentPlaneArray` | `Array[Plane]` | `Plane()` |
 | `TRANSFORM2D` | `ECSComponentTransform2DArray` | `Array[Transform2D]` | `Transform2D.IDENTITY` |
 | `TRANSFORM3D` | `ECSComponentTransform3DArray` | `Array[Transform3D]` | `Transform3D.IDENTITY` |
+| `QUATERNION` | `ECSComponentQuaternionArray` | `Array[Quaternion]` | `Quaternion.IDENTITY` |
+| `VECTOR2` | `ECSComponentVector2Array` | `Array[Vector2]` | `Vector2.ZERO` |
 | `VECTOR2I` | `ECSComponentVector2iArray` | `Array[Vector2i]` | `Vector2i.ZERO` |
 | `VECTOR3I` | `ECSComponentVector3iArray` | `Array[Vector3i]` | `Vector3i.ZERO` |
+| `VECTOR3` | `ECSComponentVector3Array` | `Array[Vector3]` | `Vector3.ZERO` |
 | `VECTOR4I` | `ECSComponentVector4iArray` | `Array[Vector4i]` | `Vector4i.ZERO` |
-| `OBJECT` | `ECSComponentObjectArray` | `Array` | `null` |
+| `VECTOR4` | `ECSComponentVector4Array` | `Array[Vector4]` | `Vector4.ZERO` |
+| `COLOR` | `ECSComponentColorArray` | `Array[Color]` | `Color.BLACK` |
+| `STRINGNAME` | `ECSComponentStringNameArray` | `Array[StringName]` | `&""` |
+| `STRING` | `ECSComponentStringArray` | `Array[String]` | `""` |
+| `NODEPATH` | `ECSComponentNodePathArray` | `Array[NodePath]` | `^""` |
+| `RID` | `ECSComponentRIDArray` | `Array[RID]` | `RID()` |
+| `RESOURCE` | `ECSComponentResourceArray` | `Array[Resource]` | `null` |
+| `PACKED_SCENE` | `ECSComponentPackedSceneArray` | `Array[PackedScene]` | `null` |
 | `NODE` | `ECSComponentNodeArray` | `Array[Node]` | `null` |
 | `NODE2D` | `ECSComponentNode2DArray` | `Array[Node2D]` | `null` |
 | `NODE3D` | `ECSComponentNode3DArray` | `Array[Node3D]` | `null` |
-| `RESOURCE` | `ECSComponentResourceArray` | `Array[Resource]` | `null` |
-| `PACKED_SCENE` | `ECSComponentPackedSceneArray` | `Array[PackedScene]` | `null` |
-| `REF_COUNTED` | `ECSComponentRefCountedArray` | `Array[RefCounted]` | `null` |
+| `OBJECT` | `ECSComponentObjectArray` | `Array` | `null` |
+| `REFCOUNTED` | `ECSComponentRefCountedArray` | `Array[RefCounted]` | `null` |
 
-Строгие типы (`Array[T]`) задают тип и в API (`add_component(entity, value: T)`), и в самом хранилище. `OBJECT` — generic-хранилище «любой `Object`» (буфер untyped `Array`, API типизирован `Object`); для конкретных подтипов используйте `NODE`, `RESOURCE`, `PACKED_SCENE` и т.д.
+Строгие типы (`Array[T]`) задают тип и в API (`add_component(entity, value: T)`), и в самом хранилище. `PACKED_*` — плотные `Packed*Array`-буферы; `OBJECT` — generic-хранилище «любой `Object`» (буфер untyped `Array`, API типизирован `Object`); для конкретных подтипов используйте `NODE`, `RESOURCE`, `PACKED_SCENE` и т.д.
 
 ```gdscript
 ecs.register_component(NODE_ID, ECSComponent.Type.NODE2D)      # Array[Node2D]
@@ -70,7 +82,8 @@ ecs.register_component(XFORM_ID, ECSComponent.Type.TRANSFORM3D) # Array[Transfor
 
 - packed-буферы (`Packed*Array`) — плотный SoA, лучший вариант для горячих данных.
 - `Array[T]` (value и reference) менее плотный: значения боксятся, есть indirection и GC-давление для объектов; fast-path по `get_values_buffer()` почти не даёт выигрыша.
-- Для `AABB` / `Rect2` / `Quaternion` / `Basis` / `Transform*` / `Vector*i` packed-вариантов в Godot нет, поэтому `Array[T]` — лучший доступный вариант.
+- У части value-типов есть **и packed, и `Array[T]`** вариант (`PACKED_VECTOR2` ↔ `VECTOR2`, `PACKED_COLOR` ↔ `COLOR`, `PACKED_STRING` ↔ `STRING`, `PACKED_INT32` ↔ `INT`, …). Различие только в буфере — для горячих данных берите `PACKED_*`.
+- Для `AABB` / `Rect2` / `Plane` / `Quaternion` / `Basis` / `Transform*` / `Vector2i/3i/4i` / `StringName` / `NodePath` / `RID` packed-вариантов в Godot нет, поэтому `Array[T]` — единственный вариант.
 - Для объектов со сложным lifecycle (`Node` в дереве сцены) по-прежнему предпочтителен slot + реестр (ниже).
 
 ## Паттерн: slot + Resource-реестр (side-table)
@@ -112,7 +125,7 @@ slots.set_component(entity, registry.acquire())
 - **String (в SoA)** — `ecs.register_component(NAME_ID, ECSComponent.Type.PACKED_STRING)`; fast-path через `get_values_buffer()` / `set_value_at_slot` как у остальных packed-типов.
 - **String (пул)** — `int` id в строковом пуле (`Dictionary` / `PackedStringArray` снаружи ECS), если нужен дедуп или каталог имён без копий в каждом чанке.
 - **Transform** — `ECSComponent.Type.TRANSFORM2D` / `TRANSFORM3D` (буфер `Array[Transform2D/3D]`) или `PACKED_VECTOR3` + угол, если нужна плотная упаковка.
-- **RID** — `Int64` (`get_id()` / `rid_from_int64()` на границе Server API).
+- **RID** — `ECSComponent.Type.RID` (буфер `Array[RID]`) или `Int64` (`get_id()` / `rid_from_int64()`) на границе Server API.
 
 ## Lifecycle (ответственность игры)
 

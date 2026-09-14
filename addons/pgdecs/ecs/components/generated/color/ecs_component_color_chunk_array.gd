@@ -2,11 +2,11 @@
 
 class_name ECSComponentColorArrayChunk extends ECSComponentBaseArrayChunk
 
-var _components_values: PackedColorArray
+var _components_values: Array[Color]
 
 func _init() -> void:
 	super()
-	_components_values = PackedColorArray()
+	_components_values = []
 	_components_values.resize(ECSEntityIdsUtils.CHUNK_SIZE)
 	_components_values.fill(Color.BLACK)
 
@@ -39,7 +39,7 @@ func get_component(entity_id: int) -> Color:
 func get_value_at_slot(slot_index: int) -> Color:
 	return _components_values[slot_index]
 
-func get_values_buffer() -> PackedColorArray:
+func get_values_buffer() -> Array[Color]:
 	return _components_values
 
 func set_value_at_slot(slot_index: int, component_value: Color) -> void:

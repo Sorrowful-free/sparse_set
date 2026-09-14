@@ -6,7 +6,7 @@ const POSITION_ID: int = 1
 func test_add_get_set_remove() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
-	var pos: ECSComponentVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentVector2Array
+	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
 	var entity_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
 	pos.set_component(entity_id, Vector2(3.0, 4.0))
 	assert_eq(pos.get_component(entity_id), Vector2(3.0, 4.0))
@@ -29,7 +29,7 @@ func test_chunk_boundary() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_INT32)
 	var ids: PackedInt64Array = ecs.create_entities_packed(300, PackedInt64Array([POSITION_ID]))
-	var comp: ECSComponentInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentInt32Array
+	var comp: ECSComponentPackedInt32Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedInt32Array
 	assert_gt(comp.size_chunks(), 1)
 	for entity_id in ids:
 		comp.set_component(entity_id, 42)
@@ -39,27 +39,27 @@ func test_slot_api() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var entity_id: int = ecs.create_entity_packed(PackedInt64Array([POSITION_ID]))
-	var chunk: ECSComponentVector2ArrayChunk = ecs.get_component_array(POSITION_ID).get_chunk(entity_id) as ECSComponentVector2ArrayChunk
+	var chunk: ECSComponentPackedVector2ArrayChunk = ecs.get_component_array(POSITION_ID).get_chunk(entity_id) as ECSComponentPackedVector2ArrayChunk
 	assert_not_null(chunk)
 	var slot: int = ECSEntityIdsUtils.slot_from_handle(entity_id)
 	chunk.set_value_at_slot(slot, Vector2(5.0, 6.0))
 	assert_eq(chunk.get_value_at_slot(slot), Vector2(5.0, 6.0))
 
 func test_value_version_bumps_on_set_value_at_slot() -> void:
-	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var chunk: ECSComponentPackedVector2ArrayChunk = ECSComponentPackedVector2ArrayChunk.new()
 	var before: int = chunk.get_value_version()
 	chunk.set_value_at_slot(0, Vector2(1.0, 2.0))
 	assert_gt(chunk.get_value_version(), before)
 
 func test_value_version_bumps_on_add_component() -> void:
-	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var chunk: ECSComponentPackedVector2ArrayChunk = ECSComponentPackedVector2ArrayChunk.new()
 	var handle: int = ECSEntityHandle.make(1, 1)
 	var before: int = chunk.get_value_version()
 	chunk.add_component(handle, Vector2(1.0, 2.0))
 	assert_gt(chunk.get_value_version(), before)
 
 func test_value_version_bumps_on_remove_component() -> void:
-	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var chunk: ECSComponentPackedVector2ArrayChunk = ECSComponentPackedVector2ArrayChunk.new()
 	var handle: int = ECSEntityHandle.make(1, 1)
 	chunk.add_component(handle, Vector2(1.0, 2.0))
 	var before: int = chunk.get_value_version()
@@ -67,14 +67,14 @@ func test_value_version_bumps_on_remove_component() -> void:
 	assert_gt(chunk.get_value_version(), before)
 
 func test_value_version_bumps_on_clear() -> void:
-	var chunk: ECSComponentVector2ArrayChunk = ECSComponentVector2ArrayChunk.new()
+	var chunk: ECSComponentPackedVector2ArrayChunk = ECSComponentPackedVector2ArrayChunk.new()
 	chunk.add_component(ECSEntityHandle.make(1, 1), Vector2(1.0, 2.0))
 	var before: int = chunk.get_value_version()
 	chunk.clear()
 	assert_gt(chunk.get_value_version(), before)
 
 func test_sparse_chunk_map_high_index() -> void:
-	var comp: ECSComponentInt32Array = ECSComponentInt32Array.new()
+	var comp: ECSComponentPackedInt32Array = ECSComponentPackedInt32Array.new()
 	var entity_id: int = ECSEntityHandle.make(5000, 1)
 	comp.add_entity(entity_id)
 	assert_eq(comp.size_chunks(), 1)
@@ -87,7 +87,7 @@ func test_sparse_chunk_map_high_index() -> void:
 	assert_eq(comp.get_chunk_indices().size(), 0)
 
 func test_sparse_evict_swaps_dense() -> void:
-	var comp: ECSComponentInt32Array = ECSComponentInt32Array.new()
+	var comp: ECSComponentPackedInt32Array = ECSComponentPackedInt32Array.new()
 	comp.add_entity(ECSEntityHandle.make(0, 1))
 	comp.add_entity(ECSEntityHandle.make(512, 1))
 	assert_eq(comp.size_chunks(), 2)

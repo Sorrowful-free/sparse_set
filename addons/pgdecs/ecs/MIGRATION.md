@@ -2,6 +2,46 @@
 
 Этот документ покрывает API создания сущностей в `ECSManager`.
 
+## 2.2.1 — snake_case имён папок/файлов кодогенерации
+
+Папки и файлы сгенерированных компонентов переименованы в snake_case (`ECSComponent.file_slug()`): `generated/packedvector4/` → `generated/packed_vector4/`, `ecs_component_packed_vector4_array.gd`. Также `nodepath` → `node_path`, `stringname` → `string_name`, `packedscene` → `packed_scene`, `refcounted` → `ref_counted`. Имена классов (`ECSComponentPackedVector4Array`) **не меняются** — переименовываются только пути.
+
+Проще всего: удалить каталог `components/generated/` целиком и перегенерировать.
+
+## 2.2 — Packed-компоненты: переименование классов + новые типы (breaking)
+
+### Классы packed-компонентов
+
+Сгенерированные классы packed-хранилищ получили префикс `Packed` (согласовано с `PACKED_*` в `ECSComponent.Type`):
+
+| Было | Стало |
+|------|-------|
+| `ECSComponentByteArray` | `ECSComponentPackedByteArray` |
+| `ECSComponentInt32Array` | `ECSComponentPackedInt32Array` |
+| `ECSComponentInt64Array` | `ECSComponentPackedInt64Array` |
+| `ECSComponentFloat32Array` | `ECSComponentPackedFloat32Array` |
+| `ECSComponentFloat64Array` | `ECSComponentPackedFloat64Array` |
+| `ECSComponentVector2Array` | `ECSComponentPackedVector2Array` |
+| `ECSComponentVector3Array` | `ECSComponentPackedVector3Array` |
+| `ECSComponentVector4Array` | `ECSComponentPackedVector4Array` |
+| `ECSComponentColorArray` | `ECSComponentPackedColorArray` |
+| `ECSComponentStringArray` | `ECSComponentPackedStringArray` |
+
+Чанки — аналогично (`…ArrayChunk`). Значения enum (`ECSComponent.Type.PACKED_*`) и API `register_component` **не менялись** — меняются только имена классов и папок сгенерированных файлов (`generated/byte/` → `generated/packed_byte/`; см. 2.2.1 про snake_case).
+
+> Важно: имена `ECSComponentVector2Array`, `ECSComponentVector3Array`, `ECSComponentVector4Array`, `ECSComponentColorArray`, `ECSComponentStringArray` **заняты новыми непакованными типами** (`Array[Vector2]`, `Array[Color]`, `Array[String]`). Если код/сцены ссылались на них как на packed — замените на `…Packed…`.
+
+### Новые типы
+
+Добавлены строгие хранилища `Array[T]`: `BOOL`, `INT`, `FLOAT`, `PLANE`, `VECTOR2`, `VECTOR3`, `VECTOR4`, `COLOR`, `STRINGNAME`, `STRING`, `NODEPATH`, `RID`. Полный список и буферы — [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+
+### Codegen
+
+- Ключ `packed_type` → `array_type` (значение — тип буфера: `Packed*Array` или `Array[T]`).
+- Шаблон чанка: `{packed_type}` → `{array_type}`; инициализация буфера — `{buffer_init}` (`Packed*Array()` для packed, `[]` для `Array[T]`).
+
+После обновления проще всего удалить каталог `components/generated/` целиком и перегенерировать (меню `PGDECS: Regenerate Components` или headless-скрипт `tests/run_codegen_headless.gd`).
+
 ## 2.1 — Тип компонента: enum вместо Variant.Type (breaking)
 
 `register_component` и `ECSComponentRegistryStrategy.get_components()` используют `ECSComponent.Type` вместо `Variant.Type`.
