@@ -22,7 +22,7 @@
 | **Скрипт / тест / one-off** | `query.for_each_chunk(func ...)` или `begin_chunk_run` + цикл | Допустим `for_each_chunk` |
 | **WTP в системе** | `use_worker_pool = true` + `parallel_settings` | **Нет** в hot path — `ECSChunkWorkerDispatch.run_chunks_for_system` |
 
-Раннер (`ECSSystemChunkBase.update`) на main thread:
+Раннер (`ECSSystemChunkBase.process_system`) на main thread:
 
 ```gdscript
 var run_count := _query.begin_chunk_run()
@@ -34,7 +34,7 @@ for i in range(run_count):
 
 ```gdscript
 # ПЛОХО: Callable в hot path системы
-func update(delta):
+func process_system(delta):
     _query.for_each_chunk(func(chunk): process_chunk(chunk, delta))
 
 # ПЛОХО: вручную ECSChunkWorkerDispatch в gameplay-системе
@@ -103,7 +103,8 @@ func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
 
 **Обязательно:**
 - `set_value_at_slot` для записи (не голая запись в `get_values_buffer()[slot]`, если включён `change_detection`).
-- Базовый класс: `ECSSystemChunkBase`, query в `_build_query()`.
+- Базовый класс: `ECSSystemChunkBase`, query в `build_query()`.
+- `build_query()` выполняется внутри `super(...)`: поля, которые он читает, присваивайте до `super(...)`.
 
 **Запрещено в fast-path проходе:**
 - `ecs.create_entity` / `destroy_entity` / `add_component` / `remove_component`
@@ -137,7 +138,7 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 
 ## 4. Command buffer (канон)
 
-Буфер есть у каждой системы: `get_command_buffer()`. **`execute()` вызывает `ECSSystemRunner` после `update()` каждой системы** (режим `PER_SYSTEM`, default) — в системе вручную `execute()` не вызывать (кроме unit-тестов).
+Буфер есть у каждой системы: `get_command_buffer()`. **`execute()` вызывает `ECSSystemRunner` после `process_system()` каждой системы** (режим `PER_SYSTEM`, default) — в системе вручную `execute()` не вызывать (кроме unit-тестов).
 
 ```gdscript
 var buf := get_command_buffer()
@@ -166,7 +167,7 @@ buf.destroy_entities([id_a, id_b])
 | Место | API |
 |-------|-----|
 | Bootstrap, тесты, код вне систем | `ecs.create_entity_packed()` / `create_entities_packed()` — сразу real id |
-| Внутри `ECSSystemBase.update` / `process_chunk` | только `get_command_buffer()` |
+| Внутри `ECSSystemBase.process_system` / `process_chunk` | только `get_command_buffer()` |
 
 ---
 
@@ -194,7 +195,7 @@ for id in query.get_entity_ids():
 	...
 
 # ПЛОХО: for_each_chunk внутри ECSSystemChunkBase вместо process_chunk override
-func update(delta):
+func process_system(delta):
 	query.for_each_chunk(func(c): ...)  # раннер уже итерирует — переопредели process_chunk
 
 # ПЛОХО: кэшировать ECSQueryChunk между кадрами
@@ -330,7 +331,7 @@ Chunk-based bind/sync — в игровых системах (`ECSSystemChunkBas
 
 ## 9. Чеклист перед сдачей кода
 
-- [ ] Chunk-система наследует `ECSSystemChunkBase` и переопределяет `process_chunk`, **не** `for_each_chunk` в `update`
+- [ ] Chunk-система наследует `ECSSystemChunkBase` и переопределяет `process_chunk`, **не** `for_each_chunk` в `process_system`
 - [ ] Нет сохранения `ECSQueryChunk` между кадрами / между `begin_chunk_run`
 - [ ] Система с structural changes использует `get_command_buffer()`, не `ecs.create_*` / `destroy_*` в `process_chunk`
 - [ ] Система только с мутацией значений — fast-path, образец как `DemoMovementSystem`

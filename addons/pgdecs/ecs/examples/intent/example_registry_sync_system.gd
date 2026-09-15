@@ -6,7 +6,7 @@ func _init(ecs: ECSManager, dependencies: ExampleEcsDependencies) -> void:
 	_dependencies = dependencies
 	super(ecs)
 
-func _build_query() -> ECSQuery:
+func build_query() -> ECSQuery:
 	return ECSQueryBuilder.new() \
 		.with_component(ExampleIntentComponentRegistryStrategy.Component.POSITION) \
 		.with_component(ExampleIntentIds.NODE_SLOT) \

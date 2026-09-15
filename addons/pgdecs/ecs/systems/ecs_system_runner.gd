@@ -59,7 +59,7 @@ func run_group(group: StringName, delta: float) -> void:
 	for system: ECSSystemBase in systems:
 		if not system.enabled:
 			continue
-		system.update(delta)
+		system.process_system(delta)
 		_flush_after_system(system)
 	_flush_per_group_buffers(systems)
 

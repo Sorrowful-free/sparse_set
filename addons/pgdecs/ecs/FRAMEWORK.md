@@ -31,7 +31,7 @@ PGDECS хранит компоненты в **Structure of Arrays (SoA)** по �
 Типичный цикл кадра:
 
 ```
-profile.apply_to_world() → каждый кадр: systems.update() → command_buffer.execute()
+profile.apply_to_world() → каждый кадр: systems.process_system() → command_buffer.execute()
 ```
 
 Точка входа в игре — нода [`ECSWorld`](ecs_world.gd) с [`ECSWorldProfile`](config/ecs_world_profile.gd) или прямое использование [`ECSManager`](ecs_manager.gd) + [`ECSSystemRunner`](systems/ecs_system_runner.gd).
@@ -304,14 +304,14 @@ chunk.get_component_version(component_id)
 
 ### ECSSystemBase
 
-Базовый класс: `update(delta)`, встроенный `ECSCommandBuffer`, доступ к `ECSManager`.
+`@abstract` базовый класс: наследник обязан реализовать `process_system(delta)`. Встроенный `ECSCommandBuffer`, доступ к `ECSManager`.
 
 ### ECSSystemChunkBase
 
-Рекомендуемая база для hot loop:
+`@abstract` база для hot loop: наследник обязан реализовать `build_query()` и `process_chunk()`.
 
-1. Переопределить `_build_query()` → `ECSQuery`.
-2. Переопределить `process_chunk(chunk, delta)`.
+1. Реализовать `build_query()` → `ECSQuery` (вызывается из `_init`; поля, которые здесь читаются, присваивайте **до** `super(...)`).
+2. Реализовать `process_chunk(chunk, delta)`.
 3. Опционально: `change_detection = true`, `use_worker_pool = true` (только чтение в WTP).
 4. Настройка WTP per-system: `parallel_settings` ([`ECSChunkParallelSettings`](systems/ecs_chunk_parallel_settings.gd)) или через [`ECSChunkSystemStrategy`](config/ecs_chunk_system_strategy.gd) в profile.
 
@@ -323,7 +323,7 @@ chunk.get_component_version(component_id)
 
 [`ECSChunkWorkerDispatch`](systems/ecs_chunk_worker_dispatch.gd) — единая политика: strided WTP или main thread.
 
-**Внутренний поток `update`:**
+**Внутренний поток `process_system` (реализован в базе):**
 
 1. `begin_chunk_run()` — заполняет pooled `ECSQueryChunk` views.
 2. Main thread (`use_worker_pool == false`): цикл `get_chunk_at_run_index` → `process_chunk` (без Callable).
@@ -336,7 +336,7 @@ class MySystem extends ECSSystemChunkBase:
         super(ecs)
         change_detection = true
 
-    func _build_query() -> ECSQuery:
+    func build_query() -> ECSQuery:
         return ECSQueryBuilder.new().with_component(POSITION_ID).build(get_ecs_manager())
 
     func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
@@ -348,7 +348,7 @@ class MySystem extends ECSSystemChunkBase:
 
 ```gdscript
 runner.add_system(system, run_group)
-runner.run_group(&"simulation", delta)  # update систем группы + PER_SYSTEM flush после каждой
+runner.run_group(&"simulation", delta)  # process_system систем группы + PER_SYSTEM flush после каждой
 runner.run(delta)                       # все группы по execution_order из schedule
 runner.flush_manual_command_buffers()   # MANUAL mode
 ```

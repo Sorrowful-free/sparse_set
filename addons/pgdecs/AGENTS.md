@@ -11,12 +11,13 @@ Intent + реестры: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
 ## Перед генерацией систем и gameplay-кода
 
 1. Определи режим в `process_chunk` (см. таблицу ниже).
-2. **Системы** — `ECSSystemChunkBase` + `process_chunk`; **не** `for_each_chunk` / Callable в hot path.
+2. **Системы** — `ECSSystemChunkBase` + `process_chunk`; **не** `for_each_chunk` / Callable в hot path. Хуки `process_system` / `build_query` / `process_chunk` — `@abstract`: сигнатуру не менять (опечатка = ошибка парсера, а не тихий no-op).
 3. Не вызывай `ecs.create_entity*` / `destroy_*` / `add_component` / `remove_component` внутри `process_chunk` — только `get_command_buffer()`.
 4. Не вызывай `buf.execute()` в production-системах (это делает `ECSSystemRunner` после каждой системы, `PER_SYSTEM`).
 5. Не сохраняй `ECSQueryChunk` между кадрами (`begin_chunk_run` инвалидирует pooled views).
 6. Не используй устаревшее: `InitStrategy`, `RegistryConfig`, `build_registry`, `visual_registry_strategy`, `ECSVisual*`, `ECSBridge*`, `absorb()`.
 7. `world.apply_profile(profile)` — **один раз** за lifecycle мира.
+8. В `_init` chunk-системы `build_query()` вызывается внутри `super(...)`: поля, читаемые в `build_query()`, присваивайте **до** `super(...)` — иначе тихий `null` (парсер не поймает).
 
 ---
 
@@ -24,7 +25,7 @@ Intent + реестры: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
 
 | Кто | Как |
 |-----|-----|
-| Система | `extends ECSSystemChunkBase` → `_build_query()` + `process_chunk(chunk, delta)` |
+| Система | `extends ECSSystemChunkBase` → `build_query()` + `process_chunk(chunk, delta)` |
 | Скрипт / тест | `query.for_each_chunk(...)` или `begin_chunk_run()` + `get_chunk_at_run_index(i)` |
 | WTP | `use_worker_pool = true`, `parallel_settings`; не вызывать dispatch вручную |
 

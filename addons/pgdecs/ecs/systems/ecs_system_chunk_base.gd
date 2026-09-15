@@ -1,16 +1,23 @@
+@abstract
 class_name ECSSystemChunkBase extends ECSSystemBase
 
 ## Базовый класс системы с итерацией по чанкам query.
-## В [method _init] переопределите [method _build_query] и создайте query через [ECSQueryBuilder].
-## Переопределите [method process_chunk]: в нём обрабатывайте один чанк (SoA через [method ECSQueryChunk.get_component_chunk]).
+## Наследник обязан реализовать [method build_query] (вызывается из [method _init]) и [method process_chunk]:
+## в нём обрабатывается один чанк (SoA через [method ECSQueryChunk.get_component_chunk]).
 ## При [member use_worker_pool] == true чанки собираются через [method ECSQuery.begin_chunk_run]
 ## и обрабатываются через [WorkerThreadPool]; в этом случае [method process_chunk] не должен вызывать
 ## [method get_command_buffer] (только чтение данных).
+##
+## [b]Порядок в [method _init] наследника:[/b] [method build_query] вызывается внутри [code]super(...)[/code],
+## поэтому поля, которые наследник присваивает [b]после[/b] [code]super(...)[/code], в момент построения
+## query ещё не установлены (компилятор этого не ловит — это рантайм-порядок, а не ошибка парсера).
+## Если [method build_query] читает поля инстанса — присваивайте их [b]до[/b] [code]super(...)[/code].
+## [method get_ecs_manager] доступен всегда: база выставляет его до вызова [method build_query].
 
 var _query: ECSQuery
 var _worker_chunks: Array[ECSQueryChunk] = []
 
-## Если true, process_chunk вызывается только для чанков, изменившихся с прошлого update
+## Если true, process_chunk вызывается только для чанков, изменившихся с прошлого process_system
 ## (структурно или по значениям компонентов query). По умолчанию false — без оверхеда.
 var change_detection: bool = false
 
@@ -26,19 +33,19 @@ var parallel_settings: ECSChunkParallelSettings = ECSChunkParallelSettings.new()
 
 func _init(ecs_manager: ECSManager) -> void:
 	super._init(ecs_manager)
-	_query = _build_query()
+	_query = build_query()
 	if _query == null:
-		push_warning("ECSSystemChunkBase: _build_query() returned null in %s" % get_script())
+		push_warning("ECSSystemChunkBase: build_query() returned null in %s" % get_script())
 
 ## Переопределяйте в наследниках: создайте и верните query через [ECSQueryBuilder].build(get_ecs_manager()).
-func _build_query() -> ECSQuery:
-	return null
+## Возврат null — ошибка конфигурации: [method _init] выдаст push_warning, а [method process_system] будет no-op.
+@abstract func build_query() -> ECSQuery
 
 func get_query() -> ECSQuery:
 	return _query
 
 ## Вызывается раннером каждый кадр: получает чанки query и для каждого вызывает [method process_chunk].
-func update(delta: float) -> void:
+func process_system(delta: float) -> void:
 	if _query == null:
 		return
 	if use_worker_pool:
@@ -104,10 +111,9 @@ func _prepare_worker_chunks_for_run() -> int:
 ## [/codeblock]
 ##
 ## При [member change_detection] == true пропускаются неизменённые чанки (last-seen по версиям).
-## После каждого update записи для чанков, исчезнувших из query, удаляются из [member _chunk_seen].
+## После каждого process_system записи для чанков, исчезнувших из query, удаляются из [member _chunk_seen].
 ## При [member use_worker_pool] == true не вызывайте [method get_command_buffer] — только чтение.
-func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
-	pass
+@abstract func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void
 
 ## true, если чанк изменился с прошлого вызова; обновляет сохранённые версии.
 func _consume_chunk_dirty(chunk: ECSQueryChunk) -> bool:

@@ -6,7 +6,7 @@ func _init(ecs: ECSManager, speed_mul: float = 1.0) -> void:
 	_speed_mul = speed_mul
 	super(ecs)
 
-func _build_query() -> ECSQuery:
+func build_query() -> ECSQuery:
 	return ECSQueryBuilder.new()\
 		.with_component(ExampleComponentRegistryStrategy.Component.POSITION)\
 		.with_component(ExampleComponentRegistryStrategy.Component.VELOCITY)\

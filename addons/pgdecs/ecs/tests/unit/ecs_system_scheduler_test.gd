@@ -5,13 +5,13 @@ const POSITION_ID: int = 1
 
 class TickCountSystem extends ECSSystemBase:
 	var tick_count: int = 0
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		tick_count += 1
 
 class OrderSystem extends ECSSystemBase:
 	var group_name: StringName
 	var log: Array[StringName]
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		log.append(group_name)
 
 func _make_config(

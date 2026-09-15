@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.0]
+
+### Breaking
+
+- `ECSSystemBase.update(delta)` → `ECSSystemBase.process_system(delta)`; `ECSSystemChunkBase._build_query()` → `ECSSystemChunkBase.build_query()`. Обновите сигнатуры в наследниках и прямые вызовы `system.update(...)`. Имя `process_system` выбрано, чтобы не путаться со штатным `Node._process` и с `ECSSystemGroupConfig.ProcessHook`.
+- `ECSSystemBase` и `ECSSystemChunkBase` объявлены `@abstract`, а `process_system` / `build_query` / `process_chunk` — абстрактные методы: забытый или написанный с опечаткой хук теперь ошибка парсера, а не тихий no-op.
+
+### Documentation
+
+- `ECSSystemChunkBase`: зафиксирован инвариант порядка в `_init` наследника — `build_query()` вызывается внутри `super(...)`, поэтому поля, читаемые в нём, нужно присваивать до `super(...)` (класс, `FRAMEWORK.md`, `AGENTS.md`, `AI_CODE_PATTERNS.md`).
+
 ## [2.3.1]
 
 ### Added

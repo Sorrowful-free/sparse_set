@@ -2,8 +2,11 @@ extends GutTest
 class_name ECSChunkSystemStrategyTest
 
 class _MockChunkSystem extends ECSSystemChunkBase:
-	func _build_query() -> ECSQuery:
+	func build_query() -> ECSQuery:
 		return null
+
+	func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
+		pass
 
 class _MockChunkStrategy extends ECSChunkSystemStrategy:
 	func create_system(ecs: ECSManager, _world: ECSWorld = null) -> ECSSystemBase:

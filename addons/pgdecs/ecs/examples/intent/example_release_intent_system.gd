@@ -10,7 +10,7 @@ func _init(ecs: ECSManager, dependencies: ExampleEcsDependencies) -> void:
 		.with_component(ExampleIntentIds.INTENT_RELEASE) \
 		.build(ecs)
 
-func update(_delta: float) -> void:
+func process_system(_delta: float) -> void:
 	if _dependencies == null or _dependencies.node_registry == null:
 		return
 	var ecs: ECSManager = get_ecs_manager()

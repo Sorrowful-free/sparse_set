@@ -3,7 +3,7 @@ extends GutTest
 class _CountChunkSystem extends ECSSystemChunkBase:
 	var seen_indices: Dictionary = {}
 
-	func _build_query() -> ECSQuery:
+	func build_query() -> ECSQuery:
 		return null
 
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:

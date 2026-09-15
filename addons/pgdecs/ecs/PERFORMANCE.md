@@ -127,7 +127,7 @@ Median perf (5 runs, iterations=25000): legacy **3.38 s**, FAST **0.29 s** — �
 
 **Стоимость:** один `_value_version += 1` на вызов мутирующего API компонента (не на элемент в батче). При `change_detection == false` оверхеда на итерацию нет.
 
-**Change detection:** при `change_detection=true` после каждого `update` чанки, исчезнувшие из query, удаляются из `_chunk_seen`.
+**Change detection:** при `change_detection=true` после каждого `process_system` чанки, исчезнувшие из query, удаляются из `_chunk_seen`.
 
 ### Два режима бенчмарка (iterations=25000)
 
@@ -186,7 +186,7 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 `ECSSystemChunkBase` вызывает `process_chunk` через `begin_chunk_run` — без Callable на каждый чанк. При WTP и `task_count > 0` — `run_chunks_for_system` (виртуальный вызов, не lambda):
 
 ```gdscript
-# Внутри ECSSystemChunkBase.update (main thread):
+# Внутри ECSSystemChunkBase.process_system (main thread):
 var run_count := _query.begin_chunk_run()
 for i in range(run_count):
     process_chunk(_query.get_chunk_at_run_index(i), delta)
@@ -229,7 +229,7 @@ query.for_each_chunk(func(chunk: ECSQueryChunk) -> void:
 | `add/remove_component` | N пар add+remove (archetype transition) |
 | `command_buffer execute` | 1000× `create_entity` + execute |
 | `command_buffer coalescing frame` | 5000 raw-команд с coalescing (см. ниже) |
-| `system change_detection steady` | 100× update с `change_detection` без записей в мир |
+| `system change_detection steady` | 100× process_system с `change_detection` без записей в мир |
 | `system change_detection scattered ON/OFF` | ~2% случайных записей/кадр (размазанные изменения) |
 | `system change_detection hot-chunks ON/OFF` | 2 локальных чанка/кадр (неравномерная активность) |
 

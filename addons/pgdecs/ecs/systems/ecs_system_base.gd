@@ -1,5 +1,7 @@
+@abstract
 class_name ECSSystemBase extends RefCounted
 
+## Базовый класс системы. Наследник обязан реализовать [method process_system].
 enum CommandBufferFlushMode { PER_SYSTEM, PER_GROUP, MANUAL }
 
 var run_group: StringName = ECSSystemRunGroups.DEFAULT
@@ -13,9 +15,9 @@ func _init(ecs_manager: ECSManager) -> void:
 	_ecs_manager = ecs_manager
 	_command_buffer = ECSCommandBuffer.new(ecs_manager)
 
-## Переопределяйте в наследниках. Вызывается раннером каждый кадр/тик.
-func update(_delta: float) -> void:
-	pass
+## Тело системы: переопределяйте в наследниках. Вызывается раннером каждый кадр/тик
+## (или по hz — см. [ECSSystemGroupConfig]).
+@abstract func process_system(_delta: float) -> void
 
 ## Буфер команд для отложенного создания/удаления сущностей и компонентов.
 func get_command_buffer() -> ECSCommandBuffer:

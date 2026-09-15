@@ -18,7 +18,9 @@ var _iterations: int = 10000
 var _gc_runner: ECSSystemRunner = null
 
 class _NoOpFrameSystem extends ECSSystemBase:
-	pass
+	## Базовая линия для замеров: ничего не делает, но обязан реализовать абстрактный метод.
+	func process_system(_delta: float) -> void:
+		pass
 
 func _init(ecs: ECSManager, iterations: int = 10000) -> void:
 	_ecs = ecs
@@ -446,7 +448,7 @@ class _ChangeDetectChunkSystem extends ECSSystemChunkBase:
 	const _HEALTH_ID: int = 2
 	var touched: int = 0
 
-	func _build_query() -> ECSQuery:
+	func build_query() -> ECSQuery:
 		return ECSQueryBuilder.new().with_component(_POSITION_ID).with_component(_HEALTH_ID).build(get_ecs_manager())
 
 	func process_chunk(_chunk: ECSQueryChunk, _delta: float) -> void:
@@ -458,7 +460,7 @@ class _HeavyReadChunkSystem extends ECSSystemChunkBase:
 	var processed_chunks: int = 0
 	var acc: float = 0.0
 
-	func _build_query() -> ECSQuery:
+	func build_query() -> ECSQuery:
 		return ECSQueryBuilder.new().with_component(_POSITION_ID).with_component(_HEALTH_ID).build(get_ecs_manager())
 
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
@@ -481,11 +483,11 @@ func benchmark_system_change_detection() -> float:
 		_ecs.create_entity_packed(PackedInt64Array([POSITION_ID, HEALTH_ID]))
 	var system: _ChangeDetectChunkSystem = _ChangeDetectChunkSystem.new(_ecs)
 	system.change_detection = true
-	system.update(0.016)
+	system.process_system(0.016)
 	var runs: int = 100
 	return _time_block("system change_detection steady (no writes) x %d (world %d)" % [runs, _iterations], func():
 		for j in range(runs):
-			system.update(0.016)
+			system.process_system(0.016)
 	)
 
 ## ~2% сущностей в случайных чанках (размазанные изменения); read-only heavy process_chunk.
@@ -507,12 +509,12 @@ func benchmark_system_change_detection_sparse_scattered(use_change_detection: bo
 	return _time_block(
 		"system change_detection scattered %s (~%d rand writes/frame) x %d" % [label, touches_per_frame, runs],
 		func():
-			system.update(0.016)
+			system.process_system(0.016)
 			for j in range(runs):
 				for k in range(touches_per_frame):
 					var eid: int = ids[rng.randi() % ids.size()]
 					pos.set_component(eid, Vector2(float(j + k), float(k)))
-				system.update(0.016)
+				system.process_system(0.016)
 	)
 
 ## 1–2 «горячих» чанка за кадр (локальная активность); типичный игровой паттерн.
@@ -538,7 +540,7 @@ func benchmark_system_change_detection_hot_chunks(use_change_detection: bool) ->
 		"system change_detection hot-chunks %s (%d chunks x %d writes/frame) x %d (world %d)" % [
 			label, hot_chunks_per_frame, touches_per_hot_chunk, runs, _iterations],
 		func():
-			system.update(0.016)
+			system.process_system(0.016)
 			for j in range(runs):
 				for h in range(hot_chunks_per_frame):
 					var ci: int = rng.randi() % chunk_count
@@ -549,7 +551,7 @@ func benchmark_system_change_detection_hot_chunks(use_change_detection: bool) ->
 					for k in range(touches_per_hot_chunk):
 						var eid: int = ids[base + rng.randi() % in_chunk]
 						pos.set_component(eid, Vector2(float(j + h + k), float(k)))
-				system.update(0.016)
+				system.process_system(0.016)
 	)
 
 func _record_metric(results: Dictionary, name: String, seconds: float) -> void:

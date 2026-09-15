@@ -6,17 +6,17 @@ const HEALTH_ID: int = 2
 
 class RunSystem extends ECSSystemBase:
 	const CID: int = 1
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		get_command_buffer().create_entity([CID])
 
 class TestSystem extends ECSSystemBase:
 	var update_count: int = 0
-	func update(delta: float) -> void:
+	func process_system(delta: float) -> void:
 		update_count += 1
 
 class ChunkCountSystem extends ECSSystemChunkBase:
 	var total_processed: int = 0
-	func _build_query() -> ECSQuery:
+	func build_query() -> ECSQuery:
 		return ECSQueryBuilder.new().with_component(POSITION_ID).with_component(HEALTH_ID).build(get_ecs_manager())
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 		total_processed += chunk.get_entity_count()
@@ -70,7 +70,7 @@ func test_chunk_system_worker_pool_runs() -> void:
 class DestroyViaBufferSystem extends ECSSystemBase:
 	var target_id: int = 0
 	var done: bool = false
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		if done:
 			return
 		get_command_buffer().destroy_entity(target_id)
@@ -91,12 +91,12 @@ func test_runner_flushes_deferred_archetype_gc() -> void:
 	assert_eq(ecs.count_registered_archetypes(), 0)
 
 class SpawnSystem extends ECSSystemBase:
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		get_command_buffer().create_entity([POSITION_ID])
 
 class CountAfterSpawnSystem extends ECSSystemChunkBase:
 	var seen: int = 0
-	func _build_query() -> ECSQuery:
+	func build_query() -> ECSQuery:
 		return ECSQueryBuilder.new().with_component(POSITION_ID).build(get_ecs_manager())
 	func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 		seen += chunk.get_entity_count()
@@ -129,7 +129,7 @@ func test_group_isolation_between_run_groups() -> void:
 	assert_eq(count.seen, 1)
 
 class PerGroupFlushSystem extends ECSSystemBase:
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		get_command_buffer().create_entity([POSITION_ID])
 
 func test_per_group_flush_mode() -> void:
@@ -144,7 +144,7 @@ func test_per_group_flush_mode() -> void:
 	assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 1)
 
 class ManualFlushSystem extends ECSSystemBase:
-	func update(_delta: float) -> void:
+	func process_system(_delta: float) -> void:
 		get_command_buffer().create_entity([POSITION_ID])
 
 func test_manual_flush_mode() -> void:
