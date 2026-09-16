@@ -9,7 +9,7 @@ class RunSystem extends ECSSystemBase:
 	func process_system(_delta: float) -> void:
 		get_command_buffer().create_entity([CID])
 
-class TestSystem extends ECSSystemBase:
+class UpdateCountSystem extends ECSSystemBase:
 	var update_count: int = 0
 	func process_system(delta: float) -> void:
 		update_count += 1
@@ -24,7 +24,7 @@ class ChunkCountSystem extends ECSSystemChunkBase:
 func test_runner_calls_update() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
-	var sys: TestSystem = TestSystem.new(ecs)
+	var sys: UpdateCountSystem = UpdateCountSystem.new(ecs)
 	var run: ECSSystemRunner = ECSSystemRunner.new()
 	run.add_system(sys)
 	assert_eq(sys.update_count, 0)

@@ -403,9 +403,9 @@ for i in range(chunk.get_entity_count()):
 
 ## Вне скоупа ядра
 
-- **Node, Resource** со сложным lifecycle — slot (`Int32`) в SoA + Resource side-table; при этом строгие ссылочные хранилища (`NODE` / `NODE2D` / `NODE3D` / `RESOURCE` / `PACKED_SCENE` / `REF_COUNTED`) и generic `OBJECT` доступны напрямую. Паттерн: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+- **Node, Resource** со сложным lifecycle — reference-компонент (в SoA лежит сама ссылка: `NODE` / `NODE2D` / `NODE3D` / `RESOURCE` / `PACKED_SCENE` / `REF_COUNTED`) + Resource-**сервис** для выдачи/освобождения; generic `OBJECT` доступен напрямую. Паттерн: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 - **Строгие value-типы** — через типизированный `Array[T]` (`BOOL`, `INT`, `FLOAT`, `AABB`, `Rect2`, `Basis`, `Plane`, `Transform2D/3D`, `Quaternion`, `Vector2/3/4`, `Vector2i/3i/4i`, `Color`, `String`, `StringName`, `NodePath`, `RID`); у части есть packed-дубль. Enum `ECSComponent.Type` заменяет `Variant.Type` (различает Object-подтипы). См. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
-- **String** — в factory как `ECSComponent.Type.PACKED_STRING` (`ECSComponentPackedStringArray`, одна строка на slot). Для пулов/интернирования длинных каталогов строк — опционально `int` id + реестр снаружи ECS (см. OBJECT_COMPONENTS).
+- **String** — в factory как `ECSComponent.Type.PACKED_STRING` (`ECSComponentPackedStringArray`, одна строка на slot). Для пулов/интернирования длинных каталогов строк — опционально `int` id + сервис снаружи ECS (см. OBJECT_COMPONENTS).
 - PGDECS оптимизирует layout и итерацию в GDScript, не заменяет C++ ECS. См. [PERFORMANCE.md](PERFORMANCE.md).
 
 ---
@@ -417,9 +417,24 @@ for i in range(chunk.get_entity_count()):
 **Решение (2.0):**
 
 1. **Ядро** — только SoA, query, systems, command buffer, profile/strategies.
-2. **Внешние данные** — `Int32`/`Int64` slot-компоненты + **Resource-реестры** в игровом коде (`@export` в `ECSSystemStrategy`, напр. `ExampleEcsDependencies`).
+2. **Внешние данные** — `Int32`/`Int64` slot-компоненты + **Resource-реестры** (side-table) в игровом коде (`@export` в `ECSSystemStrategy`, напр. `ExampleEcsDependencies`). *Отменено в 2.5 — см. ADR ниже.*
 3. **Lifecycle** — intent marker-теги (`INTENT_BIND_*`, `INTENT_RELEASE`, `INTENT_DESTROY`) и упорядоченные системы: Bind → Sync → Release → DestroySweep.
-4. **Ответственность игры** — release registry slot до/вместе с `destroy_entity`; ядро не чистит side-tables автоматически.
+4. **Ответственность игры** — release слота реестра до/вместе с `destroy_entity`; ядро не чистит side-tables.
 
 **Последствия:** breaking change; `apply_to_world(world)` без bridge host; примеры в `examples/intent/`. Миграция: [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## ADR: PGDECS 2.5 — reference-компоненты вместо slot-реестров
+
+**Контекст (2.0):** внешние объекты адресовались `Int32`/`Int64` slot-компонентом, а сам объект лежал в Resource-реестре (side-table) вне SoA. Нужен был инвариант «release слота ↔ запись в реестре», а признак «нет привязки» (`-1`) не выражался через query.
+
+**Решение (2.5):**
+
+1. **Reference-компонент** — в SoA хранится сама ссылка (`ECSComponent.Type.NODE2D`); slot и `INVALID_SLOT` больше не нужны.
+2. **Сервис вместо реестра** — `ECSNodePool` (`Resource`: `acquire()` / `release(node)` / `clear()`) выдаёт и освобождает объекты; per-entity данных в нём нет.
+3. **Presence = членство в архетипе** — наличие объекта queryable через `with_component(NODE)` / `without_component(NODE)`.
+4. **Bind/release — структурные изменения** — `add_component` + `set_component_value` / `remove_component`; порядок систем: Bind → Sync → Release → DestroySweep.
+
+**Последствия:** один источник правды (нет рассинхрона slot ↔ side-table) и нет `registry.get_node(slot)` indirection. Side-tables остаются оправданными только для дедупликации/интернирования (строки, id) и внешних идентичностей (wire-id, LOD-сетки) — и там это `int`-компонент + маппинг в сервисе, а не slot в SoA; variable-length данные решает `REFCOUNTED`-компонент со структурой на сущность. `ecs.reset()` чистит значения компонентов (включая reference), но сервис ядру неизвестен: `clear()` вызывается игровым кодом.
 

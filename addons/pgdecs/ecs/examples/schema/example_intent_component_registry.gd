@@ -1,10 +1,10 @@
 class_name ExampleIntentComponentRegistryStrategy extends ECSComponentRegistryStrategy
 
-## Схема для intent pipeline example: POSITION + NODE_SLOT + intent tags.
+## Схема для intent pipeline example: POSITION + NODE (reference-компонент) + intent tags.
 
 enum Component {
 	POSITION = 1,
-	NODE_SLOT = ExampleIntentIds.NODE_SLOT,
+	NODE = ExampleIntentIds.NODE,
 }
 
 func get_tags() -> Array[int]:
@@ -17,5 +17,5 @@ func get_tags() -> Array[int]:
 func get_components() -> Dictionary[int, ECSComponent.Type]:
 	return {
 		Component.POSITION: ECSComponent.Type.PACKED_VECTOR2,
-		Component.NODE_SLOT: ECSComponent.Type.PACKED_INT32,
+		Component.NODE: ECSComponent.Type.NODE2D,
 	}

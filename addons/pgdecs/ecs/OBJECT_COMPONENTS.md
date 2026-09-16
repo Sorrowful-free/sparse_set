@@ -112,41 +112,42 @@ ecs.register_component(XFORM_ID, ECSComponent.Type.TRANSFORM3D) # Array[Transfor
 - `Array[T]` (value и reference) менее плотный: значения боксятся, есть indirection и GC-давление для объектов; fast-path по `get_values_buffer()` почти не даёт выигрыша.
 - У части value-типов есть **и packed, и `Array[T]`** вариант (`PACKED_VECTOR2` ↔ `VECTOR2`, `PACKED_COLOR` ↔ `COLOR`, `PACKED_STRING` ↔ `STRING`, `PACKED_INT32` ↔ `INT`, …). Различие только в буфере — для горячих данных берите `PACKED_*`.
 - Для `AABB` / `Rect2` / `Plane` / `Quaternion` / `Basis` / `Transform*` / `Vector2i/3i/4i` / `StringName` / `NodePath` / `RID` packed-вариантов в Godot нет, поэтому `Array[T]` — единственный вариант.
-- Для объектов со сложным lifecycle (`Node` в дереве сцены) по-прежнему предпочтителен slot + реестр (ниже).
+- Для объектов со сложным lifecycle (`Node` в дереве сцены) используйте reference-компонент (`NODE2D`/`NODE`) + Resource-**сервис** для пула/фабрики (ниже).
 
-## Паттерн: slot + Resource-реестр (side-table)
+## Паттерн: reference-компонент + Resource-сервис
 
-Идея: в ECS хранится **лёгкий slot** (`Int32`, `-1` = нет), объекты — в **Resource-реестре** вне ECS. Передача реестра — `@export` в [`ECSSystemStrategy`](config/ecs_system_strategy.gd). Полный lifecycle — [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+Идея: **ссылка на объект хранится в самом компоненте** (`NODE2D`, `NODE`, `RESOURCE`, `REFCOUNTED`) — это единственный источник правды. Пул/фабрика/navmesh — отдельный **сервис** (`Resource`), передаётся через `@export` в [`ECSSystemStrategy`](config/ecs_system_strategy.gd). Полный lifecycle — [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ```gdscript
-# addons/pgdecs/ecs/examples/registries/ecs_node_registry.gd
+# addons/pgdecs/ecs/examples/services/ecs_node_pool.gd
 
-class_name ECSNodeRegistry extends Resource
+class_name ECSNodePool extends Resource
 
-func acquire() -> int: ...
-func release(slot: int) -> void: ...
-func get_node(slot: int) -> Node: ...
+func acquire() -> Node2D: ...      # взять из пула / инстанцировать
+func release(node: Node) -> void: # вернуть/освободить
 ```
 
 Компонент в ECS:
 
 ```gdscript
-const NODE_SLOT_ID: int = 20  # ECSComponent.Type.PACKED_INT32
+ecs.register_component(NODE_ID, ECSComponent.Type.NODE2D)
 
 # После bind (intent system или spawn):
-slots.set_component(entity, registry.acquire())
+node_component.set_component(entity_id, pool.acquire())
 ```
 
-### Slot-based vs handle-based реестр
+Инстансы на сущность удобно создавать **из blueprint**: [`ECSEntityBlueprint.build_node_bindings()`](config/ecs_entity_blueprint.gd) (component_id → `PackedScene`) + `spawn_one_bound` / `spawn_batch_bound(buf, count, host)` — по инстансу на сущность, `component_id` попадают в архетип автоматически, binding без сцены — no-op. Main thread. Пример: [`examples/schema/example_node_binding_blueprint.gd`](examples/schema/example_node_binding_blueprint.gd).
 
-Оба варианта — side-table вне SoA; различается **ключ** в реестре и API:
+### Почему нет slot-реестров
 
-| Модель | Ключ в ECS | Типичный API реестра | Когда |
-|--------|------------|----------------------|--------|
-| **Slot-based** | `Int32` slot (`-1` = пусто) | `acquire()` / `release(slot)` / `get_node(slot)` | Пул нод/RID, эталон в `examples/registries/` |
-| **Handle-based** | entity id или wire-id в компоненте | `get_or_register(key)` / `unregister(key)` | Сеть, привязка к внешнему id, LOD grids |
+Ранее в ECS хранился `Int32` slot (`-1` = нет), а объект — в side-table `ECSNodeRegistry` вне SoA. При reference-компонентах это избыточный слой:
 
-Для ссылочных компонентов (`NODE`, `RESOURCE`) «handle» — это само значение компонента, по которому система находит объект. Имена методов в игре могут отличаться от примеров аддона — контракт один: **bind → sync → release до destroy**.
+- **Хранение** — `NODE2D` уже лежит в SoA per-entity, отдельная таблица не нужна.
+- **Присутствие** — «нет привязки» как `-1` не выражается через query (фильтры только по членству). Reference-компонент превращает признак в членство архетипа.
+- **Инвариант release** — два источника правды (slot + таблица) требовали дисциплины «release перед destroy». Остаётся один.
+- **Скорость sync** — пропадает индирекция `registry.get_node(slot)` на каждую сущность.
+
+Где side-table всё ещё уместен: **variable-length** данные, **дедуп/интернирование** (строки, id), **внешние identity** (wire-id, LOD grids). Но и они закрываются reference-компонентом (`REFCOUNTED`/`RESOURCE`) или int-компонентом (`NET_ID`) + **сервисом**-маппингом — без ключа-slot'а в SoA.
 
 ## String / Transform / RID
 
@@ -157,9 +158,9 @@ slots.set_component(entity, registry.acquire())
 
 ## Lifecycle (ответственность игры)
 
-1. **Bind** — intent или spawn: slot/ссылка в компоненте.
-2. **Sync** — система читает SoA, пишет в registry / Node / Server.
-3. **Release** — `INTENT_RELEASE` или вручную перед `destroy_entity`: `registry.release(slot)`.
+1. **Bind** — intent или spawn: `add_component(NODE)` + ссылка в компоненте (или сразу компонент в архетипе spawn'а).
+2. **Sync** — система читает SoA, пишет в Node / Server.
+3. **Release** — `INTENT_RELEASE` или вручную перед `destroy_entity`: `pool.release(node)` + `remove_component(NODE)`.
 4. **Destroy** — `destroy_entity` после освобождения ссылок.
 
 При удалении `Node` из сцены — gateway (`tree_exited` → intent или `destroy_entity`). ECS **не освобождает** `Node`/`Resource` автоматически: за lifecycle отвечает игра.
@@ -167,4 +168,4 @@ slots.set_component(entity, registry.acquire())
 ## Статус
 
 - Хранилища выбираются через `ECSComponent.Type`: packed, строгие value/reference (`Array[T]`) и generic `OBJECT`.
-- Объекты со сложным lifecycle (`Node`) — через slot + реестр и intent в игровом коде. Bridge-слой из 1.x **удалён** — см. [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).
+- Объекты со сложным lifecycle (`Node`) — через reference-компонент, Resource-сервис (пул) и intent в игровом коде. Bridge-слой из 1.x **удалён**; slot-реестры (`ECSNodeRegistry` + `*_SLOT`) **удалены в 2.5** — см. [MIGRATION.md](MIGRATION.md), [CHANGELOG.md](CHANGELOG.md).

@@ -2,6 +2,34 @@
 
 Этот документ покрывает API создания сущностей в `ECSManager`.
 
+## 2.5 — slot-реестры удалены
+
+Внешний объект хранится не как `Int32`-slot в side-table, а как **reference-компонент**: в SoA лежит сама ссылка (`ECSComponent.Type.NODE2D`).
+
+```gdscript
+# было (2.0)
+var registry: ECSNodeRegistry = dependencies.node_registry
+var slot: int = registry.acquire()                 # -1 = нет привязки
+slots.set_component(entity_id, slot)               # NODE_SLOT (PACKED_INT32)
+# ... и при sync: registry.get_node(slot)
+
+# стало (2.5)
+cb.add_component(entity_id, ExampleIntentIds.NODE)                                     # NODE2D
+cb.set_component_value(entity_id, ExampleIntentIds.NODE, dependencies.node_pool.acquire())
+```
+
+| Шаг | Было (slot + реестр) | Стало (reference-компонент) |
+|-----|----------------------|------------------------------|
+| Схема | `NODE_SLOT` (`PACKED_INT32`) + `INVALID_SLOT` (`-1` = нет) | `ExampleIntentIds.NODE` → `ECSComponent.Type.NODE2D` |
+| Зависимости | `dependencies.node_registry: ECSNodeRegistry` | `dependencies.node_pool: ECSNodePool` |
+| Bind | `registry.acquire()` → slot → `slots.set_component(...)` | `add_component(NODE)` + `set_component_value(NODE, pool.acquire())` |
+| Sync | `registry.get_node(slot)` на каждую сущность | ссылка из буфера компонента напрямую |
+| Release | `registry.release(slot)` + slot = `INVALID_SLOT` | `pool.release(node)` + `remove_component(NODE)` |
+| «Есть привязка» | не выражается через query (нужен `slot >= 0`) | `with_component(NODE)` / `without_component(NODE)` |
+| Сброс мира | `registry.clear()` | `pool.clear()` — сервис ядру неизвестен, `ecs.reset()` его не чистит |
+
+Удалено: `examples/registries/` (`ECSNodeRegistry`). Добавлено: `examples/services/ecs_node_pool.gd` (`ECSNodePool`). Переименовано: `ExampleRegistrySyncSystem` / `ExampleRegistrySyncStrategy` → `ExampleNodeSyncSystem` / `ExampleNodeSyncStrategy`.
+
 ## 2.2.1 — snake_case имён папок/файлов кодогенерации
 
 Папки и файлы сгенерированных компонентов переименованы в snake_case (`ECSComponent.file_slug()`): `generated/packedvector4/` → `generated/packed_vector4/`, `ecs_component_packed_vector4_array.gd`. Также `nodepath` → `node_path`, `stringname` → `string_name`, `packedscene` → `packed_scene`, `refcounted` → `ref_counted`. Имена классов (`ECSComponentPackedVector4Array`) **не меняются** — переименовываются только пути.
@@ -125,7 +153,7 @@ ecs.destroy_entities_packed(survivor_ids)
 
 ## 2.0 — Bridge layer removed (breaking)
 
-В **PGDECS 2.0** удалён весь bridge-слой. Это осознанный шаг: ядро остаётся SoA + systems + profile; связь с Node/RID/variable data — через **Intent-теги + Resource-реестры** в игровом коде. См. [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+В **PGDECS 2.0** удалён весь bridge-слой. Это осознанный шаг: ядро остаётся SoA + systems + profile; связь с Node/RID/variable data — через **Intent-теги + reference-компоненты (`NODE2D`, `RESOURCE`) и Resource-сервисы** в игровом коде. См. [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ### Удалённые классы
 
@@ -148,7 +176,7 @@ profile.system_strategies = [
 ]
 
 # стало (2.0) — игровой код
-# Resource-реестры через @export в ECSSystemStrategy (ExampleEcsDependencies)
+# Resource-сервисы через @export в ECSSystemStrategy (ExampleEcsDependencies)
 # Intent-теги: INTENT_BIND_*, INTENT_RELEASE, INTENT_DESTROY
 # Системы: bind → sync → release → destroy sweep
 # См. ecs/examples/intent/example_intent_world_profile.gd и INTENT_PIPELINE.md
@@ -158,11 +186,11 @@ profile.system_strategies = [
 
 | 1.x | 2.0 |
 |-----|-----|
-| `BRIDGE_TYPE` + `BRIDGE_HANDLE` | `*_SLOT` (Int32) на домен |
+| `BRIDGE_TYPE` + `BRIDGE_HANDLE` | reference-компонент на домен (`NODE2D`, `NODE`, `RESOURCE`) |
 | `TAG_BRIDGE_PENDING_ACQUIRE` | `INTENT_BIND_*` |
 | `TAG_BRIDGE_PENDING_RELEASE` | `INTENT_RELEASE` |
 | `ECSBridgeOrchestratorSystem` | `ExampleBindIntentSystem` + `ExampleReleaseIntentSystem` |
-| `ECSBridgeSyncSystem` | `ExampleRegistrySyncSystem` (игра) |
+| `ECSBridgeSyncSystem` | `ExampleNodeSyncSystem` (игра) |
 | `bridge_registry_strategy` | `@export dependencies: ExampleEcsDependencies` |
 
 Историческая заметка: в 1.x до bridge существовали `ECSVisual*` / `visual_registry_strategy` — они были удалены ранее.

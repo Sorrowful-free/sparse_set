@@ -11,14 +11,13 @@ func _init(ecs: ECSManager, dependencies: ExampleEcsDependencies) -> void:
 		.build(ecs)
 
 func process_system(_delta: float) -> void:
-	if _dependencies == null or _dependencies.node_registry == null:
-		return
-	var ecs: ECSManager = get_ecs_manager()
-	var slots: ECSComponentPackedInt32Array = ecs.get_component_array(ExampleIntentIds.NODE_SLOT)
-	if slots == null:
+	if _dependencies == null or _dependencies.node_pool == null:
 		return
 	var cb: ECSCommandBuffer = get_command_buffer()
 	for entity_id: int in _query.get_entity_ids():
-		var slot: int = _dependencies.node_registry.acquire()
-		slots.set_component(entity_id, slot)
+		var node: Node2D = _dependencies.node_pool.acquire()
+		# Bind = структурное появление reference-компонента со ссылкой.
+		# «Есть нода» становится выразимо через with_component(NODE).
+		cb.add_component(entity_id, ExampleIntentIds.NODE)
+		cb.set_component_value(entity_id, ExampleIntentIds.NODE, node)
 		cb.remove_component(entity_id, ExampleIntentIds.INTENT_BIND_NODE)

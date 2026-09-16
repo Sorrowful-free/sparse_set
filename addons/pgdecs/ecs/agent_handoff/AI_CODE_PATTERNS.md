@@ -217,8 +217,9 @@ func process_chunk(...):
 use_worker_pool = true
 parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
 
-# ПЛОХО: дублировать handle/slot вне SoA или забыть release перед destroy
-# slot только в *_SLOT; release через INTENT_RELEASE + release system или вручную в той же фазе
+# ПЛОХО: хранить ссылку вне ECS (свой slot/int-ключ) или забыть release перед destroy
+# Ссылка — в reference-компоненте (NODE2D/RESOURCE); release — INTENT_RELEASE + release system
+# (или вручную в той же фазе). Slot-реестры (*_SLOT, ECSNodeRegistry) удалены.
 ```
 
 ---
@@ -260,6 +261,10 @@ func spawn_horde(buf: ECSCommandBuffer, count: int) -> PackedInt64Array:
 | Bootstrap | отдельный `ECSCommandBuffer` + `execute()` после spawn |
 | Из системы | `spawn_batch(get_command_buffer(), n)` — **не** вызывать `execute()` в системе |
 
+**Reference-дефолты — на инстанс.** `build_default_values()` кладёт **одну и ту же** ссылку всем заспавненным сущностям: для `REFCOUNTED`/`RESOURCE` это шаринг мутабельного состояния. Создавайте новый instance в `apply_instance()` (или `duplicate(true)`).
+
+**Ноды — через bindings.** `build_node_bindings()` описывает `component_id` → `PackedScene`; `component_id` попадает в архетип автоматически, binding без сцены — no-op. `spawn_one_bound(buf, host)` / `spawn_batch_bound(buf, count, host)` создают по инстансу **на сущность** (шарения нет) и кладут ссылку в компонент в том же буфере. Только main thread, **не** в `process_chunk`. Эталон: [`example_node_binding_blueprint.gd`](../examples/schema/example_node_binding_blueprint.gd).
+
 ```gdscript
 # ПЛОХО: прямой create / set_component в gameplay
 ecs.create_entity_packed(...)
@@ -284,16 +289,16 @@ world.apply_profile(profile)  # повторный вызов игнорируе
 # Компоненты: одна ECSComponentRegistryStrategy на profile
 profile.component_registry_strategy = MyComponentsStrategy.new()
 
-# Intent pipeline: dependencies Resource + stub/example systems в system_strategies
+# Intent pipeline: dependencies — это Resource-СЕРВИСЫ (пул/фабрика), а не хранилища per-entity
 var deps := ExampleEcsDependencies.new()
-deps.node_registry = MyNodeRegistry.new()
+deps.node_pool = my_node_pool
 var bind := ExampleBindIntentStrategy.new()
 bind.dependencies = deps
 bind.run_group = &"frame"
 # Альтернатива: @export dependencies на GameEcsWorldProfile → проброс в strategies в _init()
 profile.system_strategies.append_array([
     bind,
-    ExampleRegistrySyncStrategy.new(),
+    ExampleNodeSyncStrategy.new(),
     ExampleReleaseIntentStrategy.new(),
     ExampleDestroySweepStrategy.new(),
 ])
@@ -312,16 +317,19 @@ buf.execute()
 См. [INTENT_PIPELINE.md](../INTENT_PIPELINE.md).
 
 ```gdscript
-# Spawn: entity + NODE_SLOT (-1) + INTENT_BIND_NODE
+# Spawn: entity + INTENT_BIND_NODE (сам NODE появится в bind)
 buf.add_component(entity_id, INTENT_BIND_NODE)
 
-# Destroy: release slot, затем destroy
+# Bind system: pool.acquire() -> add_component(NODE) + set_component_value(NODE, node)
+# Sync system: читает POSITION + NODE -> пишет в Node/RID
+
+# Destroy: release, затем destroy
 buf.add_component(entity_id, INTENT_RELEASE)
-# release system: registry.release(slot); remove INTENT_RELEASE; add INTENT_DESTROY
+# release system: pool.release(node); remove_component(NODE); remove INTENT_RELEASE
 # destroy sweep: buf.destroy_entity(entity_id)
 
 # Ручной release (bootstrap / тест):
-deps.node_registry.release(slot)
+deps.node_pool.release(node)
 buf.destroy_entity(entity_id)
 ```
 

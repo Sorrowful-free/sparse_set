@@ -22,9 +22,9 @@
 | ECSComponentRegistryStrategy | Схема ECS: `get_tags()`, `get_components()` (одна на profile) |
 | ECSSystemStrategy, ECSComponentRegistryStrategy, ECSWorldProfile | Профиль мира и стратегии |
 | `INTENT_*` | Intent-теги (marker): bind / release / destroy |
-| `*_SLOT` | Slot-компонент (Int32): индекс в Resource-реестре, `-1` = нет |
-| `*Registry` (игра) | Resource side-table вне ECS, напр. `ECSNodeRegistry` |
-| `*EcsDependencies` | Resource-контейнер реестров для strategies (см. ниже) |
+| Reference-компонент (`NODE2D`) | В SoA лежит сама ссылка на внешний объект (`ECSComponent.Type.NODE2D`), без int-slot |
+| `*Pool` / `*Service` (игра) | Resource-**сервис** вне ECS (не реестр), напр. `ECSNodePool`: `acquire()` / `release(node)` |
+| `*EcsDependencies` | Resource-контейнер сервисов для strategies (см. ниже) |
 | ECSEntityIdsPool, ECSEntityIdsUtils | Пул и утилиты ID |
 | ECSBitMask, ECSBitMaskOperations | Битовые маски |
 | ECSComponent | enum `Type` — типы хранилищ компонентов (packed / value / reference) |
@@ -41,7 +41,7 @@
 
 ---
 
-## Зависимости и реестры в игре
+## Зависимости и сервисы в игре
 
 Один паттерн — разные имена по слою:
 
@@ -51,9 +51,9 @@
 | Игра (общий bag) | `GameEcsDependencies` | `scripts/ecs/dependencies/` |
 | Игра (модуль) | `R_<Module>Dependencies` | `R_LodDependencies`, `R_NetworkDependencies` |
 
-`ExampleEcsDependencies` и `GameEcsDependencies` — те же идеи: `extends Resource`, `@export` на реестры/settings, инжект в `ECSSystemStrategy.dependencies`. В доменных модулях принят префикс **`R_`** (Godot Resource) и **один bag на модуль**, не один глобальный на весь ECS.
+`ExampleEcsDependencies` и `GameEcsDependencies` — те же идеи: `extends Resource`, `@export` на сервисы/settings, инжект в `ECSSystemStrategy.dependencies`. В доменных модулях принят префикс **`R_`** (Godot Resource) и **один bag на модуль**, не один глобальный на весь ECS.
 
-Реестры (`*Registry`) — side-table; API может быть slot-based (`acquire` / `release`) или handle-based (`get_or_register` / `unregister` по wire-id) — см. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+Сервисы (`*Pool` / `*Service`) — не хранилища per-entity данных: контракт обычно выдающе-возвратный (`acquire` / `release(node)`) или handle-based (`get_or_register` / `unregister` по wire-id). Per-entity данные живут в компонентах — reference-компонент (`NODE2D`) или `int` id; см. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ---
 

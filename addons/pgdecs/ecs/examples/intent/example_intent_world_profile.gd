@@ -3,7 +3,7 @@ class_name ExampleIntentWorldProfile
 
 ## Пример profile: intent pipeline в run_group=frame (порядок strategies = порядок систем).
 ## [member dependencies] на profile — wiring для inspector (игровой слой); ядро ECSWorldProfile этого не объявляет.
-## Назначьте subresource ExampleEcsDependencies + ECSNodeRegistry в inspector.
+## Назначьте subresource ExampleEcsDependencies (+ ECSNodePool с node_scene) в inspector.
 
 @export var dependencies: ExampleEcsDependencies
 
@@ -17,7 +17,7 @@ func _setup_intent_strategies() -> void:
 	bind.run_group = ECSSystemRunGroups.FRAME
 	bind.dependencies = dependencies
 
-	var sync := ExampleRegistrySyncStrategy.new()
+	var sync := ExampleNodeSyncStrategy.new()
 	sync.run_group = ECSSystemRunGroups.FRAME
 	sync.dependencies = dependencies
 

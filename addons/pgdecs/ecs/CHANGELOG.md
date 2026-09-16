@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.5.0] — 2026-09-16
+
+### Removed (breaking)
+
+- Slot-реестры (`*_SLOT` + Resource side-table) удалены: `ECSNodeRegistry` (каталог `examples/registries/`) и константы `NODE_SLOT` / `INVALID_SLOT` (`ExampleIntentIds`) больше не существуют.
+
+### Changed (breaking)
+
+- Внешние объекты — **reference-компонент**: `ExampleIntentIds.NODE` регистрируется как `ECSComponent.Type.NODE2D` (было `NODE_SLOT` как `PACKED_INT32`, `-1` = нет).
+- `ExampleEcsDependencies.node_registry: ECSNodeRegistry` → `node_pool: ECSNodePool`; release = `pool.release(node)` + `remove_component(NODE)`.
+- `ExampleRegistrySyncSystem` → `ExampleNodeSyncSystem`; `ExampleRegistrySyncStrategy` → `ExampleNodeSyncStrategy`.
+- Примеры: layout `examples/registries/` → `examples/services/`.
+- Наличие объекта выражается членством в архетипе (`with_component(NODE)` / `without_component(NODE)`): один источник правды (нет инварианта release между slot и side-table) и нет `registry.get_node(slot)` indirection.
+
+### Added
+
+- `ECSNodePool` (`examples/services/ecs_node_pool.gd`) — тонкий Resource-**сервис** (не реестр): `acquire() -> Node2D`, `release(node)`, `clear()`, `@export var node_scene: PackedScene`. Сервис ядру неизвестен — при `ecs.reset()` его `clear()` вызывает игровой код.
+- Нод-биндинг в blueprint: `ECSEntityBlueprint.build_node_bindings()` + `ECSBlueprintNodeBinding` (`config/ecs_blueprint_node_binding.gd`); `spawn_one_bound` / `spawn_batch_bound(buf, count, host)` — по инстансу на сущность, `component_id` из bindings добавляются в архетип автоматически, binding без сцены — no-op. Пример: `examples/schema/example_node_binding_blueprint.gd`, схема `examples/schema/example_node_component_registry.gd`.
+
+### Documentation
+
+- NAMING, DESIGN, MIGRATION: slot-реестры заменены на reference-компонент + Resource-сервис.
+
+### Migration
+
+См. [MIGRATION.md](MIGRATION.md#25--slot-реестры-удалены).
+
 ## [2.4.0]
 
 ### Breaking

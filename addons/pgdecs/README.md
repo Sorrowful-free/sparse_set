@@ -79,7 +79,7 @@ buf.destroy_entities_packed(batch_ids)
 - **[FRAMEWORK.md](ecs/FRAMEWORK.md)** — полное руководство (API, системы, query); секции [структура каталогов](ecs/FRAMEWORK.md#структура-каталогов) и [layout модуля в игре](ecs/FRAMEWORK.md#layout-модуля-в-игре)
 - [DESIGN.md](ecs/DESIGN.md) — архитектурные решения, чанки, membership
 - [PERFORMANCE.md](ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
-- **[INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md)** — Intent-теги + Resource-реестры (v2.0)
+- **[INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md)** — Intent-теги + reference-компоненты + Resource-сервисы (v2.0)
 - **[CHANGELOG.md](ecs/CHANGELOG.md)** — история версий
 - [OBJECT_COMPONENTS.md](ecs/OBJECT_COMPONENTS.md) — типы хранилищ, строгие value/reference-компоненты, Node/String/RID
 - [MIGRATION.md](ecs/MIGRATION.md) — внешний API и миграция 2.0

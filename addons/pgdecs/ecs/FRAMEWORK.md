@@ -195,7 +195,7 @@ chunk.get_value_at_slot(slot)
 - Value-типы через `Array[T]` — `BOOL`, `INT`, `FLOAT`, `AABB`, `RECT2`, `BASIS`, `PLANE`, `TRANSFORM2D`/`TRANSFORM3D`, `QUATERNION`, `VECTOR2`/`VECTOR3`/`VECTOR4`, `VECTOR2I`/`VECTOR3I`/`VECTOR4I`, `COLOR`, `STRINGNAME`, `STRING`, `NODEPATH`, `RID`.
 - У части типов есть и packed, и `Array[T]` вариант (`PACKED_VECTOR2` ↔ `VECTOR2`, `PACKED_COLOR` ↔ `COLOR`, `PACKED_STRING` ↔ `STRING`, `PACKED_INT32` ↔ `INT`, …). Для горячих данных — `PACKED_*`; строки-пулы — `int` id снаружи ECS.
 - Reference-типы напрямую в ECS — `OBJECT`, `NODE`, `NODE2D`, `NODE3D`, `RESOURCE`, `PACKED_SCENE`, `REF_COUNTED` (буфер `Array[T]`, default `null`); значения по ссылке, для копии — `duplicate(true)`.
-- `Node` / `Resource` со сложным lifecycle — slot + реестр. Подробнее: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
+- `Node` / `Resource` со сложным lifecycle — reference-компонент (`NODE2D` / `NODE`) + Resource-**сервис** (пул/фабрика). Подробнее: [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md).
 
 ### Tags (marker-компоненты)
 
@@ -413,7 +413,7 @@ buf.execute()  # вызывается раннером автоматическ�
 
 `ECSWorld` создаёт `ECSManager`, `ECSSystemRunner` и `ECSSystemScheduler` из `profile`. `_physics_process` — группы с hook `PHYSICS_PROCESS`; `_process` — группы `PROCESS`, затем `flush_manual_command_buffers`, `flush_archetype_gc_if_pending`. Повторный `apply_profile` игнорируется. `reset_world()` очищает менеджер, системы и сбрасывает флаг profile — для reload сцены.
 
-Внешние данные со сложным lifecycle (Node в сцене, RID, variable arrays) — через intent-теги + Resource-реестры в игровых системах. Ссылочные значения можно хранить и напрямую (`NODE`/`RESOURCE`/…): см. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
+Внешние данные со сложным lifecycle (Node в сцене, RID, variable arrays) — через intent-теги + reference-компоненты и Resource-сервисы в игровых системах. Ссылочные значения лежат в SoA напрямую (`NODE`/`NODE2D`/`RESOURCE`/…): см. [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md), [INTENT_PIPELINE.md](INTENT_PIPELINE.md).
 
 ---
 
@@ -431,7 +431,7 @@ buf.execute()  # вызывается раннером автоматическ�
 
 **Зависимости и ядро:** [`ECSWorldProfile`](config/ecs_world_profile.gd) **не знает** про `dependencies` — это поле только в **игровом** наследнике profile (удобство inspector + один subresource на сцену). В runtime зависимости попадают в системы через `@export` в [`ECSSystemStrategy`](config/ecs_system_strategy.gd) (напрямую или проброс из `GameEcsWorldProfile._init()`).
 
-Игровые `Resource`-реестры живут вне SoA; контейнер — `ExampleEcsDependencies` / `GameEcsDependencies` / `R_<Module>Dependencies` (см. [NAMING.md](NAMING.md)).
+Игровые `Resource`-сервисы живут вне SoA; контейнер — `ExampleEcsDependencies` / `GameEcsDependencies` / `R_<Module>Dependencies` (см. [NAMING.md](NAMING.md)).
 
 Spawn и precache архетипов — через blueprint или `prepare_archetype` / `create_entities_packed` в коде игры, не в `ECSWorldProfile`.
 
@@ -452,6 +452,13 @@ func build_component_ids() -> PackedInt64Array:
 func build_default_values() -> Dictionary:
     return { MyComponents.HEALTH: 100 }
 
+# Ноды: component_id добавляются в архетип автоматически
+func build_node_bindings() -> Array[ECSBlueprintNodeBinding]:
+    return [
+        ECSBlueprintNodeBinding.of(MyComponents.VISUAL, sprite_scene),
+        ECSBlueprintNodeBinding.of(MyComponents.BODY, body_scene),
+    ]
+
 # Сложная логика: override apply_defaults, super — для dict из build_default_values
 ```
 
@@ -459,29 +466,37 @@ func build_default_values() -> Dictionary:
 |-------|--------|
 | `build_component_ids()` | состав архетипа (abstract) |
 | `build_default_values()` | статические дефолты `{ component_id: value }` |
+| `build_node_bindings()` | `component_id` → `PackedScene`: как создаётся нода |
 | `apply_defaults(buf, entity_id)` | dict + опционально `super` / кастом |
 | `spawn_one(buf)` | одна сущность; temp id до execute |
 | `spawn_batch(buf, count)` | батч create + `apply_instance` на temp ids в том же буфере |
+| `spawn_one_bound(buf, host)` | то же + инстансы нод из bindings |
+| `spawn_batch_bound(buf, count, host)` | батч + по инстансу ноды на каждую сущность |
+| `apply_node_bindings(buf, ids, host)` | только инстансы нод + `set_component_value` |
 | `apply_instance(buf, entity_id, index)` | только `buf.set_component_value` |
 
 Bootstrap и системы: один буфер на кадр/фазу — create + set, затем `execute()` (runner или вручную).
 
-Пример: [`examples/schema/example_mover_blueprint.gd`](examples/schema/example_mover_blueprint.gd).
+**Bindings нод.** `build_node_bindings()` описывает, из какой `PackedScene` создаётся нода и в какой reference-компонент она кладётся. `component_id` из bindings попадают в архетип автоматически; binding без сцены — no-op (компонент не добавляется). `spawn_*_bound(buf, host)` инстансирует по ноде **на сущность** (шарения нет) и кладёт ссылку в буфер — сущность создаётся уже с нодами, окна «сущность без ноды» нет. `host` — узел, к которому добавляются ноды (может быть `null`). Это **main thread** и вне `process_chunk`: создание нод — операция над деревом сцены. Для ленивой привязки (LOD/стриминг) — intent-теги (ниже).
+
+Пример: [`examples/schema/example_mover_blueprint.gd`](examples/schema/example_mover_blueprint.gd) (данные), [`examples/schema/example_node_binding_blueprint.gd`](examples/schema/example_node_binding_blueprint.gd) (ноды).
 
 ---
 
 ## Intent pipeline и внешние данные
 
-В **PGDECS 2.0** связь ECS с Godot (Node, RID, nav paths и т.д.) — ответственность игры, не ядра:
+В **PGDECS 2.0** связь ECS с Godot (Node, RID, nav paths и т.д.) — ответственность игры, не ядра (slot-реестры удалены в **2.5**):
 
 | Элемент | Роль |
 |---------|------|
-| `*_SLOT` (Int32) | индекс в Resource-реестре, `-1` = нет привязки |
-| `INTENT_BIND_*` | marker: нужно acquire в registry |
-| `INTENT_RELEASE` | marker: release slot перед destroy |
+| Reference-компонент (`NODE2D`) | ссылка в SoA; «нет привязки» — нет компонента |
+| `INTENT_BIND_*` | marker: нужно `acquire` из Resource-сервиса |
+| `INTENT_RELEASE` | marker: release ноды перед destroy |
 | `INTENT_DESTROY` | marker: готово к `destroy_entity` после release |
-| `Resource` registry | side-table вне SoA (`acquire` / `release`) |
-| `ExampleEcsDependencies` | контейнер `@export` реестров для strategies |
+| Resource-сервис (`ECSNodePool`) | вне SoA: `acquire()` / `release(node)` / `clear()` |
+| `ExampleEcsDependencies` | контейнер `@export` сервисов для strategies (`node_pool`) |
+
+Присутствие ноды — это членство в архетипе (`with_component(NODE)` / `without_component(NODE)`): источник правды один, индирекция `registry.get_node(slot)` в sync-системах не нужна, а bind/release — структурные изменения (`add_component` / `remove_component`). При `reset_world()` вызовите `clear()` у сервиса-пула в игровом коде: `ecs.reset()` очищает компонентные чанки (включая reference) сам, но сервис ядру неизвестен.
 
 Порядок систем в кадре (пример): **Bind → Sync → Release → DestroySweep** — см. [`examples/intent/example_intent_world_profile.gd`](examples/intent/example_intent_world_profile.gd).
 
@@ -534,7 +549,7 @@ examples/
 ├── schema/                 # registry ids, profiles, blueprints
 ├── intent/                 # bind → sync → release → destroy sweep
 ├── dependencies/           # ExampleEcsDependencies
-└── registries/             # ECSNodeRegistry и др. side-tables
+└── services/               # ECSNodePool и др. Resource-сервисы
 ```
 
 В `intent/` **systems и strategies в одной папке** — сжато для наглядности аддона. В игре держите [`systems/`](#layout-модуля-в-игре) и `strategies/` раздельно.
@@ -548,7 +563,7 @@ scripts/ecs/
 ├── bootstrap/
 ├── config/                 # GameEcsComponentRegistry, GameEcsWorldProfile
 ├── dependencies/           # один GameEcsDependencies (.tres)
-├── registries/
+├── services/
 ├── blueprints/
 ├── systems/
 └── strategies/
@@ -563,7 +578,7 @@ scripts/ecs/
 ├── common/                 # shared utils, ids
 ├── lod/
 │   ├── dependencies/       # R_LodDependencies
-│   ├── registries/         # опционально, только для lod
+│   ├── services/           # опционально, только для lod
 │   ├── systems/
 │   └── strategies/
 ├── navigation/
@@ -579,8 +594,8 @@ scripts/ecs/
 
 | Папка | Содержимое |
 |-------|------------|
-| `dependencies/` | `R_<Module>Dependencies` — bag реестров и settings для strategies модуля |
-| `registries/` | side-tables, если не shared на корне |
+| `dependencies/` | `R_<Module>Dependencies` — bag сервисов и settings для strategies модуля |
+| `services/` | Resource-сервисы, если не shared на корне |
 | `systems/` | `ECSSystemChunkBase` / `ECSSystemBase` |
 | `strategies/` | `ECSSystemStrategy`, `@export var dependencies: R_<Module>Dependencies` |
 
@@ -588,7 +603,7 @@ scripts/ecs/
 
 **Profile как wiring hub (игра):** наследник `ECSWorldProfile` может держать `@export var lod_dependencies: R_LodDependencies` и в `_init()` / `_setup_strategies()` присваивать `strategy.dependencies = lod_dependencies`. Ядро PGDECS этого не требует и не объявляет — это слой игры.
 
-Именование контейнеров: [NAMING.md](NAMING.md#зависимости-и-реестры-в-игре).
+Именование контейнеров: [NAMING.md](NAMING.md#зависимости-и-сервисы-в-игре).
 
 ---
 
@@ -598,8 +613,8 @@ scripts/ecs/
 |----------|------------|
 | [DESIGN.md](DESIGN.md) | архитектурные решения, история фаз |
 | [PERFORMANCE.md](PERFORMANCE.md) | оптимизации, бенчмарки, change detection |
-| [INTENT_PIPELINE.md](INTENT_PIPELINE.md) | intent-теги, Resource-реестры, lifecycle (v2.0) |
-| [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md) | Node/String/RID через slot + registry |
+| [INTENT_PIPELINE.md](INTENT_PIPELINE.md) | intent-теги, reference-компоненты, Resource-сервисы, lifecycle (v2.0) |
+| [OBJECT_COMPONENTS.md](OBJECT_COMPONENTS.md) | Node/String/RID через reference-компонент + Resource-сервис |
 | [MIGRATION.md](MIGRATION.md) | внешний vs packed API; миграция 2.0 |
 | [tests/README.md](tests/README.md) | запуск тестов и perf multirun |
 | [agent_handoff/](agent_handoff/README.md) | шаблоны для Composer / CI gates |
