@@ -2,9 +2,16 @@
 
 Этот файл **переезжает вместе с аддоном**. Cursor подхватывает `AGENTS.md` в подпапках при работе с файлами внутри `addons/pgdecs/`.
 
-Полные паттерны: [`ecs/agent_handoff/AI_CODE_PATTERNS.md`](ecs/agent_handoff/AI_CODE_PATTERNS.md)  
-Архитектура: [`ecs/FRAMEWORK.md`](ecs/FRAMEWORK.md)  
-Intent + reference-компоненты: [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md)
+**Начинать с [`CHEATSHEET.md`](CHEATSHEET.md)** — рабочий минимум API на одной странице (~1 800 токенов), покрывает ~90% обращений. Файлы ниже открывать, **только если нужного в шпаргалке нет**: каждый из них остаётся в контексте до конца треда.
+
+| Когда шпаргалки не хватило | Файл | Размер |
+| --- | --- | --- |
+| Паттерны генерации систем | [`ecs/agent_handoff/AI_CODE_PATTERNS.md`](ecs/agent_handoff/AI_CODE_PATTERNS.md) | ~6 100 |
+| Архитектура фреймворка | [`ecs/FRAMEWORK.md`](ecs/FRAMEWORK.md) | ~11 600 |
+| Intent + reference-компоненты | [`ecs/INTENT_PIPELINE.md`](ecs/INTENT_PIPELINE.md) | — |
+| Проектные решения | [`ecs/DESIGN.md`](ecs/DESIGN.md) | ~12 900 |
+
+За один тред открывать **не больше одного** файла из таблицы.
 
 ---
 
