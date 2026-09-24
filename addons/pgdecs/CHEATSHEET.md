@@ -19,10 +19,10 @@ func build_query() -> ECSQuery:
 		.build(get_ecs_manager())
 
 func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
-	var foo := chunk.get_component_chunk(MyWorld.Component.FOO) as ECSComponentFooArrayChunk
+	var foo : ECSComponentFooArrayChunk = chunk.get_component_chunk(MyWorld.Component.FOO)
 	if foo == null:
 		return
-	var values := foo.get_values_buffer()
+	var values : Array[Foo] = foo.get_values_buffer()
 	for i in chunk.get_entity_count():
 		values[i] = ...   # мутация значений — можно прямо здесь
 ```
@@ -36,15 +36,15 @@ func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
 ```gdscript
 # Фрагмент одноразовой bootstrap-системы: POSITION / VISUAL / PACKED_SCENE — id из реестра.
 # _root_node задан заранее; корень PackedScene должен быть Node3D.
-var positions := chunk.get_component_chunk(POSITION) as ECSComponentVector3ArrayChunk
-var visuals := chunk.get_component_chunk(VISUAL) as ECSComponentNode3DArrayChunk
-var scenes := chunk.get_component_chunk(PACKED_SCENE) as ECSComponentPackedSceneArrayChunk
-var position_values := positions.get_values_buffer()
-var visual_values := visuals.get_values_buffer()
-var scene_values := scenes.get_values_buffer()
+var positions : ECSComponentVector3ArrayChunk = chunk.get_component_chunk(POSITION)
+var visuals : ECSComponentNode3DArrayChunk = chunk.get_component_chunk(VISUAL)
+var scenes : ECSComponentPackedSceneArrayChunk = chunk.get_component_chunk(PACKED_SCENE)
+var position_values : Array[Vector3] = positions.get_values_buffer()
+var visual_values : Array[Node3D] = visuals.get_values_buffer()
+var scene_values : Array[PackedScene] = scenes.get_values_buffer()
 
 for i in chunk.get_entity_count():
-	var node := scene_values[i].instantiate() as Node3D
+	var node : Node3D = scene_values[i].instantiate()
 	if node == null:
 		continue
 	node.position = position_values[i]

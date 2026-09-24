@@ -21,30 +21,6 @@ var _cached_node_bindings: Array[ECSBlueprintNodeBinding] = []
 func build_default_values() -> Dictionary:
 	return {}
 
-## Привязки нод: какой reference-компонент получает инстанс [PackedScene].
-## Переопредели, чтобы blueprint описывал и создание нод (см. [method spawn_one_bound]).
-## Корень сцены обязан совпадать с типом хранилища компонента (`NODE3D` → `Node3D`).
-func build_node_bindings() -> Array[ECSBlueprintNodeBinding]:
-	return []
-
-func get_node_bindings() -> Array[ECSBlueprintNodeBinding]:
-	if _cached_node_bindings.is_empty():
-		_cached_node_bindings = build_node_bindings()
-	return _cached_node_bindings
-
-## component_id из [method build_node_bindings] добавляются в архетип автоматически:
-## иначе binding писал бы значение в компонент вне членства (рассинхрон архетипа и чанка).
-## Binding без сцены ([method ECSBlueprintNodeBinding.is_active]) — no-op.
-func get_component_ids() -> PackedInt64Array:
-	if _cached_component_ids.is_empty():
-		var ids: PackedInt64Array = build_component_ids()
-		for binding: ECSBlueprintNodeBinding in get_node_bindings():
-			if binding == null or not binding.is_active() or ids.has(binding.component_id):
-				continue
-			ids.append(binding.component_id)
-		_cached_component_ids = ids
-	return _cached_component_ids
-
 func get_archetype(ecs: ECSManager) -> PackedInt64Array:
 	if _cached_archetype.is_empty():
 		_cached_archetype = ecs.prepare_archetype(get_component_ids())
@@ -74,45 +50,6 @@ func spawn_one(buf: ECSCommandBuffer) -> int:
 ## Алиас [method spawn_batch] при count == 1.
 func spawn(buf: ECSCommandBuffer, count: int = 1) -> PackedInt64Array:
 	return spawn_batch(buf, count)
-
-## Spawn + [method apply_node_bindings] в **одном** буфере: сущность создаётся уже с нодами
-## (окна «сущность без ноды» нет — create и set применяются на `execute()` подряд).
-## [param host] — узел, к которому добавляются созданные ноды (может быть `null`).
-## **Main thread**, вне `process_chunk`: создание нод — операция над деревом сцены.
-func spawn_batch_bound(buf: ECSCommandBuffer, count: int, host: Node = null) -> PackedInt64Array:
-	var entity_ids: PackedInt64Array = spawn_batch(buf, count)
-	apply_node_bindings(buf, entity_ids, host)
-	return entity_ids
-
-func spawn_one_bound(buf: ECSCommandBuffer, host: Node = null) -> int:
-	var entity_ids: PackedInt64Array = spawn_batch_bound(buf, 1, host)
-	if entity_ids.is_empty():
-		return 0
-	return entity_ids[0]
-
-## Создаёт по инстансу **на сущность** для каждой [method build_node_bindings] и кладёт его
-## в компонент через буфер ([method ECSCommandBuffer.set_component_value]).
-## Инстансы не шарятся между сущностями — в отличие от ссылок в [method build_default_values].
-func apply_node_bindings(
-	buf: ECSCommandBuffer, entity_ids: PackedInt64Array, host: Node = null
-) -> void:
-	var bindings: Array[ECSBlueprintNodeBinding] = get_node_bindings()
-	if bindings.is_empty():
-		return
-	if not Thread.is_main_thread():
-		push_error("ECSEntityBlueprint.apply_node_bindings: requires main thread")
-		return
-	for i in range(entity_ids.size()):
-		var entity_id: int = entity_ids[i]
-		if entity_id == 0:
-			continue
-		for binding: ECSBlueprintNodeBinding in bindings:
-			if binding == null or not binding.is_active():
-				continue
-			var node: Node = binding.instantiate(host)
-			if node == null:
-				continue
-			buf.set_component_value(entity_id, binding.component_id, node)
 
 func apply_instances(buf: ECSCommandBuffer, entity_ids: PackedInt64Array) -> void:
 	for i in range(entity_ids.size()):
