@@ -36,7 +36,7 @@ runner.add_system(MyMovementSystem.new(ecs))
 runner.run(delta)
 ```
 
-`ECSWorld` нужен, когда хотите `@export profile`, scheduler и системы через `system_strategies`. Внешние данные (Node, пулы) — [INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md), не в ядре.
+`ECSWorld` нужен, когда хотите `@export profile`, scheduler и системы через `system_strategies`. Внешние данные и сервисы — [INTENT_PIPELINE.md](ecs/INTENT_PIPELINE.md); создание игровых нод из сцен показано в примере ниже.
 
 ## API
 
@@ -73,6 +73,12 @@ buf.create_entity_packed(player_arch)
 buf.destroy_entities([id_a, id_b])
 buf.destroy_entities_packed(batch_ids)
 ```
+
+## Создание нод из PackedScene
+
+Для сущностей, которым нужна нода, храните `PackedScene` в компоненте типа `ECSComponent.Type.PACKED_SCENE`. Система выбирает такие сущности запросом, создаёт ноду из сцены и добавляет её в подходящий узел сцены. Это оставляет описание сцены в данных сущности, а создание и подключение ноды — в системе, без специального node-binding blueprint API.
+
+Пример: [example_instantiate_node_system.gd](ecs/examples/node_entities/example_instantiate_node_system.gd) и [реестр его компонентов](ecs/examples/schema/example_instantiate_node_component_registry.gd).
 
 ## Документация
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.1] — 2026-09-24
+
+### Removed
+
+- Удалены `ECSBlueprintNodeBinding` и пример `example_node_binding_blueprint.gd`: создание нод больше не настраивается через bindings в entity blueprint.
+
+### Added
+
+- Пример создания нод из `PackedScene`, хранящихся в компоненте `ECSComponent.Type.PACKED_SCENE`: `examples/node_entities/example_instantiate_node_system.gd` и `examples/schema/example_instantiate_node_component_registry.gd`.
+
+### Documentation
+
+- README описывает создание нод в системе на основе `PackedScene`-компонента вместо node-binding blueprint API.
+
 ## [2.5.0] — 2026-09-16
 
 ### Removed (breaking)
