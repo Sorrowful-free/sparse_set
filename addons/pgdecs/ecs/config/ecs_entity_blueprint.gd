@@ -11,7 +11,6 @@ class_name ECSEntityBlueprint extends Resource
 
 var _cached_component_ids: PackedInt64Array = PackedInt64Array()
 var _cached_archetype: PackedInt64Array = PackedInt64Array()
-var _cached_node_bindings: Array[ECSBlueprintNodeBinding] = []
 
 ## Нормализованный набор component id (без тегов-only если не нужны в архетипе).
 @abstract func build_component_ids() -> PackedInt64Array
@@ -23,20 +22,19 @@ func build_default_values() -> Dictionary:
 
 func get_archetype(ecs: ECSManager) -> PackedInt64Array:
 	if _cached_archetype.is_empty():
-		_cached_archetype = ecs.prepare_archetype(get_component_ids())
+		_cached_archetype = ecs.prepare_archetype(build_component_ids())
 	return _cached_archetype
 
 func invalidate_cache() -> void:
 	_cached_component_ids = PackedInt64Array()
 	_cached_archetype = PackedInt64Array()
-	_cached_node_bindings = []
 
 ## Batch: create_entities_packed + [method apply_instance] на каждый temp id в том же буфере.
 func spawn_batch(buf: ECSCommandBuffer, count: int) -> PackedInt64Array:
 	if count <= 0:
 		return PackedInt64Array()
 	get_archetype(buf.get_ecs_manager())
-	var entity_ids: PackedInt64Array = buf.create_entities_packed(count, get_component_ids())
+	var entity_ids: PackedInt64Array = buf.create_entities_packed(count, build_component_ids())
 	apply_instances(buf, entity_ids)
 	return entity_ids
 

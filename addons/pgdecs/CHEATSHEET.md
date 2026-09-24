@@ -12,47 +12,144 @@
 extends ECSSystemChunkBase
 class_name MySystem
 
+
 func build_query() -> ECSQuery:
 	return ECSQueryBuilder.new()\
 		.with_component(MyWorld.Component.FOO)\
-		.with_component(MyWorld.Component.BAR)\
 		.build(get_ecs_manager())
 
+
 func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
-	var foo : ECSComponentFooArrayChunk = chunk.get_component_chunk(MyWorld.Component.FOO)
-	if foo == null:
+	var foo_chunk: ECSComponentFloat32ArrayChunk = chunk.get_component_chunk(
+		MyWorld.Component.FOO
+	) as ECSComponentFloat32ArrayChunk
+	if foo_chunk == null:
 		return
-	var values : Array[Foo] = foo.get_values_buffer()
-	for i in chunk.get_entity_count():
-		values[i] = ...   # мутация значений — можно прямо здесь
+
+	var slots: PackedInt32Array = chunk.get_dense_slots()
+	var foo_buf: PackedFloat32Array = foo_chunk.get_values_buffer()
+
+	for i: int in range(chunk.get_entity_count()):
+		var slot: int = slots[i]
+		foo_chunk.set_value_at_slot(slot, foo_buf[slot] + delta)
 ```
 
-`build_query()` и `process_chunk()` — `@abstract`. **Опечатка в сигнатуре = ошибка парсера, а не тихий no-op**, но линтер редактора её не покажет — судья только GUT.
+### ⚠ Буфер индексируется СЛОТОМ, а не `i`
+
+Самая частая ошибка. `get_values_buffer()` отдаёт **плотный массив архетипа
+целиком**, а не компактную выборку запроса. `i` — порядковый номер внутри чанка,
+`slots[i]` — настоящая позиция значения в буфере.
+
+```gdscript
+foo_buf[i]       # ❌ чужие данные или выход за границу
+foo_buf[slot]    # ✅
+```
+
+Писать так же: `set_value_at_slot(slot, value)`. Присваивание `foo_buf[slot] = x`
+мимо API — у Packed-массивов буфер копия, изменение потеряется.
+
+### Нужны id сущностей
+
+```gdscript
+	var entities: PackedInt64Array = chunk.get_dense_entities()
+	var slots: PackedInt32Array = chunk.get_dense_slots()
+	for i: int in range(chunk.get_entity_count()):
+		var entity_id: int = entities[i]
+		var slot: int = slots[i]
+```
+
+Оба массива идут в одном порядке: `i`-й элемент одного отвечает `i`-му другого.
+
+`build_query()` и `process_chunk()` — `@abstract`. **Опечатка в сигнатуре = ошибка
+парсера, а не тихий no-op**, но линтер её не покажет — судья только GUT.
+
+## Система без чанков — `process_system`
+
+Когда чанки не нужны: массовое уничтожение, разовое действие над результатом
+запроса, работа с командным буфером.
+
+```gdscript
+extends ECSSystemBase
+class_name MySweepSystem
+
+var _query: ECSQuery
+
+
+func _init(ecs_manager: ECSManager) -> void:
+	super(ecs_manager)
+	_query = ECSQueryBuilder.new()\
+		.with_component(MyWorld.Tag.DOOMED)\
+		.build(ecs_manager)
+
+
+func process_system(_delta: float) -> void:
+	var ids: PackedInt64Array = _query.get_entity_ids()
+	if ids.is_empty():
+		return
+
+	var cb: ECSCommandBuffer = ECSCommandBuffer.new(get_ecs_manager())
+	for id: int in ids:
+		cb.destroy_entity(id)
+	cb.execute()
+```
+
+**Запрос строится в `_init` и живёт полем** — не пересоздавать каждый кадр.
+
+**Структурные изменения в две фазы:** сначала собрать id (`get_entity_ids()`),
+потом менять. Удаление по живому запросу инвалидирует итерацию (swap-remove).
 
 ## Создание Node из PackedScene
 
-Регистрируй `PackedScene` как компонент `ECSComponent.Type.PACKED_SCENE`, а ссылку на созданную ноду — как `NODE3D` (или другой подходящий reference-компонент). Такой проход выполняй один раз на main thread, не в worker pool; host должен быть задан заранее.
+`PackedScene` регистрируется компонентом `ECSComponent.Type.PACKED_SCENE`, ссылка
+на созданную ноду — `NODE3D`. Проход выполняется на main thread, **не** в worker
+pool; host задан заранее.
+
+**Запрос обязан отсекать уже обработанные** — иначе сцена инстанцируется заново
+на каждом прогоне, а прежняя нода течёт.
 
 ```gdscript
-# Фрагмент одноразовой bootstrap-системы: POSITION / VISUAL / PACKED_SCENE — id из реестра.
-# _root_node задан заранее; корень PackedScene должен быть Node3D.
-var positions : ECSComponentVector3ArrayChunk = chunk.get_component_chunk(POSITION)
-var visuals : ECSComponentNode3DArrayChunk = chunk.get_component_chunk(VISUAL)
-var scenes : ECSComponentPackedSceneArrayChunk = chunk.get_component_chunk(PACKED_SCENE)
-var position_values : Array[Vector3] = positions.get_values_buffer()
-var visual_values : Array[Node3D] = visuals.get_values_buffer()
-var scene_values : Array[PackedScene] = scenes.get_values_buffer()
+func build_query() -> ECSQuery:
+	return ECSQueryBuilder.new()\
+		.with_component(MyWorld.Component.PACKED_SCENE)\
+		.with_component(MyWorld.Component.POSITION)\
+		.without_component(MyWorld.Component.NODE3D)\
+		.build(get_ecs_manager())
 
-for i in chunk.get_entity_count():
-	var node : Node3D = scene_values[i].instantiate()
-	if node == null:
-		continue
-	node.position = position_values[i]
-	_root_node.add_child(node)
-	visual_values[i] = node
+
+func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
+	var scene_chunk: ECSComponentPackedSceneArrayChunk = chunk.get_component_chunk(
+		MyWorld.Component.PACKED_SCENE
+	) as ECSComponentPackedSceneArrayChunk
+	var pos_chunk: ECSComponentVector3iArrayChunk = chunk.get_component_chunk(
+		MyWorld.Component.POSITION
+	) as ECSComponentVector3iArrayChunk
+	if scene_chunk == null or pos_chunk == null:
+		return
+
+	var entities: PackedInt64Array = chunk.get_dense_entities()
+	var slots: PackedInt32Array = chunk.get_dense_slots()
+	var scene_buf: Array[PackedScene] = scene_chunk.get_values_buffer()
+	var pos_buf: Array[Vector3i] = pos_chunk.get_values_buffer()
+	var cb: ECSCommandBuffer = get_command_buffer()
+
+	for i: int in range(chunk.get_entity_count()):
+		var slot: int = slots[i]
+		var scene: PackedScene = scene_buf[slot]
+		if scene == null:
+			continue
+		var node: Node3D = scene.instantiate() as Node3D
+		if node == null:
+			push_error("MySystem: корень сцены не Node3D")
+			continue
+		node.position = Vector3(pos_buf[slot])
+		_host.add_child(node)
+		cb.add_component(entities[i], MyWorld.Component.NODE3D, node)
 ```
 
-Сущности должны уже иметь все три компонента. Не запускай такой запрос каждый кадр без фильтра для ещё не обработанных сущностей — иначе сцена будет инстанцироваться повторно. Полный пример: [`example_instantiate_node_system.gd`](ecs/examples/node_entities/example_instantiate_node_system.gd).
+Обрати внимание: `NODE3D` добавляется **через command buffer**, потому что это
+структурное изменение — прямо в `process_chunk` его делать нельзя. Из-за этого
+запрос `without_component(NODE3D)` сработает только со следующего прогона, и
+двойного инстанцирования не будет.
 
 ## API, которым пользуются чаще всего
 
@@ -111,7 +208,7 @@ ecs.destroy_entity(entity_id: int) -> void
 
 `buf.execute()` в production-системах не звать — это делает `ECSSystemRunner` после каждой системы.
 
-## Пять тихих ошибок
+## Шесть тихих ошибок
 
 Ни одну не поймает линтер. Все проявляются как `null` или молчаливое бездействие.
 
@@ -119,7 +216,9 @@ ecs.destroy_entity(entity_id: int) -> void
 2. **`ECSQueryChunk` сохранён между кадрами** — `begin_chunk_run()` инвалидирует pooled views.
 3. **`apply_profile()` вызван дважды** за жизнь мира.
 4. **Temp id принят за настоящий** — `buf.create_entity()` возвращает отрицательный id до `execute()`; настоящий появляется после flush предыдущих систем того же `run_group`.
-5. **`destroy_entity` без освобождения ссылок** — сначала release (`pool.release(node)` + снять reference-компонент), потом уничтожать.
+5. **Буфер проиндексирован `i` вместо `slots[i]`** — читаешь чужую сущность или
+   выходишь за границу. Самая частая; см. раздел выше.
+6. **`destroy_entity` без освобождения ссылок** — сначала release (`pool.release(node)` + снять reference-компонент), потом уничтожать.
 
 ## Устаревшее — не использовать
 
