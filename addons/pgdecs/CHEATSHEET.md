@@ -29,6 +29,31 @@ func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
 
 `build_query()` и `process_chunk()` — `@abstract`. **Опечатка в сигнатуре = ошибка парсера, а не тихий no-op**, но линтер редактора её не покажет — судья только GUT.
 
+## Создание Node из PackedScene
+
+Регистрируй `PackedScene` как компонент `ECSComponent.Type.PACKED_SCENE`, а ссылку на созданную ноду — как `NODE3D` (или другой подходящий reference-компонент). Такой проход выполняй один раз на main thread, не в worker pool; host должен быть задан заранее.
+
+```gdscript
+# Фрагмент одноразовой bootstrap-системы: POSITION / VISUAL / PACKED_SCENE — id из реестра.
+# _root_node задан заранее; корень PackedScene должен быть Node3D.
+var positions := chunk.get_component_chunk(POSITION) as ECSComponentVector3ArrayChunk
+var visuals := chunk.get_component_chunk(VISUAL) as ECSComponentNode3DArrayChunk
+var scenes := chunk.get_component_chunk(PACKED_SCENE) as ECSComponentPackedSceneArrayChunk
+var position_values := positions.get_values_buffer()
+var visual_values := visuals.get_values_buffer()
+var scene_values := scenes.get_values_buffer()
+
+for i in chunk.get_entity_count():
+	var node := scene_values[i].instantiate() as Node3D
+	if node == null:
+		continue
+	node.position = position_values[i]
+	_root_node.add_child(node)
+	visual_values[i] = node
+```
+
+Сущности должны уже иметь все три компонента. Не запускай такой запрос каждый кадр без фильтра для ещё не обработанных сущностей — иначе сцена будет инстанцироваться повторно. Полный пример: [`example_instantiate_node_system.gd`](ecs/examples/node_entities/example_instantiate_node_system.gd).
+
 ## API, которым пользуются чаще всего
 
 ```gdscript
