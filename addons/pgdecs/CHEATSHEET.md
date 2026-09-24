@@ -61,6 +61,18 @@ ecs.set_component_value(entity_id: int, component_id: int, value: Variant) -> vo
 ecs.destroy_entity(entity_id: int) -> void
 ```
 
+## Планирование групп
+
+- Группа — ресурс `ECSSystemGroupConfig`: `group`, `enabled`, `process_hook`,
+  `hz`, `execution_order`.
+- Хуки: `PHYSICS_PROCESS`, `PROCESS`, `MANUAL`.
+- `hz = 0` — каждый тик своего хука; `hz > 0` — через тикер с фиксированным шагом.
+- `execution_order` сортирует группы **только внутри одного хука**.
+- `ECSWorld._process` тикает `PROCESS`-группы, затем flush ручных буферов, затем
+  сборку архетипов. `_physics_process` тикает `PHYSICS_PROCESS` и **ничего не
+  флашит** — учитывай, если ставишь туда систему с command buffer.
+- `MANUAL` запускается вручную: `world.run_system_group(&"name", delta)`.
+
 ## Что можно прямо в `process_chunk`, а что нет
 
 | Нужно | Как |
