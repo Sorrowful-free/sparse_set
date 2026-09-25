@@ -150,9 +150,6 @@ class _BoundBlueprint extends ECSEntityBlueprint:
 	func build_component_ids() -> PackedInt64Array:
 		return PackedInt64Array([VALUE_ID])
 
-	func build_node_bindings() -> Array[ECSBlueprintNodeBinding]:
-		return [ECSBlueprintNodeBinding.of(NODE_ID, node_scene)]
-
 func _register_bound_schema(ecs: ECSManager) -> void:
 	ecs.register_component(VALUE_ID, ECSComponent.Type.PACKED_FLOAT32)
 	ecs.register_component(NODE_ID, ECSComponent.Type.NODE3D)
@@ -234,14 +231,3 @@ func test_spawn_batch_bound_creates_one_instance_per_entity() -> void:
 		seen[node.get_instance_id()] = true
 	assert_eq(seen.size(), 3, "каждой сущности — свой инстанс")
 	host.free()
-
-func test_example_node_binding_blueprint_uses_node_schema() -> void:
-	var ecs: ECSManager = ECSManager.new()
-	ExampleNodeComponentRegistryStrategy.new().apply_to(ecs)
-	var blueprint: ExampleNodeBindingBlueprint = ExampleNodeBindingBlueprint.new()
-	blueprint.visual_scene = _make_node3d_scene()
-	var ids: PackedInt64Array = blueprint.get_component_ids()
-	assert_true(ids.has(ExampleNodeComponentRegistryStrategy.Component.POSITION))
-	assert_true(ids.has(ExampleNodeComponentRegistryStrategy.Component.VISUAL))
-	assert_false(ids.has(ExampleNodeComponentRegistryStrategy.Component.BODY), "body_scene не задан")
-	assert_false(ids.has(ExampleNodeComponentRegistryStrategy.Component.ANIMATION), "animation_scene не задан")

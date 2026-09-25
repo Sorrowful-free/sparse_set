@@ -10,7 +10,6 @@ class_name ExampleInstantiateNodeSystem
 ##
 ## Main thread: `add_child` в worker pool недопустим.
 
-const Registry := ExampleInstantiateNodeComponentRegistryStrategy
 
 var _root_node: Node
 
@@ -22,22 +21,21 @@ func _init(ecs_manager: ECSManager, root_node: Node) -> void:
 
 func build_query() -> ECSQuery:
 	return ECSQueryBuilder.new()\
-		.with_component(Registry.Component.POSITION)\
-		.with_component(Registry.Component.VISUAL)\
-		.with_component(Registry.Component.PACKED_SCENE)\
+		.with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.POSITION)\
+		.with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.VISUAL)\
+		.with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE)\
 		.build(get_ecs_manager())
 
 
 func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 	var position_chunk: ECSComponentPackedVector3ArrayChunk = chunk.get_component_chunk(
-		Registry.Component.POSITION
+		ExampleInstantiateNodeComponentRegistryStrategy.Component.POSITION
 	) as ECSComponentPackedVector3ArrayChunk
 	var visual_chunk: ECSComponentNode3DArrayChunk = chunk.get_component_chunk(
-		Registry.Component.VISUAL
+		ExampleInstantiateNodeComponentRegistryStrategy.Component.VISUAL
 	) as ECSComponentNode3DArrayChunk
 	var scene_chunk: ECSComponentPackedSceneArrayChunk = chunk.get_component_chunk(
-		Registry.Component.PACKED_SCENE
-	) as ECSComponentPackedSceneArrayChunk
+		ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE	) as ECSComponentPackedSceneArrayChunk
 	if position_chunk == null or visual_chunk == null or scene_chunk == null:
 		return
 

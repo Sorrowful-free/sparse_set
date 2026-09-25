@@ -90,7 +90,6 @@ func process_system(_delta: float) -> void:
 	var cb: ECSCommandBuffer = ECSCommandBuffer.new(get_ecs_manager())
 	for id: int in ids:
 		cb.destroy_entity(id)
-	cb.execute()
 ```
 
 **Запрос строится в `_init` и живёт полем** — не пересоздавать каждый кадр.
