@@ -10,7 +10,7 @@ class _TestBlueprint extends ECSEntityBlueprint:
 		return PackedInt64Array([VALUE_ID])
 
 	func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
-		buf.set_component_value(entity_id, VALUE_ID, velocity_default)
+		buf.set_component(entity_id, VALUE_ID, velocity_default)
 
 func test_spawn_batch_applies_per_index() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -33,7 +33,7 @@ class _IndexBlueprint extends ECSEntityBlueprint:
 		return PackedInt64Array([VALUE_ID])
 
 	func apply_instance(buf: ECSCommandBuffer, entity_id: int, index: int) -> void:
-		buf.set_component_value(entity_id, VALUE_ID, float(index) * 10.0)
+		buf.set_component(entity_id, VALUE_ID, float(index) * 10.0)
 
 func test_spawn_one_applies_defaults() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -131,7 +131,7 @@ class _HybridBlueprint extends ECSEntityBlueprint:
 
 	func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
 		super.apply_defaults(buf, entity_id)
-		buf.set_component_value(entity_id, EXTRA_ID, 99.0)
+		buf.set_component(entity_id, EXTRA_ID, 99.0)
 
 # --- node bindings ----------------------------------------------------------
 

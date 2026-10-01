@@ -83,9 +83,9 @@
 ## Entity blueprint
 
 - Наследуй `ECSEntityBlueprint` в игре; `build_component_ids()` — id из твоего enum (int).
-- Spawn и параметры — **только** через `ECSCommandBuffer` (`spawn_batch` / `spawn_one` + `set_component_value`); `execute` — runner или bootstrap-буфер.
-- Ноды: `build_node_bindings()` → `ECSBlueprintNodeBinding.of(component_id, packed_scene)`; `spawn_one_bound` / `spawn_batch_bound(buf, count, host)` — main thread, **не** в `process_chunk`; `component_id` из bindings добавляются в архетип сами.
-- См. [`ecs/examples/schema/example_mover_blueprint.gd`](ecs/examples/schema/example_mover_blueprint.gd) и [`ecs/examples/schema/example_node_binding_blueprint.gd`](ecs/examples/schema/example_node_binding_blueprint.gd).
+- Spawn и параметры — **только** через `ECSCommandBuffer` (`spawn_batch` / `spawn_one` + `set_component`); `execute` — runner или bootstrap-буфер.
+- Ноды из сцены: обычный `spawn_one` / `spawn_batch` создаёт сущность с компонентом `PACKED_SCENE`; отдельная main-thread система инстанцирует сцену, затем удаляет `PACKED_SCENE` и добавляет компонент `NODE3D` со ссылкой. Не делай это в `process_chunk`.
+- См. [`ecs/examples/schema/example_mover_blueprint.gd`](ecs/examples/schema/example_mover_blueprint.gd) и [`ecs/examples/node_entities/example_instantiate_node_system.gd`](ecs/examples/node_entities/example_instantiate_node_system.gd).
 
 ---
 

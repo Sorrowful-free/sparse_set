@@ -472,8 +472,8 @@ func build_node_bindings() -> Array[ECSBlueprintNodeBinding]:
 | `spawn_batch(buf, count)` | батч create + `apply_instance` на temp ids в том же буфере |
 | `spawn_one_bound(buf, host)` | то же + инстансы нод из bindings |
 | `spawn_batch_bound(buf, count, host)` | батч + по инстансу ноды на каждую сущность |
-| `apply_node_bindings(buf, ids, host)` | только инстансы нод + `set_component_value` |
-| `apply_instance(buf, entity_id, index)` | только `buf.set_component_value` |
+| `apply_node_bindings(buf, ids, host)` | только инстансы нод + `set_component` |
+| `apply_instance(buf, entity_id, index)` | только `buf.set_component` |
 
 Bootstrap и системы: один буфер на кадр/фазу — create + set, затем `execute()` (runner или вручную).
 

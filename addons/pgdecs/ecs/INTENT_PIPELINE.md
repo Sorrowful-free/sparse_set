@@ -38,17 +38,11 @@
 
 ---
 
-## Eager vs lazy привязка
+## Создание Node3D из PackedScene
 
-| | Eager (blueprint) | Lazy (intent) |
-|---|---|---|
-| Когда | на spawn, `spawn_*_bound(buf, host)` | позже, по условию (LOD, стриминг, репликация) |
-| Окно «без ноды» | нет — create и set в одном `execute()` | есть: сущность живёт до bind |
-| «Нет ноды» | нет binding/сцены → нет компонента | нет компонента до bind |
-| Где | main thread, вне `process_chunk` | `run_group = frame` |
+Blueprint создаёт сущность обычным `spawn_one` / `spawn_batch` с компонентом `PACKED_SCENE`. После spawn отдельная main-thread система читает сцену и инстанцирует `Node3D`; затем через command buffer удаляет `PACKED_SCENE` и добавляет компонент `NODE3D` со ссылкой на созданную ноду. До выполнения буфера сущность хранит сцену, после flush — ноду.
 
-Eager-вариант: [`ECSEntityBlueprint.build_node_bindings()`](config/ecs_entity_blueprint.gd), пример [`examples/schema/example_node_binding_blueprint.gd`](examples/schema/example_node_binding_blueprint.gd).
-Оба варианта держат «есть нода» = членство в архетипе, поэтому комбинируются в одном мире.
+Пример: [`examples/node_entities/example_instantiate_node_system.gd`](examples/node_entities/example_instantiate_node_system.gd). Не выполняй инстанцирование и структурные изменения в `process_chunk`.
 
 ---
 
@@ -108,7 +102,7 @@ flowchart LR
 
 | Система | Query | Действие |
 |---------|-------|----------|
-| **BindIntentSystem** | `INTENT_BIND_*` | `pool.acquire()` → `add_component(NODE)` + `set_component_value(NODE, node)` → снять intent |
+| **BindIntentSystem** | `INTENT_BIND_*` | `pool.acquire()` → `add_component(NODE, node)` → снять intent |
 | **NodeSyncSystem** | `NODE` + simulation data | SoA → Node/RID/server |
 | **ReleaseIntentSystem** | `INTENT_RELEASE` | `pool.release(node)` → `remove_component(NODE)` → снять intent |
 | **DestroySweepSystem** | `INTENT_DESTROY` | `destroy_entity` (после release) |

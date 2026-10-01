@@ -6,7 +6,7 @@ class_name ECSEntityBlueprint extends Resource
 ## (тот же int, что в [ECSComponentRegistryStrategy]).
 ##
 ## Spawn и параметры — **только** через [ECSCommandBuffer]:
-## create + [method ECSCommandBuffer.set_component_value] в одном буфере, затем [method ECSCommandBuffer.execute].
+## create + [method ECSCommandBuffer.set_component] в одном буфере, затем [method ECSCommandBuffer.execute].
 ## В системе execute делает [ECSSystemRunner]; при bootstrap — свой буфер + execute.
 
 var _cached_component_ids: PackedInt64Array = PackedInt64Array()
@@ -55,12 +55,12 @@ func apply_instances(buf: ECSCommandBuffer, entity_ids: PackedInt64Array) -> voi
 		if entity_id != 0:
 			apply_instance(buf, entity_id, i)
 
-## Общие дефолты: [method build_default_values] → [method ECSCommandBuffer.set_component_value].
+## Общие дефолты: [method build_default_values] → [method ECSCommandBuffer.set_component].
 ## Переопредели для доп. логики; вызови [code]super.apply_defaults[/code] чтобы сохранить dict.
 func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
 	var defaults: Dictionary = build_default_values()
 	for component_id: Variant in defaults:
-		buf.set_component_value(entity_id, int(component_id), defaults[component_id])
+		buf.set_component(entity_id, int(component_id), defaults[component_id])
 
 ## Параметры одного инстанса (index в batch). По умолчанию — [method apply_defaults].
 func apply_instance(buf: ECSCommandBuffer, entity_id: int, _index: int) -> void:

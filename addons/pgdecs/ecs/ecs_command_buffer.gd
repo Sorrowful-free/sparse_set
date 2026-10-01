@@ -81,12 +81,13 @@ func create_entities_packed(count: int, component_ids: PackedInt64Array) -> Pack
 	_commands.append(command)
 	return temp_ids
 
-func add_component(entity_id: int, component_id: int) -> void:
+func add_component(entity_id: int, component_id: int, value: Variant = null) -> void:
 	if not _guard_main_thread("add_component"):
 		return
 	var entity_ids: PackedInt64Array = PackedInt64Array([entity_id])
 	var component_ids: PackedInt64Array = PackedInt64Array([component_id])
 	var command: Command = Command.new(CommandType.ADD_COMPONENT, component_ids, entity_ids)
+	command.component_value = value
 	_commands.append(command)
 
 func remove_component(entity_id: int, component_id: int) -> void:
@@ -98,8 +99,8 @@ func remove_component(entity_id: int, component_id: int) -> void:
 	_commands.append(command)
 
 ## Запись значения компонента (temp id до execute разрешается после CREATE в том же буфере).
-func set_component_value(entity_id: int, component_id: int, value: Variant) -> void:
-	if not _guard_main_thread("set_component_value"):
+func set_component(entity_id: int, component_id: int, value: Variant) -> void:
+	if not _guard_main_thread("set_component"):
 		return
 	var entity_ids: PackedInt64Array = PackedInt64Array([entity_id])
 	var component_ids: PackedInt64Array = PackedInt64Array([component_id])
@@ -350,7 +351,12 @@ func _execute_add_component(command: Command) -> void:
 	if real_entity_id == 0 || !_ecs_manager.is_alive(real_entity_id):
 		return  # Сущность не существует
 
-	_ecs_manager.add_component(real_entity_id, command.component_ids[0])
+	var component_id: int = command.component_ids[0]
+	_ecs_manager.add_component(real_entity_id, component_id)
+	if command.component_value != null:
+		var component_array: ECSComponentBaseArray = _ecs_manager.get_component_array(component_id)
+		if component_array != null:
+			component_array.set_component(real_entity_id, command.component_value)
 
 func _execute_remove_component(command: Command) -> void:
 	if _ecs_manager == null:

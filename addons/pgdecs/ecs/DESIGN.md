@@ -434,7 +434,7 @@ for i in range(chunk.get_entity_count()):
 1. **Reference-компонент** — в SoA хранится сама ссылка (`ECSComponent.Type.NODE2D`); slot и `INVALID_SLOT` больше не нужны.
 2. **Сервис вместо реестра** — `ECSNodePool` (`Resource`: `acquire()` / `release(node)` / `clear()`) выдаёт и освобождает объекты; per-entity данных в нём нет.
 3. **Presence = членство в архетипе** — наличие объекта queryable через `with_component(NODE)` / `without_component(NODE)`.
-4. **Bind/release — структурные изменения** — `add_component` + `set_component_value` / `remove_component`; порядок систем: Bind → Sync → Release → DestroySweep.
+4. **Bind/release — структурные изменения** — `add_component(value)` или `set_component` для уже существующего компонента / `remove_component`; порядок систем: Bind → Sync → Release → DestroySweep.
 
 **Последствия:** один источник правды (нет рассинхрона slot ↔ side-table) и нет `registry.get_node(slot)` indirection. Side-tables остаются оправданными только для дедупликации/интернирования (строки, id) и внешних идентичностей (wire-id, LOD-сетки) — и там это `int`-компонент + маппинг в сервисе, а не slot в SoA; variable-length данные решает `REFCOUNTED`-компонент со структурой на сущность. `ecs.reset()` чистит значения компонентов (включая reference), но сервис ядру неизвестен: `clear()` вызывается игровым кодом.
 

@@ -228,7 +228,7 @@ parallel_settings.parallel_mode = ECSChunkParallelSettings.ParallelMode.FORCE
 
 Наследуй [`ECSEntityBlueprint`](../config/ecs_entity_blueprint.gd) в игре; component id — **те же int**, что в enum схемы (`ECSComponentRegistryStrategy`).
 
-**Spawn и параметры — только через command buffer** (`create` + `set_component_value` в одном буфере).
+**Spawn и параметры — только через command buffer** (`create` + `set_component` в одном буфере).
 
 ```gdscript
 class_name ZombieBlueprint extends ECSEntityBlueprint
@@ -247,7 +247,7 @@ func build_default_values() -> Dictionary:
 
 func apply_instance(buf: ECSCommandBuffer, entity_id: int, _index: int) -> void:
     super.apply_instance(buf, entity_id, _index)
-    buf.set_component_value(entity_id, GameComponents.POSITION, _random_point_in_radius(spawn_radius))
+    buf.set_component(entity_id, GameComponents.POSITION, _random_point_in_radius(spawn_radius))
 
 # Толпа: один буфер — create batch + set на каждый temp id
 func spawn_horde(buf: ECSCommandBuffer, count: int) -> PackedInt64Array:
@@ -263,7 +263,7 @@ func spawn_horde(buf: ECSCommandBuffer, count: int) -> PackedInt64Array:
 
 **Reference-дефолты — на инстанс.** `build_default_values()` кладёт **одну и ту же** ссылку всем заспавненным сущностям: для `REFCOUNTED`/`RESOURCE` это шаринг мутабельного состояния. Создавайте новый instance в `apply_instance()` (или `duplicate(true)`).
 
-**Ноды — через bindings.** `build_node_bindings()` описывает `component_id` → `PackedScene`; `component_id` попадает в архетип автоматически, binding без сцены — no-op. `spawn_one_bound(buf, host)` / `spawn_batch_bound(buf, count, host)` создают по инстансу **на сущность** (шарения нет) и кладут ссылку в компонент в том же буфере. Только main thread, **не** в `process_chunk`. Эталон: [`example_node_binding_blueprint.gd`](../examples/schema/example_node_binding_blueprint.gd).
+**Ноды из `PackedScene` — отдельной системой.** Blueprint создаёт сущность обычным `spawn_one` / `spawn_batch` с компонентом `PACKED_SCENE`. Main-thread система инстанцирует сцену как `Node3D`, затем через command buffer удаляет `PACKED_SCENE` и добавляет компонент `NODE3D` со ссылкой на ноду. Не делай инстанцирование или структурные изменения в `process_chunk`. Эталон: [`example_instantiate_node_system.gd`](../examples/node_entities/example_instantiate_node_system.gd).
 
 ```gdscript
 # ПЛОХО: прямой create / set_component в gameplay
@@ -320,7 +320,7 @@ buf.execute()
 # Spawn: entity + INTENT_BIND_NODE (сам NODE появится в bind)
 buf.add_component(entity_id, INTENT_BIND_NODE)
 
-# Bind system: pool.acquire() -> add_component(NODE) + set_component_value(NODE, node)
+# Bind system: pool.acquire() -> add_component(NODE, node)
 # Sync system: читает POSITION + NODE -> пишет в Node/RID
 
 # Destroy: release, затем destroy

@@ -1,7 +1,8 @@
-extends GutTest
 class_name ECSCommandBufferTest
+extends GutTest
 
 const POSITION_ID: int = 1
+
 
 func test_create_entity_via_buffer() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -13,6 +14,26 @@ func test_create_entity_via_buffer() -> void:
 	var q: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
 	assert_eq(q.get_entity_ids().size(), 1)
 
+
+func test_add_component_with_value_in_same_buffer() -> void:
+	const VELOCITY_ID: int = 2
+	var ecs: ECSManager = ECSManager.new()
+	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
+	ecs.register_component(VELOCITY_ID, ECSComponent.Type.PACKED_VECTOR2)
+	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
+	var temp_id: int = buf.create_entity([POSITION_ID])
+	buf.add_component(temp_id, VELOCITY_ID, Vector2(5.0, 6.0))
+	buf.execute()
+	var ids: PackedInt64Array = (
+		ECSQueryBuilder.new().with_component(VELOCITY_ID).build(ecs).get_entity_ids()
+	)
+	assert_eq(ids.size(), 1)
+	var velocity: ECSComponentPackedVector2Array = (
+		ecs.get_component_array(VELOCITY_ID) as ECSComponentPackedVector2Array
+	)
+	assert_eq(velocity.get_component(ids[0]), Vector2(5.0, 6.0))
+
+
 func test_destroy_via_buffer() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
@@ -22,40 +43,52 @@ func test_destroy_via_buffer() -> void:
 	buf.execute()
 	assert_false(ecs.has_component(real_id, POSITION_ID))
 
+
 func test_create_then_set_in_same_frame_before_execute() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var temp_id: int = buf.create_entity([POSITION_ID])
-	buf.set_component_value(temp_id, POSITION_ID, Vector2(1.0, 2.0))
+	buf.set_component(temp_id, POSITION_ID, Vector2(1.0, 2.0))
 	buf.execute()
-	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	var ids: PackedInt64Array = (
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	)
 	assert_eq(ids.size(), 1)
-	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var pos: ECSComponentPackedVector2Array = (
+		ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	)
 	assert_eq(pos.get_component(ids[0]), Vector2(1.0, 2.0))
+
 
 func test_set_on_temp_skipped_after_create_destroy_coalesce() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var temp_id: int = buf.create_entity([POSITION_ID])
-	buf.set_component_value(temp_id, POSITION_ID, Vector2(9.0, 9.0))
+	buf.set_component(temp_id, POSITION_ID, Vector2(9.0, 9.0))
 	buf.destroy_entity(temp_id)
 	buf.execute()
 	var q: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
 	assert_eq(q.get_entity_ids().size(), 0)
+
 
 func test_coalesce_set_component_last_wins() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var temp_id: int = buf.create_entity([POSITION_ID])
-	buf.set_component_value(temp_id, POSITION_ID, Vector2(1.0, 1.0))
-	buf.set_component_value(temp_id, POSITION_ID, Vector2(3.0, 4.0))
+	buf.set_component(temp_id, POSITION_ID, Vector2(1.0, 1.0))
+	buf.set_component(temp_id, POSITION_ID, Vector2(3.0, 4.0))
 	buf.execute()
-	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
-	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var ids: PackedInt64Array = (
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	)
+	var pos: ECSComponentPackedVector2Array = (
+		ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	)
 	assert_eq(pos.get_component(ids[0]), Vector2(3.0, 4.0))
+
 
 func test_create_then_use_in_same_frame() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -63,11 +96,16 @@ func test_create_then_use_in_same_frame() -> void:
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var temp_id: int = buf.create_entity([POSITION_ID])
 	buf.execute()
-	var ids: PackedInt64Array = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	var ids: PackedInt64Array = (
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids()
+	)
 	assert_eq(ids.size(), 1)
-	var pos: ECSComponentPackedVector2Array = ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	var pos: ECSComponentPackedVector2Array = (
+		ecs.get_component_array(POSITION_ID) as ECSComponentPackedVector2Array
+	)
 	pos.set_component(ids[0], Vector2(1.0, 2.0))
 	assert_eq(pos.get_component(ids[0]), Vector2(1.0, 2.0))
+
 
 func test_coalesce_create_then_destroy_temp() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -78,6 +116,7 @@ func test_coalesce_create_then_destroy_temp() -> void:
 	buf.execute()
 	var q: ECSQuery = ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs)
 	assert_eq(q.get_entity_ids().size(), 0)
+
 
 func test_coalesce_add_remove_same_component() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -92,6 +131,7 @@ func test_coalesce_add_remove_same_component() -> void:
 	assert_true(ecs.has_component(real_id, POSITION_ID))
 	assert_false(ecs.has_component(real_id, HEALTH_ID))
 
+
 func test_coalesce_skip_ops_after_destroy() -> void:
 	var ecs: ECSManager = ECSManager.new()
 	const HEALTH_ID: int = 2
@@ -103,6 +143,7 @@ func test_coalesce_skip_ops_after_destroy() -> void:
 	buf.add_component(real_id, HEALTH_ID)
 	buf.execute()
 	assert_false(ecs.is_alive(real_id))
+
 
 func test_coalesce_heavy_frame() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -126,9 +167,9 @@ func test_coalesce_heavy_frame() -> void:
 		buf.destroy_entity(survivors[i])
 	buf.execute()
 	assert_eq(
-		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(),
-		0
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0
 	)
+
 
 func test_coalesce_merge_destroy_entities() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -144,7 +185,10 @@ func test_coalesce_merge_destroy_entities() -> void:
 	assert_false(ecs.is_alive(id_a))
 	assert_false(ecs.is_alive(id_b))
 	assert_false(ecs.is_alive(id_c))
-	assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0)
+	assert_eq(
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0
+	)
+
 
 func test_destroy_entities_array_api() -> void:
 	var ecs: ECSManager = ECSManager.new()
@@ -153,4 +197,6 @@ func test_destroy_entities_array_api() -> void:
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	buf.destroy_entities([ids[0], ids[1], ids[2]])
 	buf.execute()
-	assert_eq(ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0)
+	assert_eq(
+		ECSQueryBuilder.new().with_component(POSITION_ID).build(ecs).get_entity_ids().size(), 0
+	)

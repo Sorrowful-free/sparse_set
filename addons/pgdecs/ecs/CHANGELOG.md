@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.6.0] — 2026-10-01
+
+### Changed (breaking)
+
+- `ECSCommandBuffer.set_component_value` переименован в `set_component`.
+- `ECSCommandBuffer.add_component` принимает необязательное `value: Variant = null`, чтобы добавлять компонент и сразу задавать значение; без значения подходит для тегов.
+- Создание нод из `PackedScene` выполняется отдельной системой после `spawn_one` / `spawn_batch`: система инстанцирует `Node3D`, удаляет `PACKED_SCENE` и добавляет компонент ноды.
+
+### Tests and documentation
+
+- Обновлены тесты command buffer, blueprint и intent pipeline для нового API.
+- Документация переведена с удалённого blueprint node-binding API на отдельную систему конвертации `PackedScene` → `Node3D`.
+
 ## [2.5.1] — 2026-09-24
 
 ### Removed

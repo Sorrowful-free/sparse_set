@@ -34,7 +34,7 @@ class _IntentHarness:
 			ExampleIntentComponentRegistryStrategy.Component.POSITION,
 			ExampleIntentIds.INTENT_BIND_NODE,
 		])
-		buf.set_component_value(
+		buf.set_component(
 			temp_id, ExampleIntentComponentRegistryStrategy.Component.POSITION, position
 		)
 		buf.execute()
@@ -44,7 +44,7 @@ class _IntentHarness:
 	func spawn_plain(position: Vector2) -> int:
 		var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 		var temp_id: int = buf.create_entity([ExampleIntentComponentRegistryStrategy.Component.POSITION])
-		buf.set_component_value(
+		buf.set_component(
 			temp_id, ExampleIntentComponentRegistryStrategy.Component.POSITION, position
 		)
 		buf.execute()

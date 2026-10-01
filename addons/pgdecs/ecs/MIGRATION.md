@@ -14,15 +14,14 @@ slots.set_component(entity_id, slot)               # NODE_SLOT (PACKED_INT32)
 # ... и при sync: registry.get_node(slot)
 
 # стало (2.5)
-cb.add_component(entity_id, ExampleIntentIds.NODE)                                     # NODE2D
-cb.set_component_value(entity_id, ExampleIntentIds.NODE, dependencies.node_pool.acquire())
+cb.add_component(entity_id, ExampleIntentIds.NODE, dependencies.node_pool.acquire()) # NODE2D
 ```
 
 | Шаг | Было (slot + реестр) | Стало (reference-компонент) |
 |-----|----------------------|------------------------------|
 | Схема | `NODE_SLOT` (`PACKED_INT32`) + `INVALID_SLOT` (`-1` = нет) | `ExampleIntentIds.NODE` → `ECSComponent.Type.NODE2D` |
 | Зависимости | `dependencies.node_registry: ECSNodeRegistry` | `dependencies.node_pool: ECSNodePool` |
-| Bind | `registry.acquire()` → slot → `slots.set_component(...)` | `add_component(NODE)` + `set_component_value(NODE, pool.acquire())` |
+| Bind | `registry.acquire()` → slot → `slots.set_component(...)` | `add_component(NODE, pool.acquire())` |
 | Sync | `registry.get_node(slot)` на каждую сущность | ссылка из буфера компонента напрямую |
 | Release | `registry.release(slot)` + slot = `INVALID_SLOT` | `pool.release(node)` + `remove_component(NODE)` |
 | «Есть привязка» | не выражается через query (нужен `slot >= 0`) | `with_component(NODE)` / `without_component(NODE)` |

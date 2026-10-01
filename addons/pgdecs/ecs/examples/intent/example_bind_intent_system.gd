@@ -18,6 +18,5 @@ func process_system(_delta: float) -> void:
 		var node: Node2D = _dependencies.node_pool.acquire()
 		# Bind = структурное появление reference-компонента со ссылкой.
 		# «Есть нода» становится выразимо через with_component(NODE).
-		cb.add_component(entity_id, ExampleIntentIds.NODE)
-		cb.set_component_value(entity_id, ExampleIntentIds.NODE, node)
+		cb.add_component(entity_id, ExampleIntentIds.NODE, node)
 		cb.remove_component(entity_id, ExampleIntentIds.INTENT_BIND_NODE)

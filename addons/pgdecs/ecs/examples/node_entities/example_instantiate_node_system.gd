@@ -1,64 +1,61 @@
-extends ECSSystemChunkBase
 class_name ExampleInstantiateNodeSystem
+extends ECSSystemBase
 
-## Пример: инстанцирование сцены из компонента `PACKED_SCENE` и запись ссылки
-## на созданную ноду в reference-компонент `VISUAL`.
-##
-## Сущность уже несёт все три компонента; `VISUAL` пуст до первого прохода.
-## Повторное инстанцирование отсекается проверкой `visual_buf[slot] != null` —
-## без неё каждый прогон создавал бы новую ноду, а прежняя утекала бы.
-##
-## Main thread: `add_child` в worker pool недопустим.
-
+## Инстанцирует `PACKED_SCENE`, затем заменяет этот компонент на `VISUAL` (Node3D).
+## Структурные изменения выполняются отложенным command buffer после process_system.
 
 var _root_node: Node
+var _query: ECSQuery
 
 
 func _init(ecs_manager: ECSManager, root_node: Node) -> void:
 	_root_node = root_node
 	super(ecs_manager)
+	_query = (
+		ECSQueryBuilder
+		. new()
+		. with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE)
+		. build(ecs_manager)
+	)
 
 
-func build_query() -> ECSQuery:
-	return ECSQueryBuilder.new()\
-		.with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.POSITION)\
-		.with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.VISUAL)\
-		.with_component(ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE)\
-		.build(get_ecs_manager())
-
-
-func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
-	var position_chunk: ECSComponentPackedVector3ArrayChunk = chunk.get_component_chunk(
-		ExampleInstantiateNodeComponentRegistryStrategy.Component.POSITION
-	) as ECSComponentPackedVector3ArrayChunk
-	var visual_chunk: ECSComponentNode3DArrayChunk = chunk.get_component_chunk(
-		ExampleInstantiateNodeComponentRegistryStrategy.Component.VISUAL
-	) as ECSComponentNode3DArrayChunk
-	var scene_chunk: ECSComponentPackedSceneArrayChunk = chunk.get_component_chunk(
-		ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE	) as ECSComponentPackedSceneArrayChunk
-	if position_chunk == null or visual_chunk == null or scene_chunk == null:
+func process_system(_delta: float) -> void:
+	var ecs: ECSManager = get_ecs_manager()
+	var scene_components: ECSComponentPackedSceneArray = (
+		ecs.get_component_array(
+			ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE
+		)
+		as ECSComponentPackedSceneArray
+	)
+	if scene_components == null:
 		return
 
-	# Буфер — плотный массив архетипа целиком, индексируется СЛОТОМ, не `i`.
-	var slots: PackedInt32Array = chunk.get_dense_slots()
-	var position_buf: PackedVector3Array = position_chunk.get_values_buffer()
-	var visual_buf: Array[Node3D] = visual_chunk.get_values_buffer()
-	var scene_buf: Array[PackedScene] = scene_chunk.get_values_buffer()
-
-	for i: int in range(chunk.get_entity_count()):
-		var slot: int = slots[i]
-		if visual_buf[slot] != null:
-			continue
-
-		var scene: PackedScene = scene_buf[slot]
+	var position_components: ECSComponentPackedVector3Array = (
+		ecs.get_component_array(ExampleInstantiateNodeComponentRegistryStrategy.Component.POSITION)
+		as ECSComponentPackedVector3Array
+	)
+	var command_buffer: ECSCommandBuffer = get_command_buffer()
+	for entity_id: int in _query.get_entity_ids():
+		var scene: PackedScene = scene_components.get_component(entity_id)
 		if scene == null:
 			continue
 
-		var node: Node3D = scene.instantiate() as Node3D
+		var instance: Node = scene.instantiate()
+		var node: Node3D = instance as Node3D
 		if node == null:
+			if instance != null:
+				instance.free()
 			push_error("ExampleInstantiateNodeSystem: корень сцены не Node3D")
 			continue
 
-		node.position = position_buf[slot]
-		_root_node.add_child(node)
-		visual_chunk.set_value_at_slot(slot, node)
+		if position_components != null:
+			node.position = position_components.get_component(entity_id)
+		if _root_node != null:
+			_root_node.add_child(node)
+
+		command_buffer.remove_component(
+			entity_id, ExampleInstantiateNodeComponentRegistryStrategy.Component.PACKED_SCENE
+		)
+		command_buffer.add_component(
+			entity_id, ExampleInstantiateNodeComponentRegistryStrategy.Component.VISUAL, node
+		)

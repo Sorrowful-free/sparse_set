@@ -136,7 +136,7 @@ ecs.register_component(NODE_ID, ECSComponent.Type.NODE2D)
 node_component.set_component(entity_id, pool.acquire())
 ```
 
-Инстансы на сущность удобно создавать **из blueprint**: [`ECSEntityBlueprint.build_node_bindings()`](config/ecs_entity_blueprint.gd) (component_id → `PackedScene`) + `spawn_one_bound` / `spawn_batch_bound(buf, count, host)` — по инстансу на сущность, `component_id` попадают в архетип автоматически, binding без сцены — no-op. Main thread. Пример: [`examples/schema/example_node_binding_blueprint.gd`](examples/schema/example_node_binding_blueprint.gd).
+Ноду из сцены создавай отдельной main-thread системой: blueprint обычным `spawn_one` / `spawn_batch` добавляет `PACKED_SCENE`, система инстанцирует её как `Node3D`, затем удаляет `PACKED_SCENE` и добавляет компонент `NODE3D` со ссылкой на инстанс. Пример: [`examples/node_entities/example_instantiate_node_system.gd`](examples/node_entities/example_instantiate_node_system.gd).
 
 ### Почему нет slot-реестров
 
