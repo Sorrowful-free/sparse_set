@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.6.3] — 2026-10-02
+
+### Changed
+
+- Blueprint-конфигурации перенесены в `config/blueprints/`, конфигурации систем — в `config/systems/`.
+
 ## [2.6.2] — 2026-10-02
 
 ### Changed
