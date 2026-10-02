@@ -1,6 +1,6 @@
 # План: создание ECSWorld из сцены
 
-> Реализация завершена: scene-blueprint — отдельные Node-классы; world-координатор является дочерним узлом `ECSWorld` и явно назначается в export-поле. Выбранные правила поиска и source node записаны ниже.
+> Реализация завершена: scene-blueprint — отдельные Node-классы; world-координатор является дочерним узлом `ECSWorld` и явно назначается в export-поле. Выбранные правила поиска и хранения данных marker-а записаны ниже.
 
 ## Рекомендуемые имена
 
@@ -31,17 +31,13 @@ class_name ECSSceneEntityBlueprint extends Node
 func build_default_values() -> Dictionary:
     return {}
 
-func spawn_from_scene(buf: ECSCommandBuffer, source_node: Node) -> int:
+func spawn_from_scene(buf: ECSCommandBuffer) -> int:
     var entity_id := buf.create_entity_packed(build_component_ids())
-    apply_defaults(buf, entity_id, source_node)
+    apply_defaults(buf, entity_id)
     return entity_id
 
-func apply_defaults(
-    buf: ECSCommandBuffer,
-    entity_id: int,
-    source_node: Node
-) -> void:
-    # Применить build_default_values(), затем/либо через override — данные source_node.
+func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+    # Применить build_default_values() и собственные данные этого marker-а.
     pass
 ```
 
@@ -49,18 +45,19 @@ func apply_defaults(
 
 - `build_component_ids()` задаёт состав ECS-сущности.
 - `build_default_values()` — статические общие значения `{ component_id: value }`.
-- `spawn_from_scene()` создаёт одну сущность из одного источника сцены и вызывает инициализацию.
-- `apply_defaults()` применяет статические значения и предоставляет наследнику доступ к `source_node` для записи scene-derived компонентов через `buf.set_component(...)`. Переопределение может вызывать `super.apply_defaults(...)`, чтобы сохранить общие значения.
+- `spawn_from_scene()` создаёт одну сущность из самого marker-а и вызывает инициализацию.
+- `apply_defaults()` применяет статические значения; наследник может типизированно читать собственные поля marker-а и записывать scene-derived компоненты через `buf.set_component(...)`. Переопределение может вызвать `super.apply_defaults(...)`, чтобы сохранить общие дефолты.
+- Если нужна более сложная логика спауна, наследник переопределяет `spawn_from_scene(buf)` и полностью задаёт создание сущности самостоятельно.
 
-Здесь нет отдельного универсального `meta_data` со значениями сцены: конкретный класс может типизированно читать поля из `source_node`. Реализованный контракт использует `spawn_from_scene(buf, source_node)` и `apply_defaults(buf, entity_id, source_node)`; наследник вызывает `super.apply_defaults(...)` для сохранения статических дефолтов.
+У blueprint нет `source_node` аргумента и общей `meta_data: Dictionary`: вся специфичная логика и данные принадлежат наследнику `ECSSceneEntityBlueprint`.
 
 Для Node-маркера достаточно одиночного spawn: один scene marker обычно описывает одну сущность. Несколько маркеров можно обработать одним общим command buffer. Batch API в scene entity blueprint добавлять только при подтверждённой потребности.
 
-## Размещение маркеров и источник данных
+## Размещение маркеров и их данные
 
-Реализованное правило: `ECSSceneWorldBlueprint.scene_root` — явная экспортируемая ссылка на корень поиска. Координатор рекурсивно обходит его и находит все узлы `ECSSceneEntityBlueprint` в порядке обхода дочерних узлов. Каждый marker должен быть дочерним узлом source Node; непосредственный родитель marker-а передаётся в `spawn_from_scene`/`apply_defaults`. Marker без родителя пропускается с предупреждением.
+Реализованное правило: `ECSSceneWorldBlueprint.scene_root` — явная экспортируемая ссылка на корень поиска. Координатор рекурсивно обходит его и находит все узлы `ECSSceneEntityBlueprint` в порядке обхода дочерних узлов. Для каждого marker-а координатор вызывает `spawn_from_scene(buf)`; родитель marker-а не используется как источник данных.
 
-Конкретный вид сущности задаётся скриптом-наследником `ECSSceneEntityBlueprint`, который реализует `build_component_ids()` и при необходимости `build_default_values()`/`apply_defaults()`. Универсального словаря scene-данных нет.
+Конкретный вид сущности задаётся скриптом-наследником `ECSSceneEntityBlueprint`, который реализует `build_component_ids()` и при необходимости `build_default_values()`, `apply_defaults()` или полную собственную логику `spawn_from_scene()`. Универсального словаря scene-данных нет.
 
 ## Размещение world coordinator и профиль
 
@@ -91,6 +88,6 @@ GUT-покрытие находится в `addons/pgdecs/ecs/tests/unit/ecs_sce
 ## Закрытые решения
 
 - Корень поиска задаётся явно через `ECSSceneWorldBlueprint.scene_root`; `current_scene` не используется.
-- Marker — дочерний узел source Node; source — непосредственный родитель.
-- Тип/IDs/scene-значения задаются скриптом-наследником и типизированным чтением source Node.
+- Marker хранит и применяет собственные scene-данные; координатор не передаёт ему ссылку на другой Node.
+- Тип/IDs/scene-значения задаются скриптом-наследником `ECSSceneEntityBlueprint`.
 - ECS parent-child связи не входят в первую версию.

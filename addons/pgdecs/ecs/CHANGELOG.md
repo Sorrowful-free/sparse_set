@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.6.2] — 2026-10-02
+
+### Changed
+
+- `ECSSceneEntityBlueprint` хранит scene-данные самостоятельно; `spawn_from_scene()` больше не принимает `source_node`.
+
 ## [2.6.1] — 2026-10-02
 
 ### Added

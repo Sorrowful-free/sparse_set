@@ -1,7 +1,7 @@
 class_name ECSSceneWorldBlueprint extends Node
 
 ## Координатор построения ECS-сущностей из явно указанного корня сцены.
-## Каждый найденный маркер — дочерний узел источника; связи дерева не переносятся в ECS.
+## Scene-данные принадлежат marker-узлам; связи дерева не переносятся в ECS.
 
 @export var scene_root: Node
 
@@ -18,11 +18,7 @@ func build_world(ecs: ECSManager) -> int:
 	var buf: ECSCommandBuffer = ECSCommandBuffer.new(ecs)
 	var spawned_count: int = 0
 	for marker: ECSSceneEntityBlueprint in markers:
-		var source_node: Node = marker.get_parent()
-		if source_node == null:
-			push_warning("ECSSceneWorldBlueprint: scene entity marker has no source parent")
-			continue
-		marker.spawn_from_scene(buf, source_node)
+		marker.spawn_from_scene(buf)
 		spawned_count += 1
 
 	if buf.has_pending_commands():

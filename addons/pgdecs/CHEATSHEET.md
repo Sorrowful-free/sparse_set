@@ -150,6 +150,42 @@ func process_chunk(chunk: ECSQueryChunk, _delta: float) -> void:
 запрос `without_component(NODE3D)` сработает только со следующего прогона, и
 двойного инстанцирования не будет.
 
+## Создание ECS-сущностей из сцены
+
+Для scene markers используй самостоятельный `ECSSceneEntityBlueprint`, а не
+`ECSEntityBlueprint`: marker — `Node`, который хранит собственные scene-данные.
+Координатор `ECSSceneWorldBlueprint` должен быть дочерним узлом `ECSWorld` и явно
+назначен в `world.scene_world_blueprint`; автоматического поиска координатора нет.
+`coordinator.scene_root` явно указывает корень рекурсивного поиска. Если поле
+координатора в мире не задано, scene bootstrap выключен.
+
+```gdscript
+extends ECSSceneEntityBlueprint
+class_name MySceneEntityBlueprint
+
+@export var initial_position: Vector2 = Vector2.ZERO
+
+
+func build_component_ids() -> PackedInt64Array:
+	return PackedInt64Array([MyWorld.Component.POSITION])
+
+
+func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+	super.apply_defaults(buf, entity_id)
+	buf.set_component(entity_id, MyWorld.Component.POSITION, initial_position)
+```
+
+`spawn_from_scene(buf)` не принимает `source_node`: marker сам отвечает за свои
+данные и может типизированно применять собственные `@export`-поля. Не читай для
+этого `get_parent()`. Для сложного спауна переопредели `spawn_from_scene(buf)` в
+наследнике и реализуй нужную логику там; batch-spawn для обычного случая не нужен.
+
+`ECSWorld` выполняет scene bootstrap после регистрации component schema и до
+создания систем/первого тика. Все найденные сущности создаются одним command buffer.
+Обход дерева не создаёт ECS parent-child связей, и новые marker-узлы после bootstrap
+автоматически не обрабатываются. Не сохраняй временные entity ID из буфера как
+значения компонентов.
+
 ## API, которым пользуются чаще всего
 
 ```gdscript

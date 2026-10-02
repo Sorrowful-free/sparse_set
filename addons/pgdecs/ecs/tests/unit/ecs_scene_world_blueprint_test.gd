@@ -5,22 +5,18 @@ const DEFAULT_VALUE_ID: int = 101
 const SCENE_VALUE_ID: int = 102
 
 
-class _SceneSource extends Node:
+class _SceneEntity extends ECSSceneEntityBlueprint:
 	var scene_position: Vector2 = Vector2(4.0, 6.0)
 
-
-class _SceneEntity extends ECSSceneEntityBlueprint:
 	func build_component_ids() -> PackedInt64Array:
 		return PackedInt64Array([DEFAULT_VALUE_ID, SCENE_VALUE_ID])
 
 	func build_default_values() -> Dictionary:
 		return {DEFAULT_VALUE_ID: 13.0}
 
-	func apply_defaults(buf: ECSCommandBuffer, entity_id: int, source_node: Node) -> void:
-		super.apply_defaults(buf, entity_id, source_node)
-		var source: _SceneSource = source_node as _SceneSource
-		if source != null:
-			buf.set_component(entity_id, SCENE_VALUE_ID, source.scene_position)
+	func apply_defaults(buf: ECSCommandBuffer, entity_id: int) -> void:
+		super.apply_defaults(buf, entity_id)
+		buf.set_component(entity_id, SCENE_VALUE_ID, scene_position)
 
 
 class _InspectingSystemStrategy extends ECSSystemStrategy:
@@ -55,13 +51,13 @@ func _make_scene_world(assign_coordinator: bool, strategy: ECSSystemStrategy = n
 	if assign_coordinator:
 		world.scene_world_blueprint = coordinator
 
-	var source := _SceneSource.new()
+	var container := Node.new()
 	var marker := _SceneEntity.new()
-	source.add_child(marker)
+	container.add_child(marker)
 	root.add_child(world)
-	root.add_child(source)
+	root.add_child(container)
 	world.apply_profile(_make_profile(strategy))
-	return {"root": root, "world": world, "source": source, "marker": marker}
+	return {"root": root, "world": world, "marker": marker}
 
 
 func _scene_entity_ids(ecs: ECSManager) -> PackedInt64Array:
@@ -76,10 +72,10 @@ func test_unassigned_coordinator_disables_scene_build() -> void:
 	assert_eq(_scene_entity_ids(world.get_ecs_manager()).size(), 0)
 
 
-func test_scene_marker_creates_entity_and_applies_source_value_and_defaults() -> void:
+func test_scene_marker_creates_entity_and_applies_marker_value_and_defaults() -> void:
 	var setup: Dictionary = _make_scene_world(true)
 	var root: Node = setup["root"]
-	var source: _SceneSource = setup["source"]
+	var marker: _SceneEntity = setup["marker"]
 	var world: ECSWorld = setup["world"]
 	add_child_autofree(root)
 
@@ -93,7 +89,7 @@ func test_scene_marker_creates_entity_and_applies_source_value_and_defaults() ->
 		SCENE_VALUE_ID
 	) as ECSComponentPackedVector2Array
 	assert_eq(default_values.get_component(entity_id), 13.0)
-	assert_eq(scene_values.get_component(entity_id), source.scene_position)
+	assert_eq(scene_values.get_component(entity_id), marker.scene_position)
 
 
 func test_scene_bootstrap_precedes_system_creation_and_first_tick() -> void:
