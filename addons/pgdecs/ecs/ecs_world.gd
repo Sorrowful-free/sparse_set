@@ -5,6 +5,7 @@ class_name ECSWorld
 ## Запуск через [@export var profile] или [method apply_profile] (один раз).
 
 @export var profile: ECSWorldProfile
+@export var scene_world_blueprint: ECSSceneWorldBlueprint
 
 var _ecs_manager: ECSManager
 var _system_runner: ECSSystemRunner
@@ -58,8 +59,18 @@ func apply_profile(world_profile: ECSWorldProfile) -> void:
 	_init_runtime()
 	profile = world_profile
 	_warn_component_registry_strategy(world_profile)
-	world_profile.apply_to_world(self)
+	world_profile.register_components_to_world(self)
+	_build_scene_world()
+	world_profile.apply_systems_to_world(self)
 	_profile_applied = true
+
+func _build_scene_world() -> void:
+	if scene_world_blueprint == null:
+		return
+	if scene_world_blueprint.get_parent() != self:
+		push_error("ECSWorld: scene_world_blueprint must be a child of this ECSWorld")
+		return
+	scene_world_blueprint.build_world(_ecs_manager)
 
 func _warn_component_registry_strategy(world_profile: ECSWorldProfile) -> void:
 	if not OS.is_debug_build():

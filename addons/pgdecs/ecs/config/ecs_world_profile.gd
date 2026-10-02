@@ -9,12 +9,16 @@ func resolve_system_groups() -> Array[ECSSystemGroupConfig]:
 		return ECSSystemRunGroups.default_group_configs()
 	return system_groups
 
-func apply_to_world(world: ECSWorld) -> void:
+## Register schema before ECSWorld bootstraps scene entities.
+func register_components_to_world(world: ECSWorld) -> void:
 	var ecs: ECSManager = world.get_ecs_manager()
 	if component_registry_strategy != null and component_registry_strategy.enabled:
 		if not ecs.is_schema_registered():
 			component_registry_strategy.apply_to(ecs)
 
+## Install schedules and create systems after world bootstrap has completed.
+func apply_systems_to_world(world: ECSWorld) -> void:
+	var ecs: ECSManager = world.get_ecs_manager()
 	var configs: Array[ECSSystemGroupConfig] = resolve_system_groups()
 	world.install_system_schedule(configs)
 	_validate_strategy_groups(configs)
@@ -27,6 +31,11 @@ func apply_to_world(world: ECSWorld) -> void:
 			continue
 		system.run_group = strategy.run_group
 		world.get_system_runner().add_system(system, strategy.run_group)
+
+## Convenience API for callers applying a profile outside ECSWorld's lifecycle.
+func apply_to_world(world: ECSWorld) -> void:
+	register_components_to_world(world)
+	apply_systems_to_world(world)
 
 func _validate_strategy_groups(configs: Array[ECSSystemGroupConfig]) -> void:
 	if not OS.is_debug_build():

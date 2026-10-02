@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.6.1] — 2026-10-02
+
+### Added
+
+- Сборка ECS-сущностей из сцены через `ECSSceneEntityBlueprint` и `ECSSceneWorldBlueprint`.
+
 ## [2.6.0] — 2026-10-01
 
 ### Changed (breaking)
