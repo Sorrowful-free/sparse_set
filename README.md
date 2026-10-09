@@ -1,135 +1,137 @@
-# GECS
+# PGDECS
 
-> **Entity Component System for Godot 4.x**
+> **Packed Entity-Component-System для Godot 4.x**
 
-Build scalable, maintainable games with clean separation of data and logic. GECS integrates seamlessly with Godot's node system while providing powerful query-based entity filtering.
+Data-oriented ECS на GDScript: хранение сущностей через sparse set, компоненты упакованы в плотные массивы (SoA) по архетипам и чанкам. Проект вырос из [GECS](https://github.com/csprance/gecs), но переписан с нуля — другой API, другая модель хранения, другие компромиссы.
 
-## Key Features
+## Ключевые особенности
 
-- 🎯 **Godot Integration** - Works with nodes, scenes, and editor
-- 🚀 **High Performance** - Optimized queries with automatic caching
-- 🔧 **Flexible Queries** - Find entities by components, relationships, or properties
-- 🔍 **Debug Viewer** - Real-time inspection and performance monitoring
-- 📦 **Editor Support** - Visual component editing and scene integration
-- 🎮 **Battle Tested** - Used in games being actively developed
-- 🌐 **Multiplayer** - GECS goes Multiplayer! Check out the [GECS Network Module](addons/gecs/network/README.md)
+- **Packed storage** — значения компонентов лежат в `Packed*Array` / типизированных `Array`, итерация идёт по плотным буферам без боксов на сущность
+- **Архетипы и чанки** — сущности группируются по набору компонентов; запросы возвращают чанки, а не списки объектов
+- **Command buffer** — структурные изменения (spawn/destroy, add/remove компонентов) откладываются и применяются планово после системы
+- **System groups и планировщик** — системы привязываются к хукам `_process` / `_physics_process`, частоте (Hz) и `execution_order`
+- **Worker Thread Pool** — чанк-системы могут исполняться параллельно (`use_worker_pool`)
+- **Кодогенерация** — типизированные компонентные массивы для встроенных типов и нод Godot генерируются из редактора
+- **Entity/Scene blueprints** — описание сущностей ресурсами, сборка сущностей из marker-нод в сцене
+- **Intent-пайплайн** — lifecycle внешних объектов (ноды, ресурсы) через intent-теги и reference-компоненты
 
-## Requirements
+## Требования
 
-Godot 4.x (tested with 4.6+)
+Godot 4.x (проект на 4.7, renderer — Mobile).
 
-## Installation
+## Установка
 
-### Option A: Godot Asset Library
+1. Скопировать `addons/pgdecs/` в свой проект.
+2. Включить плагин: **Project → Project Settings → Plugins → PGDEcs**.
 
-Search for **"GECS"** in the Godot editor AssetLib tab and click Install.
+Плагин добавляет пункт меню **Project → Tools → PGDECS: Regenerate Components** для перегенерации типизированных компонентных массивов.
 
-### Option B: Manual Copy
+## Быстрый старт
 
-Download the release zip, copy `addons/gecs/` into your project, then enable the plugin in **Project Settings > Plugins**.
-
-### Option C: Git Submodule
-
-```bash
-git submodule add -b release-v6.8.1 https://github.com/csprance/gecs.git addons/gecs
-```
-
-Then enable the plugin in **Project Settings > Plugins**.
-
-## Quick Start
+Минимальный путь — `ECSManager` без `ECSWorld`:
 
 ```gdscript
-# All component properties need a default value or Godot will error on export
+var ecs := ECSManager.new()
+ecs.register_component(POSITION_ID, ECSComponent.Type.PACKED_VECTOR2)
 
-# Pattern 1: @export var with default (no constructor needed)
-class_name C_Health extends Component
-@export var max_health: int = 100
-@export var current_health: int = 100
-
-# Pattern 2: _init() with parameter AND a default on the property
-class_name C_Velocity extends Component
-@export var direction: Vector3 = Vector3.ZERO
-func _init(v: Vector3 = Vector3.ZERO) -> void:
-    direction = v
-
-# Create entities and add components
-var player = Entity.new()
-player.add_component(C_Health.new())
-player.add_component(C_Velocity.new(Vector3(5, 0, 0)))
-
-var target = Entity.new()
-target.add_component(C_Health.new())
-target.add_component(C_Velocity.new(Vector3(-5, 0, 0)))
-
-# Add entities to the world
-ECS.world.add_entity(player)
-ECS.world.add_entity(target)
-
-# Add relationships between entities
-player.add_relationship(Relationship.new(C_AllyTo.new(), target))
-
-# Systems define which entities to process
-class_name VelocitySystem extends System
-
-func query() -> QueryBuilder:
-    return q.with_all([C_Velocity])
-
-func process(entities: Array[Entity], components: Array, delta: float) -> void:
-    for entity in entities:
-        var vel := entity.get_component(C_Velocity) as C_Velocity
-        entity.position += vel.direction * delta
-
-# Register the system and start processing
-ECS.world.add_system(VelocitySystem.new())
+var runner := ECSSystemRunner.new()
+runner.add_system(MyMovementSystem.new(ecs))
 
 func _process(delta: float) -> void:
-    ECS.process(delta)
+	runner.run(delta)
 ```
 
-## Quick Start Steps
+Полноценный мир с profile, стратегиями и планировщиком:
 
-1. **Install**: Download to `addons/gecs/` and enable in Project Settings
-2. **Follow Guide**: [Get your first ECS project running in 5 minutes →](addons/gecs/docs/GETTING_STARTED.md)
-3. **Learn More**: [Understand core ECS concepts →](addons/gecs/docs/CORE_CONCEPTS.md)
+```gdscript
+var world := ECSDemoWorld.new()
+add_child(world)      # рекомендуется до bootstrap (visual host)
+world.bootstrap(1000) # profile + стратегии + спавн
+```
 
-## Complete Documentation
+Система над чанками (основной способ итерации):
 
-**All documentation is located in the addon folder:**
+```gdscript
+extends ECSSystemChunkBase
+class_name MyMovementSystem
 
-**→ [Complete Documentation Index](addons/gecs/README.md)**
+func build_query() -> ECSQuery:
+	return ECSQueryBuilder.new()\
+		.with_component(MyWorld.Component.POSITION)\
+		.build(get_ecs_manager())
 
-### Quick Navigation
+func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
+	var pos_chunk := chunk.get_component_chunk(
+		MyWorld.Component.POSITION
+	) as ECSComponentVector2ArrayChunk
+	if pos_chunk == null:
+		return
 
-- **[Getting Started](addons/gecs/docs/GETTING_STARTED.md)** - Build your first ECS project (5 min)
-- **[Core Concepts](addons/gecs/docs/CORE_CONCEPTS.md)** - Understand Entities, Components, Systems, Relationships (20 min)
-- **[Best Practices](addons/gecs/docs/BEST_PRACTICES.md)** - Write maintainable ECS code (15 min)
-- **[Troubleshooting](addons/gecs/docs/TROUBLESHOOTING.md)** - Solve common issues quickly
+	var slots: PackedInt32Array = chunk.get_dense_slots()
+	var pos_buf: PackedVector2Array = pos_chunk.get_values_buffer()
 
-### Advanced Features
+	for i: int in range(chunk.get_entity_count()):
+		var slot: int = slots[i]
+		pos_chunk.set_value_at_slot(slot, pos_buf[slot] + Vector2.RIGHT * delta)
+```
 
-- **[Component Queries](addons/gecs/docs/COMPONENT_QUERIES.md)** - Advanced property-based filtering
-- **[Relationships](addons/gecs/docs/RELATIONSHIPS.md)** - Entity linking and associations
-- **[Observers](addons/gecs/docs/OBSERVERS.md)** - Reactive systems for component changes
-- **[Performance Optimization](addons/gecs/docs/PERFORMANCE_OPTIMIZATION.md)** - Make your games run fast
+> Буфер индексируется **слотом**, а не `i` — самая частая ошибка. Подробности в [CHEATSHEET.md](addons/pgdecs/CHEATSHEET.md).
 
-## Example Games
+## Структура репозитория
 
-- **[GECS-101](https://github.com/csprance/gecs-101)** - A simple example
-- **[Zombies Ate My Neighbors](https://github.com/csprance/gecs/tree/zombies-ate-my-neighbors/game)** - Action arcade game
-- **[Breakout Clone](https://github.com/csprance/gecs/tree/breakout/game)** - Classic brick breaker
+```
+addons/pgdecs/          # аддон (переносится в проект целиком)
+├── plugin.cfg          # манифест плагина
+├── CHEATSHEET.md       # рабочий минимум API на одной странице
+├── AGENTS.md           # инструкции для ИИ-агентов
+└── ecs/
+    ├── ecs_manager.gd      # ядро: сущности, компоненты, архетипы
+    ├── ecs_world.gd        # Node-обёртка: profile, scheduler, группы
+    ├── components/         # компонентные массивы + generated
+    ├── systems/            # базовые классы систем, runner, scheduler, WTP
+    ├── queries/            # ECSQuery / ECSQueryBuilder / чанки запросов
+    ├── config/             # profile, стратегии, blueprints
+    ├── examples/           # рабочие образцы (демо-мир, intent, ноды)
+    └── tests/              # юнит- и perf-тесты, headless-раннеры
 
-## Community
+example/                # минимальный пример использования
+addons/gecs/            # исходный GECS — оставлен для справки, не часть pgdecs
+addons/gut/             # фреймворк тестов
+```
 
-- **Discord**: [Join our community](https://discord.gg/eB43XU2tmn)
-- **Issues**: [Report bugs or request features](https://github.com/csprance/gecs/issues)
-- **Discussions**: [Ask questions and share projects](https://github.com/csprance/gecs/discussions)
+## Документация
 
-## License
+Начинать с:
 
-MIT - See [LICENSE](LICENSE) for details.
+- **[CHEATSHEET.md](addons/pgdecs/CHEATSHEET.md)** — ~90% обращений к API на одной странице
+- **[addons/pgdecs/README.md](addons/pgdecs/README.md)** — обзор API и точки входа
 
----
+Углубление:
 
-_GECS is provided as-is. If it breaks, you get to keep both pieces._
+- [FRAMEWORK.md](addons/pgdecs/ecs/FRAMEWORK.md) — полное руководство (API, системы, запросы)
+- [DESIGN.md](addons/pgdecs/ecs/DESIGN.md) — архитектура: чанки, архетипы, membership
+- [PERFORMANCE.md](addons/pgdecs/ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
+- [INTENT_PIPELINE.md](addons/pgdecs/ecs/INTENT_PIPELINE.md) — intent-теги и reference-компоненты
+- [OBJECT_COMPONENTS.md](addons/pgdecs/ecs/OBJECT_COMPONENTS.md) — типы хранилищ, value/reference-компоненты
+- [CHANGELOG.md](addons/pgdecs/ecs/CHANGELOG.md) — история версий (текущая: 2.6.3)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=csprance/gecs&type=Date)](https://star-history.com/#csprance/gecs&Date)
+## Тесты
+
+```bash
+godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
+godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_performance_tests_headless.gd
+```
+
+Ожидание gates: `failed: 0`. Подробности — [tests/README.md](addons/pgdecs/ecs/tests/README.md).
+
+## Для ИИ-агентов
+
+Аддон несёт свои правила с собой — не нужен `.cursor/` в корне игрового проекта:
+
+- [AGENTS.md](addons/pgdecs/AGENTS.md) — краткие инструкции
+- [.cursor/rules/](addons/pgdecs/.cursor/rules/) — project rules
+- [agent_handoff/](addons/pgdecs/ecs/agent_handoff/) — паттерны генерации, quality gates
+
+## Лицензия
+
+CC0 1.0 Universal — см. [LICENSE](LICENSE).
