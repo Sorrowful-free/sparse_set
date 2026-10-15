@@ -1,34 +1,34 @@
 # PGDECS
 
-> **Packed Entity-Component-System для Godot 4.x**
+> **Packed Entity-Component-System for Godot 4.x**
 
-Data-oriented ECS на GDScript: хранение сущностей через sparse set, компоненты упакованы в плотные массивы (SoA) по архетипам и чанкам. Проект вырос из [GECS](https://github.com/csprance/gecs), но переписан с нуля — другой API, другая модель хранения, другие компромиссы.
+A data-oriented ECS in GDScript: entities are stored via a sparse set, components are packed into dense arrays (SoA) grouped by archetypes and chunks. The project grew out of [GECS](https://github.com/csprance/gecs), but was rewritten from scratch — different API, different storage model, different trade-offs.
 
-## Ключевые особенности
+## Key features
 
-- **Packed storage** — значения компонентов лежат в `Packed*Array` / типизированных `Array`, итерация идёт по плотным буферам без боксов на сущность
-- **Архетипы и чанки** — сущности группируются по набору компонентов; запросы возвращают чанки, а не списки объектов
-- **Command buffer** — структурные изменения (spawn/destroy, add/remove компонентов) откладываются и применяются планово после системы
-- **System groups и планировщик** — системы привязываются к хукам `_process` / `_physics_process`, частоте (Hz) и `execution_order`
-- **Worker Thread Pool** — чанк-системы могут исполняться параллельно (`use_worker_pool`)
-- **Кодогенерация** — типизированные компонентные массивы для встроенных типов и нод Godot генерируются из редактора
-- **Entity/Scene blueprints** — описание сущностей ресурсами, сборка сущностей из marker-нод в сцене
-- **Intent-пайплайн** — lifecycle внешних объектов (ноды, ресурсы) через intent-теги и reference-компоненты
+- **Packed storage** — component values live in `Packed*Array` / typed `Array`; iteration runs over dense buffers with no per-entity boxing
+- **Archetypes and chunks** — entities are grouped by component set; queries return chunks, not lists of objects
+- **Command buffer** — structural changes (spawn/destroy, add/remove components) are deferred and applied in bulk after a system
+- **System groups and scheduler** — systems are bound to `_process` / `_physics_process` hooks, frequency (Hz) and `execution_order`
+- **Worker Thread Pool** — chunk systems can run in parallel (`use_worker_pool`)
+- **Code generation** — typed component arrays for built-in types and Godot nodes are generated from the editor
+- **Entity/Scene blueprints** — entity descriptions as resources, entity assembly from marker nodes in a scene
+- **Intent pipeline** — lifecycle of external objects (nodes, resources) via intent tags and reference components
 
-## Требования
+## Requirements
 
-Godot 4.x (проект на 4.7, renderer — Mobile).
+Godot 4.x (project on 4.7, Mobile renderer).
 
-## Установка
+## Installation
 
-1. Скопировать `addons/pgdecs/` в свой проект.
-2. Включить плагин: **Project → Project Settings → Plugins → PGDEcs**.
+1. Copy `addons/pgdecs/` into your project.
+2. Enable the plugin: **Project → Project Settings → Plugins → PGDEcs**.
 
-Плагин добавляет пункт меню **Project → Tools → PGDECS: Regenerate Components** для перегенерации типизированных компонентных массивов.
+The plugin adds a **Project → Tools → PGDECS: Regenerate Components** menu item for regenerating typed component arrays.
 
-## Быстрый старт
+## Quick start
 
-Минимальный путь — `ECSManager` без `ECSWorld`:
+Minimal path — `ECSManager` without `ECSWorld`:
 
 ```gdscript
 var ecs := ECSManager.new()
@@ -41,15 +41,15 @@ func _process(delta: float) -> void:
 	runner.run(delta)
 ```
 
-Полноценный мир с profile, стратегиями и планировщиком:
+A full world with profile, strategies and scheduler:
 
 ```gdscript
 var world := ECSDemoWorld.new()
-add_child(world)      # рекомендуется до bootstrap (visual host)
-world.bootstrap(1000) # profile + стратегии + спавн
+add_child(world)      # recommended before bootstrap (visual host)
+world.bootstrap(1000) # profile + strategies + spawn
 ```
 
-Система над чанками (основной способ итерации):
+A chunk system (the primary way to iterate):
 
 ```gdscript
 extends ECSSystemChunkBase
@@ -75,63 +75,103 @@ func process_chunk(chunk: ECSQueryChunk, delta: float) -> void:
 		pos_chunk.set_value_at_slot(slot, pos_buf[slot] + Vector2.RIGHT * delta)
 ```
 
-> Буфер индексируется **слотом**, а не `i` — самая частая ошибка. Подробности в [CHEATSHEET.md](addons/pgdecs/CHEATSHEET.md).
+> The buffer is indexed by **slot**, not `i` — the most common mistake. Details in [CHEATSHEET.md](addons/pgdecs/CHEATSHEET.md).
 
-## Структура репозитория
+## Performance vs GECS
+
+Measured with `addons/gecs/tests/run_compare_frameworks_headless.tscn` — both frameworks on the same machine, `iterations=25000` (query metrics are ×100 runs over a 25k-entity world; median of 5 runs). Full report: [tests/reports/perf_compare_gecs_25000.md](addons/pgdecs/ecs/tests/reports/perf_compare_gecs_25000.md).
+
+Environment: Godot 4.7.2 headless, AMD Ryzen 7 7735HS, Linux.
+
+| Metric | PGDECS | GECS | Result |
+|--------|-------:|-----:|--------|
+| create_entity ×25000 | 0.162 s | 2.427 s | **PGDECS ~15×** |
+| destroy_entity ×25000 | 0.146 s | 0.607 s | **PGDECS ~4.2×** |
+| create_entities batch (25k total) | 0.075 s | 2.315 s | **PGDECS ~31×** |
+| destroy_entities batch (25k total) | 0.097 s | 0.446 s | **PGDECS ~4.6×** |
+| query.get_entity_ids ×100 | 0.068 s | <0.001 s | GECS\* |
+| query.for_each_chunk iterate ×100 | 0.010 s | <0.001 s | GECS\* |
+| iterate entities+components, fast path ×100 | 0.209 s | 2.411 s | **PGDECS ~11.5×** |
+| iterate entities+components, slot API ×100 | 1.887 s | 2.411 s | PGDECS ~1.3× (unfair pair) |
+| iterate entities+components, WorkerThreadPool ×100 | 0.017 s | 0.002 s | GECS\* |
+| for_each_chunk, WorkerThreadPool ×100 | 0.017 s | 0.002 s | GECS\* |
+| add/remove_component ×5000 | 0.126 s | 0.497 s | **PGDECS ~4×** |
+| command_buffer execute (1000 creates) | 0.010 s | 0.025 s | **PGDECS ~2.5×** |
+| command_buffer coalescing frame | 0.023 s | 0.180 s | **PGDECS ~7.8×** |
+| system, change_detection steady (no writes) ×100 | 0.040 s | 2.418 s | **PGDECS ~60×** |
+| system, scattered writes ×100 | 1.436 s (ON) / 1.398 s (OFF) | 2.508 s | **PGDECS ~1.8×** |
+| system, hot-chunks writes ×100 | 0.088 s (ON) / 1.348 s (OFF) | 2.441 s | **PGDECS ~28×** (ON) |
+
+How to read this:
+
+- **Fast path** = PGDECS `dense_slots` + packed buffers vs GECS `archetype.get_column` iterate — the fair pair.
+- **\*** GECS wins where it has almost no work: the benchmark world is a **single archetype** in GECS, so `archetypes()`/`execute()` and one WTP task are nearly free. PGDECS splits the same 25k entities into ~98 archetype-chunks and batches them into ~13 WTP tasks.
+- **Change detection** is the biggest win: with no writes PGDECS skips clean chunks entirely, while GECS always visits every entity.
+- Components are not equivalent: PGDECS stores `Vector2`/`int32` in packed SoA buffers; GECS stores `Resource` components (`BenchPosition`, `BenchHealth`).
+
+Reproduce:
+
+```bash
+godot --headless --path . --main-scene res://addons/gecs/tests/run_compare_frameworks_headless.tscn
+```
+
+More on the hot path and methodology: [PERFORMANCE.md](addons/pgdecs/ecs/PERFORMANCE.md).
+
+## Repository layout
 
 ```
-addons/pgdecs/          # аддон (переносится в проект целиком)
-├── plugin.cfg          # манифест плагина
-├── CHEATSHEET.md       # рабочий минимум API на одной странице
-├── AGENTS.md           # инструкции для ИИ-агентов
+addons/pgdecs/          # the addon (copied into a project as a whole)
+├── plugin.cfg          # plugin manifest
+├── CHEATSHEET.md       # working minimum of the API on one page
+├── AGENTS.md           # instructions for AI agents
 └── ecs/
-    ├── ecs_manager.gd      # ядро: сущности, компоненты, архетипы
-    ├── ecs_world.gd        # Node-обёртка: profile, scheduler, группы
-    ├── components/         # компонентные массивы + generated
-    ├── systems/            # базовые классы систем, runner, scheduler, WTP
-    ├── queries/            # ECSQuery / ECSQueryBuilder / чанки запросов
-    ├── config/             # profile, стратегии, blueprints
-    ├── examples/           # рабочие образцы (демо-мир, intent, ноды)
-    └── tests/              # юнит- и perf-тесты, headless-раннеры
+    ├── ecs_manager.gd      # core: entities, components, archetypes
+    ├── ecs_world.gd        # Node wrapper: profile, scheduler, groups
+    ├── components/         # component arrays + generated
+    ├── systems/            # system base classes, runner, scheduler, WTP
+    ├── queries/            # ECSQuery / ECSQueryBuilder / query chunks
+    ├── config/             # profile, strategies, blueprints
+    ├── examples/           # working samples (demo world, intent, nodes)
+    └── tests/              # unit and perf tests, headless runners
 
-example/                # минимальный пример использования
-addons/gecs/            # исходный GECS — оставлен для справки, не часть pgdecs
-addons/gut/             # фреймворк тестов
+example/                # minimal usage example
+addons/gecs/            # original GECS — kept for reference/benchmarks, not part of pgdecs
+addons/gut/             # test framework
 ```
 
-## Документация
+## Documentation
 
-Начинать с:
+Start with:
 
-- **[CHEATSHEET.md](addons/pgdecs/CHEATSHEET.md)** — ~90% обращений к API на одной странице
-- **[addons/pgdecs/README.md](addons/pgdecs/README.md)** — обзор API и точки входа
+- **[CHEATSHEET.md](addons/pgdecs/CHEATSHEET.md)** — ~90% of API usage on one page
+- **[addons/pgdecs/README.md](addons/pgdecs/README.md)** — API overview and entry points
 
-Углубление:
+Going deeper:
 
-- [FRAMEWORK.md](addons/pgdecs/ecs/FRAMEWORK.md) — полное руководство (API, системы, запросы)
-- [DESIGN.md](addons/pgdecs/ecs/DESIGN.md) — архитектура: чанки, архетипы, membership
-- [PERFORMANCE.md](addons/pgdecs/ecs/PERFORMANCE.md) — hot path, бенчмарки, change detection
-- [INTENT_PIPELINE.md](addons/pgdecs/ecs/INTENT_PIPELINE.md) — intent-теги и reference-компоненты
-- [OBJECT_COMPONENTS.md](addons/pgdecs/ecs/OBJECT_COMPONENTS.md) — типы хранилищ, value/reference-компоненты
-- [CHANGELOG.md](addons/pgdecs/ecs/CHANGELOG.md) — история версий (текущая: 2.6.3)
+- [FRAMEWORK.md](addons/pgdecs/ecs/FRAMEWORK.md) — full guide (API, systems, queries)
+- [DESIGN.md](addons/pgdecs/ecs/DESIGN.md) — architecture: chunks, archetypes, membership
+- [PERFORMANCE.md](addons/pgdecs/ecs/PERFORMANCE.md) — hot path, benchmarks, change detection
+- [INTENT_PIPELINE.md](addons/pgdecs/ecs/INTENT_PIPELINE.md) — intent tags and reference components
+- [OBJECT_COMPONENTS.md](addons/pgdecs/ecs/OBJECT_COMPONENTS.md) — storage types, value/reference components
+- [CHANGELOG.md](addons/pgdecs/ecs/CHANGELOG.md) — version history (current: 2.6.3)
 
-## Тесты
+## Tests
 
 ```bash
 godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_composer_gates_headless.gd
 godot --headless --path . --script res://addons/pgdecs/ecs/tests/run_performance_tests_headless.gd
 ```
 
-Ожидание gates: `failed: 0`. Подробности — [tests/README.md](addons/pgdecs/ecs/tests/README.md).
+Expected gates result: `failed: 0`. Details — [tests/README.md](addons/pgdecs/ecs/tests/README.md).
 
-## Для ИИ-агентов
+## For AI agents
 
-Аддон несёт свои правила с собой — не нужен `.cursor/` в корне игрового проекта:
+The addon carries its own rules — no `.cursor/` needed in the game project root:
 
-- [AGENTS.md](addons/pgdecs/AGENTS.md) — краткие инструкции
+- [AGENTS.md](addons/pgdecs/AGENTS.md) — brief instructions
 - [.cursor/rules/](addons/pgdecs/.cursor/rules/) — project rules
-- [agent_handoff/](addons/pgdecs/ecs/agent_handoff/) — паттерны генерации, quality gates
+- [agent_handoff/](addons/pgdecs/ecs/agent_handoff/) — generation patterns, quality gates
 
-## Лицензия
+## License
 
-CC0 1.0 Universal — см. [LICENSE](LICENSE).
+CC0 1.0 Universal — see [LICENSE](LICENSE).
